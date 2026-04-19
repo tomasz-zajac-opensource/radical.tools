@@ -1,0 +1,346 @@
+import React, { memo, useCallback, useMemo, useState, useRef, useEffect } from 'react'
+import {
+  EdgeProps,
+  EdgeLabelRenderer,
+  BaseEdge,
+  Position,
+  useStore,
+  useStoreApi,
+} from 'reactflow'
+import { C4EdgeRFData } from '../../types/c4'
+import { computeRoutedEdge, RoutingObstacle } from '../../layout/edgeRouting'
+import { useDiagramStore } from '../../store/diagramStore'
+
+// ─── Floating-edge helpers ────────────────────────────────────────────────────
+
+function nodeCenter(node: { positionAbsolute?: { x: number; y: number }; width?: number | null; height?: number | null }) {
+  return {
+    x: (node.positionAbsolute?.x ?? 0) + (node.width ?? 0) / 2,
+    y: (node.positionAbsolute?.y ?? 0) + (node.height ?? 0) / 2,
+  }
+}
+
+/**
+ * Pick the best exit/entry side based on direction vector.
+ * Slightly biased toward vertical sides (Top/Bottom) because
+ * C4 diagrams flow top→bottom, so near-diagonal edges look better
+ * exiting vertically.
+ */
+function bestSide(dx: number, dy: number, isTarget: boolean): Position {
+  // Vertical bias: treat vertical as dominant unless horizontal is clearly larger
+  const VERTICAL_BIAS = 1.15
+  if (Math.abs(dx) >= Math.abs(dy) * VERTICAL_BIAS) {
+    // horizontal dominant
+    const goingRight = dx > 0
+    return (goingRight !== isTarget) ? Position.Right : Position.Left
+  } else {
+    // vertical dominant (or near-diagonal → prefer vertical)
+    const goingDown = dy > 0
+    return (goingDown !== isTarget) ? Position.Bottom : Position.Top
+  }
+}
+
+/**
+ * Compute the border point on a node given the chosen side.
+ * Always returns the centre of the side for clean, consistent connections.
+ */
+function borderPoint(
+  node: { positionAbsolute?: { x: number; y: number }; width?: number | null; height?: number | null },
+  side: Position,
+  _otherCenter?: { x: number; y: number }
+) {
+  const ax = node.positionAbsolute?.x ?? 0
+  const ay = node.positionAbsolute?.y ?? 0
+  const w  = node.width  ?? 0
+  const h  = node.height ?? 0
+
+  switch (side) {
+    case Position.Left:   return { x: ax,         y: ay + h / 2 }
+    case Position.Right:  return { x: ax + w,     y: ay + h / 2 }
+    case Position.Top:    return { x: ax + w / 2, y: ay         }
+    case Position.Bottom: return { x: ax + w / 2, y: ay + h     }
+  }
+}
+
+// ─── Custom arrowhead ─────────────────────────────────────────────────────────
+
+function Arrow({ x, y, side, color, size }: { x: number; y: number; side: Position; color: string; size: number }) {
+  const half = size / 2
+  // Arrow tip is at (x,y) on the node border, pointing INTO the node
+  let d: string
+  switch (side) {
+    case Position.Top:    d = `M${x - half},${y - size}L${x},${y}L${x + half},${y - size}`; break
+    case Position.Bottom: d = `M${x - half},${y + size}L${x},${y}L${x + half},${y + size}`; break
+    case Position.Left:   d = `M${x - size},${y - half}L${x},${y}L${x - size},${y + half}`; break
+    case Position.Right:  d = `M${x + size},${y - half}L${x},${y}L${x + size},${y + half}`; break
+  }
+  return <path d={d} fill={color} stroke="none" />
+}
+
+// ─── Reconnect handle (draggable endpoint) ───────────────────────────────────
+
+function ReconnectHandle({
+  x,
+  y,
+  edgeId,
+  end,
+  otherNodeId,
+}: {
+  x: number
+  y: number
+  edgeId: string
+  end: 'source' | 'target'
+  otherNodeId: string
+}) {
+  const updateRelation = useDiagramStore((s) => s.updateRelation)
+  const [dragging, setDragging] = useState(false)
+  const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null)
+  const svgRef = useRef<SVGElement | null>(null)
+
+  const onMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+      setDragging(true)
+      setMouse({ x: e.clientX, y: e.clientY })
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (!dragging) return
+
+    const onMove = (e: MouseEvent) => {
+      setMouse({ x: e.clientX, y: e.clientY })
+    }
+
+    const onUp = (e: MouseEvent) => {
+      setDragging(false)
+      setMouse(null)
+
+      // Find node under cursor
+      const el = document.elementFromPoint(e.clientX, e.clientY)
+      const nodeEl = (el as HTMLElement)?.closest?.('.react-flow__node') as HTMLElement | null
+      const nodeId = nodeEl?.getAttribute('data-id')
+
+      if (nodeId && nodeId !== otherNodeId && !edgeId.startsWith('virtual-')) {
+        updateRelation(edgeId, end === 'source' ? { sourceId: nodeId } : { targetId: nodeId })
+      }
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [dragging, edgeId, end, otherNodeId, updateRelation])
+
+  // Compute preview line endpoint in SVG coordinates
+  const previewPt = useMemo(() => {
+    if (!dragging || !mouse) return null
+    // We need to convert screen coords to SVG flow coords.
+    // Find the ReactFlow viewport SVG element.
+    const svg = document.querySelector('.react-flow__edges')?.closest('svg')
+    if (!svg) return null
+    const pt = svg.createSVGPoint()
+    pt.x = mouse.x
+    pt.y = mouse.y
+    const ctm = svg.getScreenCTM()
+    if (!ctm) return null
+    const svgPt = pt.matrixTransform(ctm.inverse())
+    return { x: svgPt.x, y: svgPt.y }
+  }, [dragging, mouse])
+
+  return (
+    <>
+      {/* Draggable handle circle */}
+      <circle
+        cx={x}
+        cy={y}
+        r={10}
+        fill="var(--accent)"
+        stroke="#fff"
+        strokeWidth={2.5}
+        style={{ cursor: 'grab', pointerEvents: 'all' }}
+        className="nodrag nopan"
+        onMouseDown={onMouseDown}
+      />
+      {/* Preview line while dragging */}
+      {dragging && previewPt && (
+        <>
+          <line
+            x1={x}
+            y1={y}
+            x2={previewPt.x}
+            y2={previewPt.y}
+            stroke="var(--accent)"
+            strokeWidth={2}
+            strokeDasharray="6 4"
+            opacity={0.6}
+          />
+          <circle cx={previewPt.x} cy={previewPt.y} r={4} fill="var(--accent)" opacity={0.6} />
+        </>
+      )}
+    </>
+  )
+}
+
+// ─── Edge component ───────────────────────────────────────────────────────────
+
+export const RelationEdge = memo(
+  ({
+    id,
+    source,
+    target,
+    data,
+    markerEnd,
+    style,
+    selected,
+  }: EdgeProps<C4EdgeRFData>) => {
+    // Targeted selectors: only re-render when THIS edge's source or target changes
+    const sourceSelector = useCallback((s: any) => s.nodeInternals.get(source), [source])
+    const targetSelector = useCallback((s: any) => s.nodeInternals.get(target), [target])
+    const sourceNode = useStore(sourceSelector)
+    const targetNode = useStore(targetSelector)
+    const storeApi = useStoreApi()
+
+    // Fall back to a straight stub if node data is not ready yet
+    if (!sourceNode || !targetNode) return null
+
+    const sc = nodeCenter(sourceNode)
+    const tc = nodeCenter(targetNode)
+    const dx = tc.x - sc.x
+    const dy = tc.y - sc.y
+
+    // Use direction to nearest bbox point (not center) so large nodes pick the
+    // correct side even when the other node is near one of their edges.
+    const sax = sourceNode.positionAbsolute?.x ?? 0
+    const say = sourceNode.positionAbsolute?.y ?? 0
+    const sw  = sourceNode.width  ?? 0
+    const sh  = sourceNode.height ?? 0
+    const tax = targetNode.positionAbsolute?.x ?? 0
+    const tay = targetNode.positionAbsolute?.y ?? 0
+    const tw  = targetNode.width  ?? 0
+    const th  = targetNode.height ?? 0
+
+    // Source side: direction from source center → nearest point on target bbox
+    const ntx = Math.max(tax, Math.min(tax + tw, sc.x))
+    const nty = Math.max(tay, Math.min(tay + th, sc.y))
+    let srcDx = ntx - sc.x
+    let srcDy = nty - sc.y
+    if (srcDx === 0 && srcDy === 0) { srcDx = dx; srcDy = dy }
+
+    // Target side: direction from nearest point on source bbox → target center
+    const nsx = Math.max(sax, Math.min(sax + sw, tc.x))
+    const nsy = Math.max(say, Math.min(say + sh, tc.y))
+    let tgtDx = tc.x - nsx
+    let tgtDy = tc.y - nsy
+    if (tgtDx === 0 && tgtDy === 0) { tgtDx = dx; tgtDy = dy }
+
+    const srcSide = bestSide(srcDx, srcDy, false)
+    const tgtSide = bestSide(tgtDx, tgtDy, true)
+
+    const sp = borderPoint(sourceNode, srcSide, tc)
+    const tp = borderPoint(targetNode, tgtSide, sc)
+
+    // Collect obstacles imperatively (no reactive subscription to all nodes)
+    const nodeInternals = storeApi.getState().nodeInternals
+    const allNodes = Array.from(nodeInternals.values())
+    const excludeIds = new Set<string>([source, target])
+
+    // Exclude ancestors of source and target (edge crosses their borders)
+    let walker: (typeof sourceNode) | undefined = sourceNode
+    while (walker?.parentNode) { excludeIds.add(walker.parentNode); walker = nodeInternals.get(walker.parentNode) }
+    walker = targetNode
+    while (walker?.parentNode) { excludeIds.add(walker.parentNode); walker = nodeInternals.get(walker.parentNode) }
+
+    const obstacles: RoutingObstacle[] = []
+    for (const n of allNodes) {
+      if (excludeIds.has(n.id) || n.hidden || !n.width || !n.height) continue
+      // Exclude descendants of source or target (they're inside those nodes)
+      let isDescendant = false
+      let cur: (typeof n) | undefined = n
+      while (cur?.parentNode) {
+        if (cur.parentNode === source || cur.parentNode === target) { isDescendant = true; break }
+        cur = nodeInternals.get(cur.parentNode)
+      }
+      if (isDescendant) continue
+      obstacles.push({
+        x: n.positionAbsolute?.x ?? 0,
+        y: n.positionAbsolute?.y ?? 0,
+        w: n.width,
+        h: n.height,
+      })
+    }
+
+    const { path: edgePath, labelX, labelY } = computeRoutedEdge(
+      sp.x, sp.y, srcSide,
+      tp.x, tp.y, tgtSide,
+      obstacles,
+    )
+
+    const strokeColor = selected ? 'var(--accent)' : data?.isVirtual ? '#6b7280' : '#94a3b8'
+    const strokeDash  = data?.isVirtual ? '6 3' : undefined
+
+    return (
+      <>
+        <BaseEdge
+          id={id}
+          path={edgePath}
+          style={{
+            ...style,
+            stroke:          strokeColor,
+            strokeWidth:     selected ? 2 : 1.5,
+            strokeDasharray: strokeDash,
+            strokeLinejoin:  'round',
+            strokeLinecap:   'round',
+          }}
+        />
+        {/* Custom arrowhead drawn at the target point */}
+        <Arrow x={tp.x} y={tp.y} side={tgtSide} color={strokeColor} size={selected ? 10 : 8} />
+
+        {/* Reconnect handles at endpoints when edge is selected */}
+        {selected && !data?.isVirtual && (
+          <>
+            <ReconnectHandle x={sp.x} y={sp.y} edgeId={id} end="source" otherNodeId={target} />
+            <ReconnectHandle x={tp.x} y={tp.y} edgeId={id} end="target" otherNodeId={source} />
+          </>
+        )}
+
+        {(data?.label || data?.technology) && (
+          <EdgeLabelRenderer>
+            <div
+              style={{
+                position:        'absolute',
+                transform:       `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+                background:      'var(--edge-label-bg)',
+                border:          '1px solid var(--edge-label-border)',
+                borderRadius:    4,
+                padding:         '2px 6px',
+                fontSize:        11,
+                color:           strokeColor,
+                pointerEvents:   'none',
+                maxWidth:        160,
+                textAlign:       'center',
+                lineHeight:      1.4,
+                backdropFilter:  'blur(4px)',
+                zIndex:          1000,
+              }}
+              className="nodrag nopan"
+            >
+              {data.label && <div>{data.label}</div>}
+              {data.technology && (
+                <div style={{ fontStyle: 'italic', opacity: 0.7, fontSize: 10 }}>
+                  [{data.technology}]
+                </div>
+              )}
+            </div>
+          </EdgeLabelRenderer>
+        )}
+      </>
+    )
+  }
+)
+
+RelationEdge.displayName = 'RelationEdge'

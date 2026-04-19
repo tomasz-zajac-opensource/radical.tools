@@ -1,0 +1,32 @@
+{
+  "name": "radical-diagram",
+  "version": "1.0.0",
+  "description": "C4 Architecture Diagram Tool",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electron-toolkit/utils": "^2.0.1",
+    "electron": "^29.0.0",
+    "elkjs": "^0.9.3",
+    "immer": "^10.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "reactflow": "^11.11.4",
+    "webcola": "^3.4.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "electron-vite": "^2.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10",
+    "vitest": "^4.1.4"
+  }
+}
