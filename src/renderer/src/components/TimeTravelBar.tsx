@@ -22,7 +22,7 @@ export function TimeTravelBar(): React.ReactElement | null {
   const startPresentation = useDiagramStore(s => s.startPresentation);
 
   const [playing, setPlaying] = useState(false);
-  const playRef = useRef<NodeJS.Timeout | null>(null);
+  const playRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeRef = useRef<HTMLButtonElement | null>(null);
 
   // Scroll active slide into view
