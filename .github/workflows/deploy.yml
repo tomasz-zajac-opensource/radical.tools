@@ -1,0 +1,62 @@
+name: Deploy to S3 + CloudFront
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Allow manual trigger from GitHub UI
+
+permissions:
+  id-token: write  # Required for OIDC token exchange
+  contents: read
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build web renderer
+        run: npm run build:web
+        # Output: out/renderer/index.html + out/renderer/assets/**
+
+      - name: Configure AWS credentials (OIDC — no long-lived keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Sync static assets to S3
+        run: |
+          # Vite content-hashes asset filenames → cache forever (immutable)
+          aws s3 sync out/renderer/assets/ \
+            s3://${{ secrets.S3_BUCKET }}/assets/ \
+            --cache-control "public, max-age=31536000, immutable" \
+            --delete
+
+      - name: Upload index.html (no-cache)
+        run: |
+          # index.html is the SPA entry point — must never be served stale
+          aws s3 cp out/renderer/index.html \
+            s3://${{ secrets.S3_BUCKET }}/index.html \
+            --cache-control "no-store"
+
+      - name: Invalidate CloudFront index.html
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/index.html"
