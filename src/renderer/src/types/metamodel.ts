@@ -157,8 +157,12 @@ export function builtInC4Metamodel(): Metamodel {
     { from: 'person', to: 'container' },
     { from: 'person', to: 'webapp' },
 
-    // System-level dependencies (external systems)
+    // System-level dependencies (external systems, or cross-boundary to containers)
     { from: 'system', to: 'system' },
+    { from: 'system', to: 'container' },
+    { from: 'system', to: 'database' },
+    { from: 'system', to: 'webapp' },
+    { from: 'system', to: 'queue' },
 
     // Container-level calls
     { from: 'container', to: 'system' },
