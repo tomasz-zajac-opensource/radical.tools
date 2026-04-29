@@ -1,6 +1,8 @@
 // ─── C4 domain types ────────────────────────────────────────────────────────
 
-export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database'
+import type { Metamodel } from './metamodel'
+
+export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue'
 
 export interface C4Node {
   id: string
@@ -40,8 +42,20 @@ export interface DiagramView {
   name: string
   /** C4 node IDs included in this view. Ancestors are auto-included. */
   nodeIds: string[]
+  /**
+   * Relation IDs explicitly hidden from this view, even though both their
+   * endpoints (or visible ancestors) are present. Optional for backwards
+   * compatibility with older persisted views.
+   */
+  hiddenRelationIds?: string[]
   /** Per-node positions for this view */
   positions: Record<string, NodePosition>
+  /**
+   * Per-view camera state (pan + zoom). Restored on view activation so each
+   * view ("System Context", "Container View") keeps its own framing.
+   * Optional for backwards compat with persisted views.
+   */
+  viewport?: { x: number; y: number; zoom: number }
 }
 
 /** Named snapshot (version) of the diagram state */
@@ -53,14 +67,48 @@ export interface DiagramSnapshot {
   relations: Record<string, C4Relation>
 }
 
+/** Saved positions + collapsed state for every node on the canvas */
+export interface SlideCanvasState {
+  nodes: Record<string, { x: number; y: number; width: number; height: number; collapsed: boolean }>
+}
+
+/** A single presentation slide — captures viewport + optional snapshot */
+export interface PresentationSlide {
+  id: string
+  name: string
+  /** null = use whatever is currently on canvas (no snapshot restore) */
+  snapshotId: string | null
+  /** null = show all nodes; string = activate this view when navigating to slide */
+  viewId?: string | null
+  viewport: { x: number; y: number; zoom: number }
+  /** Full node positions + collapsed flags at the time the slide was created/captured */
+  canvasState?: SlideCanvasState
+}
+
+/** A named presentation — collection of slides */
+export interface Presentation {
+  id: string
+  name: string
+  slides: PresentationSlide[]
+}
+
 export interface DiagramData {
   nodes: C4Node[]
   relations: C4Relation[]
   views?: DiagramView[]
   /** Positions for the "All" (default) view */
   defaultPositions?: Record<string, NodePosition>
+  /** Camera state (pan + zoom) for the "All" (default) view */
+  defaultViewport?: { x: number; y: number; zoom: number } | null
   /** Named snapshots (versions) */
   snapshots?: DiagramSnapshot[]
+  /** Multiple named presentations */
+  presentations?: Presentation[]
+  /** @deprecated legacy single-presentation slides — auto-migrated into a "Main" presentation */
+  presentationSlides?: PresentationSlide[]
+  /** Per-document metamodel (object types + allowed relations + constraints).
+   *  When absent, the built-in C4 preset is used. */
+  metamodel?: Metamodel
 }
 
 // ─── React Flow data shapes ──────────────────────────────────────────────────
@@ -99,6 +147,8 @@ export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }
   container: { width: 280, height: 180 },
   component: { width: 200, height: 100 },
   database:  { width: 200, height: 120 },
+  webapp:    { width: 220, height: 140 },
+  queue:     { width: 240, height: 90 },
 }
 
 export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
@@ -107,6 +157,8 @@ export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
   container: 60,
   component: 100,
   database:  120,
+  webapp:    140,
+  queue:     90,
 }
 
 export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
@@ -115,6 +167,8 @@ export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
   container: 200,
   component: 200,
   database:  200,
+  webapp:    220,
+  queue:     240,
 }
 
 export const NODE_COLORS: Record<C4ElementType, string> = {
@@ -123,6 +177,8 @@ export const NODE_COLORS: Record<C4ElementType, string> = {
   container: '#438dd5',
   component: '#85bbf0',
   database:  '#438dd5',
+  webapp:    '#438dd5',
+  queue:     '#438dd5',
 }
 
 export const NODE_FG: Record<C4ElementType, string> = {
@@ -131,6 +187,8 @@ export const NODE_FG: Record<C4ElementType, string> = {
   container: '#fff',
   component: '#000',
   database:  '#fff',
+  webapp:    '#fff',
+  queue:     '#fff',
 }
 
 export const TYPE_LABELS: Record<C4ElementType, string> = {
@@ -139,6 +197,8 @@ export const TYPE_LABELS: Record<C4ElementType, string> = {
   container: 'Container',
   component: 'Component',
   database:  'Database',
+  webapp:    'Web App',
+  queue:     'Queue',
 }
 
 // ─── SVG icon paths (16×16 viewBox) ──────────────────────────────────────────
@@ -150,4 +210,6 @@ export const TYPE_ICON_PATHS: Record<C4ElementType, string> = {
   container: 'M1 4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1H1V4Zm0 2.5h14V12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6.5ZM3 3a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm2 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z',
   component: 'M5 1v2H3a1 1 0 0 0-1 1v2h2v2H2v2h2v2H2v2a1 1 0 0 0 1 1h2v2h2v-2h2v2h2v-2h2a1 1 0 0 0 1-1v-2h-2v-2h2V8h-2V6h2V4a1 1 0 0 0-1-1h-2V1H9v2H7V1H5Z',
   database:  'M8 1C4.7 1 2 2.3 2 4v8c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3ZM2 4c0 1.7 2.7 3 6 3s6-1.3 6-3',
+  webapp:    'M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm1 2.5V13h10V5.5H3ZM4 3.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z',
+  queue:     'M4 3a3 2 0 1 0 0 4h8a3 2 0 1 0 0-4H4Zm-2 5.5a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Zm10 0a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Z',
 }

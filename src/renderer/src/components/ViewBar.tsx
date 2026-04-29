@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 
-export function ViewBar(): React.ReactElement {
+export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.ReactElement {
   const views = useDiagramStore((s) => s.views)
   const activeViewId = useDiagramStore((s) => s.activeViewId)
   const setActiveView = useDiagramStore((s) => s.setActiveView)
@@ -47,7 +47,7 @@ export function ViewBar(): React.ReactElement {
           className={`view-tab ${activeViewId === v.id ? 'active' : ''}`}
           onClick={() => setActiveView(v.id)}
         >
-          {editingId === v.id ? (
+          {!readOnly && editingId === v.id ? (
             <input
               ref={inputRef}
               className="view-tab-input"
@@ -62,7 +62,7 @@ export function ViewBar(): React.ReactElement {
             />
           ) : (
             <span
-              onDoubleClick={(e) => {
+              onDoubleClick={readOnly ? undefined : (e) => {
                 e.stopPropagation()
                 setEditingId(v.id)
                 setEditName(v.name)
@@ -71,18 +71,22 @@ export function ViewBar(): React.ReactElement {
               {v.name}
             </span>
           )}
-          <button
-            className="view-tab-close"
-            onClick={(e) => { e.stopPropagation(); removeView(v.id) }}
-            title="Remove view"
-          >
-            ×
-          </button>
+          {!readOnly && (
+            <button
+              className="view-tab-close"
+              onClick={(e) => { e.stopPropagation(); removeView(v.id) }}
+              title="Remove view"
+            >
+              ×
+            </button>
+          )}
         </div>
       ))}
-      <button className="view-tab view-tab-add" onClick={handleAdd} title="New view">
-        +
-      </button>
+      {!readOnly && (
+        <button className="view-tab view-tab-add" onClick={handleAdd} title="New view">
+          +
+        </button>
+      )}
     </div>
   )
 }

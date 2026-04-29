@@ -73,7 +73,7 @@ export function PropertiesPanel({ open, onToggle }: { open: boolean; onToggle: (
       )
     }
 
-    const parentSelector = node.type === 'container' || node.type === 'component' || node.type === 'database' ? (
+    const parentSelector = node.type === 'container' || node.type === 'component' || node.type === 'database' || node.type === 'webapp' || node.type === 'queue' ? (
       <div className="props-field">
         <label className="props-label">Parent</label>
         <select
@@ -88,6 +88,8 @@ export function PropertiesPanel({ open, onToggle }: { open: boolean; onToggle: (
               if (node.type === 'container') return n.type === 'system'
               if (node.type === 'component') return n.type === 'container'
               if (node.type === 'database') return n.type === 'system' || n.type === 'container'
+              if (node.type === 'webapp') return n.type === 'system' || n.type === 'container'
+              if (node.type === 'queue') return n.type === 'system' || n.type === 'container'
               return false
             })
             .map((n) => (
@@ -120,32 +122,10 @@ export function PropertiesPanel({ open, onToggle }: { open: boolean; onToggle: (
               <div className="props-section-title">Properties</div>
               {field('Label', 'label')}
               {field('Description', 'description', 'textarea')}
-              {(node.type === 'container' || node.type === 'component' || node.type === 'database') &&
+              {(node.type === 'container' || node.type === 'component' || node.type === 'database' || node.type === 'webapp' || node.type === 'queue') &&
                 field('Technology', 'technology')}
               {field('External', 'external', 'checkbox')}
               {parentSelector}
-            </div>
-
-            <div>
-              <div className="props-section-title">Layout</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                {(['width', 'height'] as const).map((dim) => (
-                  <div className="props-field" key={dim}>
-                    <label className="props-label">{dim}</label>
-                    <input
-                      className="props-input"
-                      type="number"
-                      value={node[dim]}
-                      onChange={(e) =>
-                        updateNode(node.id, { [dim]: Number(e.target.value) })
-                      }
-                      min={40}
-                      max={1200}
-                      step={10}
-                    />
-                  </div>
-                ))}
-              </div>
             </div>
 
             <button

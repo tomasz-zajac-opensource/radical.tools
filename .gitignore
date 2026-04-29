@@ -4,3 +4,12 @@ out/
 .DS_Store
 *.log
 .playwright-mcp/
+
+# Visual layout harness output (regenerated locally; large binaries)
+tests/visual/out-*.svg
+tests/visual/out-*.png
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db

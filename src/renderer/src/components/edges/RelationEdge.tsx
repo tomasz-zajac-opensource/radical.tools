@@ -9,6 +9,7 @@ import {
 } from 'reactflow'
 import { C4EdgeRFData } from '../../types/c4'
 import { computeRoutedEdge, RoutingObstacle } from '../../layout/edgeRouting'
+import { allocatePorts } from '../../layout/portAllocator'
 import { useDiagramStore } from '../../store/diagramStore'
 
 // ─── Floating-edge helpers ────────────────────────────────────────────────────
@@ -203,6 +204,7 @@ export const RelationEdge = memo(
     const targetSelector = useCallback((s: any) => s.nodeInternals.get(target), [target])
     const sourceNode = useStore(sourceSelector)
     const targetNode = useStore(targetSelector)
+    const diffKind = useDiagramStore(s => s.diffHighlight[id])
     const storeApi = useStoreApi()
 
     // Fall back to a straight stub if node data is not ready yet
@@ -210,42 +212,53 @@ export const RelationEdge = memo(
 
     const sc = nodeCenter(sourceNode)
     const tc = nodeCenter(targetNode)
-    const dx = tc.x - sc.x
-    const dy = tc.y - sc.y
 
-    // Use direction to nearest bbox point (not center) so large nodes pick the
-    // correct side even when the other node is near one of their edges.
-    const sax = sourceNode.positionAbsolute?.x ?? 0
-    const say = sourceNode.positionAbsolute?.y ?? 0
-    const sw  = sourceNode.width  ?? 0
-    const sh  = sourceNode.height ?? 0
-    const tax = targetNode.positionAbsolute?.x ?? 0
-    const tay = targetNode.positionAbsolute?.y ?? 0
-    const tw  = targetNode.width  ?? 0
-    const th  = targetNode.height ?? 0
+    // Resolve sides + ports from the central allocator (groups parallel
+    // edges so they don't all collide at the centre of a side).
+    const stateSnapshot = storeApi.getState()
+    const allocations = allocatePorts(
+      stateSnapshot.nodeInternals as any,
+      stateSnapshot.edges as any
+    )
+    const alloc = allocations.get(id)
 
-    // Source side: direction from source center → nearest point on target bbox
-    const ntx = Math.max(tax, Math.min(tax + tw, sc.x))
-    const nty = Math.max(tay, Math.min(tay + th, sc.y))
-    let srcDx = ntx - sc.x
-    let srcDy = nty - sc.y
-    if (srcDx === 0 && srcDy === 0) { srcDx = dx; srcDy = dy }
-
-    // Target side: direction from nearest point on source bbox → target center
-    const nsx = Math.max(sax, Math.min(sax + sw, tc.x))
-    const nsy = Math.max(say, Math.min(say + sh, tc.y))
-    let tgtDx = tc.x - nsx
-    let tgtDy = tc.y - nsy
-    if (tgtDx === 0 && tgtDy === 0) { tgtDx = dx; tgtDy = dy }
-
-    const srcSide = bestSide(srcDx, srcDy, false)
-    const tgtSide = bestSide(tgtDx, tgtDy, true)
-
-    const sp = borderPoint(sourceNode, srcSide, tc)
-    const tp = borderPoint(targetNode, tgtSide, sc)
+    let srcSide: Position, tgtSide: Position
+    let sp: { x: number; y: number }, tp: { x: number; y: number }
+    if (alloc) {
+      srcSide = alloc.sourceSide
+      tgtSide = alloc.targetSide
+      sp = alloc.sourcePoint
+      tp = alloc.targetPoint
+    } else {
+      // Fallback (e.g. virtual edges not in store)
+      const dx = tc.x - sc.x
+      const dy = tc.y - sc.y
+      const sax = sourceNode.positionAbsolute?.x ?? 0
+      const say = sourceNode.positionAbsolute?.y ?? 0
+      const sw  = sourceNode.width  ?? 0
+      const sh  = sourceNode.height ?? 0
+      const tax = targetNode.positionAbsolute?.x ?? 0
+      const tay = targetNode.positionAbsolute?.y ?? 0
+      const tw  = targetNode.width  ?? 0
+      const th  = targetNode.height ?? 0
+      const ntx = Math.max(tax, Math.min(tax + tw, sc.x))
+      const nty = Math.max(tay, Math.min(tay + th, sc.y))
+      let srcDx = ntx - sc.x
+      let srcDy = nty - sc.y
+      if (srcDx === 0 && srcDy === 0) { srcDx = dx; srcDy = dy }
+      const nsx = Math.max(sax, Math.min(sax + sw, tc.x))
+      const nsy = Math.max(say, Math.min(say + sh, tc.y))
+      let tgtDx = tc.x - nsx
+      let tgtDy = tc.y - nsy
+      if (tgtDx === 0 && tgtDy === 0) { tgtDx = dx; tgtDy = dy }
+      srcSide = bestSide(srcDx, srcDy, false)
+      tgtSide = bestSide(tgtDx, tgtDy, true)
+      sp = borderPoint(sourceNode, srcSide, tc)
+      tp = borderPoint(targetNode, tgtSide, sc)
+    }
 
     // Collect obstacles imperatively (no reactive subscription to all nodes)
-    const nodeInternals = storeApi.getState().nodeInternals
+    const nodeInternals = stateSnapshot.nodeInternals
     const allNodes = Array.from(nodeInternals.values())
     const excludeIds = new Set<string>([source, target])
 
@@ -283,6 +296,15 @@ export const RelationEdge = memo(
     const strokeColor = selected ? 'var(--accent)' : data?.isVirtual ? '#6b7280' : '#94a3b8'
     const strokeDash  = data?.isVirtual ? '6 3' : undefined
 
+    // Diff highlight
+    const diffStroke =
+      diffKind === 'new' ? 'var(--success)'
+      : diffKind === 'removed' ? 'var(--danger)'
+      : diffKind === 'changed' ? 'var(--warning, #d97706)'
+      : null
+    const diffDash = diffKind === 'removed' ? '6 4' : undefined
+    const diffOpacity = diffKind === 'removed' ? 0.55 : 1
+
     return (
       <>
         <BaseEdge
@@ -290,15 +312,17 @@ export const RelationEdge = memo(
           path={edgePath}
           style={{
             ...style,
-            stroke:          strokeColor,
-            strokeWidth:     selected ? 2 : 1.5,
-            strokeDasharray: strokeDash,
+            stroke:          diffStroke ?? strokeColor,
+            strokeWidth:     diffStroke ? 3 : selected ? 2 : 1.5,
+            strokeDasharray: diffDash ?? strokeDash,
             strokeLinejoin:  'round',
             strokeLinecap:   'round',
+            opacity:         diffOpacity,
+            filter:          diffStroke ? `drop-shadow(0 0 4px ${diffStroke})` : undefined,
           }}
         />
         {/* Custom arrowhead drawn at the target point */}
-        <Arrow x={tp.x} y={tp.y} side={tgtSide} color={strokeColor} size={selected ? 10 : 8} />
+        <Arrow x={tp.x} y={tp.y} side={tgtSide} color={diffStroke ?? strokeColor} size={selected ? 10 : 8} />
 
         {/* Reconnect handles at endpoints when edge is selected */}
         {selected && !data?.isVirtual && (

@@ -143,17 +143,32 @@ function parseElkResult(node: ElkNode, result: PositionMap): void {
 
 export async function applyElkLayout(
   c4Nodes: Record<string, C4Node>,
-  c4Relations: Record<string, C4Relation>
+  c4Relations: Record<string, C4Relation>,
+  opts?: { rootOptions?: LayoutOptions; childOptions?: LayoutOptions },
 ): Promise<PositionMap> {
   const elkNodeMap: ElkNodeMap = {}
+  const childOpts = opts?.childOptions ?? CHILD_OPTIONS
+
+  const buildWith = (n: C4Node): ElkNode => {
+    const built = buildElkNode(n, c4Nodes, elkNodeMap)
+    // Override compound child options if caller supplied custom ones.
+    const apply = (node: ElkNode): void => {
+      if (node.children && node.children.length > 0) {
+        node.layoutOptions = childOpts
+        for (const c of node.children) apply(c)
+      }
+    }
+    apply(built)
+    return built
+  }
 
   const rootChildren = Object.values(c4Nodes)
     .filter((n) => !n.parentId)
-    .map((n) => buildElkNode(n, c4Nodes, elkNodeMap))
+    .map(buildWith)
 
   const root: ElkNode = {
     id: 'root',
-    layoutOptions: LAYERED_OPTIONS,
+    layoutOptions: opts?.rootOptions ?? LAYERED_OPTIONS,
     children: rootChildren,
     edges: [],
   }

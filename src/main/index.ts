@@ -12,7 +12,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: false,
     titleBarStyle: 'default',
-    title: 'Radical Diagram – C4 Model Editor',
+    title: 'Radical Model',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -85,6 +85,26 @@ app.whenReady().then(() => {
     const filePath = result.filePaths[0]
     const content = await readFile(filePath, 'utf-8')
     return { success: true, filePath, content }
+  })
+
+  // ── IPC: silent file read/write (path already known) ─────────────────────
+
+  ipcMain.handle('file:read', async (_event, filePath: string) => {
+    try {
+      const content = await readFile(filePath, 'utf-8')
+      return { success: true, content }
+    } catch (e) {
+      return { success: false, error: (e as Error).message }
+    }
+  })
+
+  ipcMain.handle('file:write', async (_event, filePath: string, json: string) => {
+    try {
+      await writeFile(filePath, json, 'utf-8')
+      return { success: true }
+    } catch (e) {
+      return { success: false, error: (e as Error).message }
+    }
   })
 
   createWindow()

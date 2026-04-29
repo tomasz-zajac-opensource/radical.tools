@@ -414,6 +414,77 @@ export function minimizeCrossings(
         }
       }
     }
+
+    // ── Translation pass (single-node coordinate descent) ─────────────────
+    // After swaps have settled the rough ordering, try small shifts of each
+    // individual node. Frequently a single-axis nudge of ~30–80 px is enough
+    // to uncross a pair of edges or pull an edge off a foreign node block.
+    //
+    // Candidate deltas chosen so that the sum is bounded, but the largest
+    // single move is still small enough to keep node within its sibling
+    // cluster (we don't want to drag a person down into the systems).
+    const DELTAS = [-100, -60, -30, 30, 60, 100]
+    const COLLISION_PAD = 16
+
+    /** True iff moving `r` by (dx,dy) would overlap any other rect in `swapIds`. */
+    const wouldCollide = (id: string, r: Rect, dx: number, dy: number): boolean => {
+      const x0 = r.x + dx, y0 = r.y + dy
+      const x1 = x0 + r.w, y1 = y0 + r.h
+      for (const other of swapIds) {
+        if (other === id) continue
+        const o = abs[other]
+        if (!o) continue
+        if (x1 + COLLISION_PAD <= o.x) continue
+        if (o.x + o.w + COLLISION_PAD <= x0) continue
+        if (y1 + COLLISION_PAD <= o.y) continue
+        if (o.y + o.h + COLLISION_PAD <= y0) continue
+        return true
+      }
+      return false
+    }
+
+    let tImproved = true
+    let tPasses = 6
+    while (tImproved && tPasses-- > 0) {
+      tImproved = false
+      for (const id of swapIds) {
+        const r = abs[id]
+        if (!r) continue
+        const baseCost = layoutCost(abs, relevant, ancestors, allIds)
+        let bestDx = 0, bestDy = 0, bestCost = baseCost
+
+        // X axis
+        for (const dx of DELTAS) {
+          if (wouldCollide(id, r, dx, 0)) continue
+          r.x += dx
+          shiftDescendants(id, dx, 0)
+          const c = layoutCost(abs, relevant, ancestors, allIds)
+          if (c < bestCost) { bestCost = c; bestDx = dx; bestDy = 0 }
+          r.x -= dx
+          shiftDescendants(id, -dx, 0)
+        }
+        // Y axis
+        for (const dy of DELTAS) {
+          if (wouldCollide(id, r, 0, dy)) continue
+          r.y += dy
+          shiftDescendants(id, 0, dy)
+          const c = layoutCost(abs, relevant, ancestors, allIds)
+          if (c < bestCost) { bestCost = c; bestDx = 0; bestDy = dy }
+          r.y -= dy
+          shiftDescendants(id, 0, -dy)
+        }
+
+        if (bestCost < baseCost) {
+          r.x += bestDx; r.y += bestDy
+          shiftDescendants(id, bestDx, bestDy)
+          tImproved = true
+          const pAbs = parentKey && abs[parentKey]
+            ? { x: abs[parentKey].x, y: abs[parentKey].y }
+            : { x: 0, y: 0 }
+          updates[id] = { x: r.x - pAbs.x, y: r.y - pAbs.y }
+        }
+      }
+    }
     } // end swapGroups loop
   }
 

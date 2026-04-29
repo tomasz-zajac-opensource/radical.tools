@@ -16,6 +16,8 @@ const PALETTE_ITEMS: { type: C4ElementType; sublabel: string }[] = [
   { type: 'container', sublabel: 'App, DB, service…' },
   { type: 'component', sublabel: 'Class, module…' },
   { type: 'database',  sublabel: 'Database store' },
+  { type: 'webapp',    sublabel: 'Web application' },
+  { type: 'queue',     sublabel: 'Message queue / bus' },
 ]
 
 function PaletteItem({ type, sublabel }: { type: C4ElementType; sublabel: string }) {

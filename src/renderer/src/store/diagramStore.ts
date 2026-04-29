@@ -18,17 +18,31 @@ import {
   DiagramData,
   DiagramView,
   DiagramSnapshot,
+  PresentationSlide,
+  Presentation,
+  SlideCanvasState,
   NodePosition,
   NODE_SIZES,
   COLLAPSED_HEIGHT,
   COLLAPSED_WIDTH,
 } from '../types/c4'
+import {
+  Metamodel,
+  NodeTypeDef,
+  RelationTypeDef,
+  builtInC4Metamodel,
+  isRelationAllowed,
+  isParentAllowed,
+  canAddMoreOfType,
+} from '../types/metamodel'
 import { applyElkLayout } from '../layout/elkLayout'
 import { applyColaLayout } from '../layout/colaLayout'
 import { applyRadicalLayout } from '../layout/radicalLayout'
+import { runSmartLayout } from '../layout/smartLayout'
 import { applyReferenceLayout } from '../layout/referenceLayout'
 import { minimizeCrossings } from '../layout/crossingOpt'
 import { LiveColaLayout } from '../layout/liveColaLayout'
+import { documents, useDocumentsStore } from './documentStore'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -75,6 +89,91 @@ function applyPositions(nodes: Record<string, C4Node>, positions: Record<string,
     const n = nodes[id]
     if (n) { n.x = pos.x; n.y = pos.y; n.width = pos.width; n.height = pos.height }
   }
+}
+
+/** Capture all node positions + collapsed state for a presentation slide */
+function captureCanvasState(nodes: Record<string, C4Node>): SlideCanvasState {
+  const result: SlideCanvasState['nodes'] = {}
+  for (const [id, n] of Object.entries(nodes)) {
+    result[id] = { x: n.x, y: n.y, width: n.width, height: n.height, collapsed: n.collapsed }
+  }
+  return { nodes: result }
+}
+
+/** Build the initial presentations array from possibly-legacy persisted data. */
+function buildPresentationsFromData(
+  presentations: Presentation[] | undefined,
+  legacySlides: PresentationSlide[] | undefined,
+): { presentations: Presentation[]; activeId: string } {
+  let list: Presentation[] = presentations ? [...presentations] : []
+  if (list.length === 0) {
+    // Migrate legacy single-presentation slides into a default presentation
+    list = [{ id: crypto.randomUUID(), name: 'Main', slides: legacySlides ?? [] }]
+  }
+  return { presentations: list, activeId: list[0].id }
+}
+
+function computeSnapDiff(
+  prevNodes: Record<string, C4Node>,
+  currNodes: Record<string, C4Node>,
+  prevRels: Record<string, C4Relation>,
+  currRels: Record<string, C4Relation>,
+): Record<string, 'new' | 'changed' | 'removed'> {
+  const result: Record<string, 'new' | 'changed' | 'removed'> = {}
+  for (const id of Object.keys(currNodes)) {
+    if (!prevNodes[id]) {
+      result[id] = 'new'
+    } else {
+      const p = prevNodes[id], c = currNodes[id]
+      if (p.label !== c.label || p.description !== c.description || p.technology !== c.technology ||
+          p.type !== c.type || p.parentId !== c.parentId || p.external !== c.external) {
+        result[id] = 'changed'
+      }
+    }
+  }
+  // Removed nodes: in base but not in current.
+  for (const id of Object.keys(prevNodes)) {
+    if (!currNodes[id]) result[id] = 'removed'
+  }
+  for (const id of Object.keys(currRels)) {
+    if (!prevRels[id]) {
+      result[id] = 'new'
+    } else {
+      const p = prevRels[id], c = currRels[id]
+      if (p.sourceId !== c.sourceId || p.targetId !== c.targetId ||
+          p.label !== c.label || p.technology !== c.technology) {
+        result[id] = 'changed'
+      }
+    }
+  }
+  // Removed relations: in base but not in current.
+  for (const id of Object.keys(prevRels)) {
+    if (!currRels[id]) result[id] = 'removed'
+  }
+  return result
+}
+
+/**
+ * Build the ghost maps for a diff: nodes/relations that existed in the base
+ * but are not present in the current state. Returned as plain dictionaries
+ * so they can be merged into the canvas at render time without polluting
+ * the actual model.
+ */
+function computeDiffGhosts(
+  baseNodes: Record<string, C4Node>,
+  currNodes: Record<string, C4Node>,
+  baseRels: Record<string, C4Relation>,
+  currRels: Record<string, C4Relation>,
+): { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> } {
+  const nodes: Record<string, C4Node> = {}
+  const relations: Record<string, C4Relation> = {}
+  for (const id of Object.keys(baseNodes)) {
+    if (!currNodes[id]) nodes[id] = JSON.parse(JSON.stringify(baseNodes[id]))
+  }
+  for (const id of Object.keys(baseRels)) {
+    if (!currRels[id]) relations[id] = JSON.parse(JSON.stringify(baseRels[id]))
+  }
+  return { nodes, relations }
 }
 
 /** Compute the effective set of node IDs for a view: explicit nodeIds + all their ancestors */
@@ -212,9 +311,18 @@ function getViewVisibleAncestor(
   return getVisibleAncestor(nodeId, nodes, viewCollapsedSet)
 }
 
+/** True if `ancestorId` is a (transitive) ancestor of `nodeId`. */
+function isAncestorOf(ancestorId: string, nodeId: string, nodes: Record<string, C4Node>): boolean {
+  let cur = nodes[nodeId]?.parentId
+  while (cur) {
+    if (cur === ancestorId) return true
+    cur = nodes[cur]?.parentId
+  }
+  return false
+}
+
 /** Return all descendant node ids (children, grandchildren, …) */
-function getDescendants(nodeId: string, nodes: Record<string, C4Node>): string[] {
-  const result: string[] = []
+function getDescendants(nodeId: string, nodes: Record<string, C4Node>): string[] {  const result: string[] = []
   function walk(id: string) {
     for (const n of Object.values(nodes)) {
       if (n.parentId === id) {
@@ -397,23 +505,41 @@ function separateSiblings(
 function deriveRFNodes(
   nodes: Record<string, C4Node>,
   viewFilter?: Set<string>,
-  viewCollapsedSet?: Set<string>
+  viewCollapsedSet?: Set<string>,
+  ghostIds?: Set<string>,
+  locked?: boolean,
 ): Node<C4NodeRFData>[] {
   const rfNodes: Node<C4NodeRFData>[] = []
 
-  // Sort so parents appear before children (React Flow requirement)
+  // React Flow requires parents to appear before their children. Sort by
+  // ancestor depth (roots first), then by type for stable ordering inside a
+  // depth band. Type-based ordering alone is wrong as soon as containers can
+  // nest (e.g. a sub-system inside a system) — comparing by type without
+  // depth would put the sub-system before its parent and React Flow would
+  // silently drop the parentNode link.
+  const depthCache = new Map<string, number>()
+  const depthOf = (id: string): number => {
+    const cached = depthCache.get(id)
+    if (cached !== undefined) return cached
+    const n = nodes[id]
+    const d = n?.parentId ? depthOf(n.parentId) + 1 : 0
+    depthCache.set(id, d)
+    return d
+  }
+  const typeRank = (t: string): number => {
+    if (t === 'system') return 0
+    if (t === 'container' || t === 'database' || t === 'webapp' || t === 'queue') return 1
+    if (t === 'component') return 2
+    return 3
+  }
   const sorted = Object.values(nodes)
     .filter((n) => !viewFilter || viewFilter.has(n.id))
     .sort((a, b) => {
-    if (!a.parentId && b.parentId) return -1
-    if (a.parentId && !b.parentId) return 1
-    // container before component
-    if (a.type === 'system' && b.type !== 'system') return -1
-    if (a.type !== 'system' && b.type === 'system') return 1
-    if ((a.type === 'container' || a.type === 'database') && b.type === 'component') return -1
-    if (a.type === 'component' && (b.type === 'container' || b.type === 'database')) return 1
-    return 0
-  })
+      const da = depthOf(a.id)
+      const db = depthOf(b.id)
+      if (da !== db) return da - db
+      return typeRank(a.type) - typeRank(b.type)
+    })
 
   // Pre-compute which nodes have children (in the full model)
   const parentSet = new Set(Object.values(nodes).map((n) => n.parentId).filter(Boolean))
@@ -422,6 +548,7 @@ function deriveRFNodes(
     const hidden = isNodeHidden(n.id, nodes, viewCollapsedSet)
     const hasChildren = parentSet.has(n.id)
     const collapsed = isEffectivelyCollapsed(n, viewCollapsedSet)
+    const isGhost = ghostIds?.has(n.id) ?? false
     const effHeight =
       (n.type === 'system' || n.type === 'container') && collapsed
         ? COLLAPSED_HEIGHT[n.type]
@@ -439,8 +566,13 @@ function deriveRFNodes(
       extent: undefined,
       expandParent: false,
       hidden,
-      selectable: !hidden,
-      draggable: !hidden,
+      // Ghost nodes (removed-in-current-milestone overlay) are not selectable
+      // or draggable — they only exist as a visual diff hint.
+      // In viewer/presenter modes (`locked`), nothing is draggable so the
+      // saved layout cannot drift while someone browses the document.
+      selectable: !hidden && !isGhost && !locked,
+      draggable: !hidden && !isGhost && !locked,
+      className: isGhost ? 'rf-node-ghost' : undefined,
       data: {
         c4id: n.id,
         type: n.type,
@@ -460,7 +592,10 @@ function deriveRFNodes(
       },
       width: effWidth,
       height: effHeight,
-      zIndex: n.type === 'system' ? 0 : n.type === 'container' ? 1 : 2,
+      // Stack deeper nodes above their ancestors so a sub-system rendered
+      // inside another system doesn't get hidden behind it.
+      zIndex: depthOf(n.id) * 10
+        + (n.type === 'system' ? 0 : n.type === 'container' ? 1 : 2),
     })
   }
   return rfNodes
@@ -470,7 +605,8 @@ function deriveRFEdges(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
   viewFilter?: Set<string>,
-  viewCollapsedSet?: Set<string>
+  viewCollapsedSet?: Set<string>,
+  hiddenRelationIds?: Set<string>,
 ): Edge<C4EdgeRFData>[] {
   const rfEdges: Edge<C4EdgeRFData>[] = []
   // Track virtual edges already emitted to avoid duplicates
@@ -478,6 +614,7 @@ function deriveRFEdges(
 
   for (const rel of Object.values(relations)) {
     if (!nodes[rel.sourceId] || !nodes[rel.targetId]) continue
+    if (hiddenRelationIds && hiddenRelationIds.has(rel.id)) continue
 
     const visSource = getViewVisibleAncestor(rel.sourceId, nodes, viewFilter, viewCollapsedSet)
     const visTarget = getViewVisibleAncestor(rel.targetId, nodes, viewFilter, viewCollapsedSet)
@@ -486,6 +623,16 @@ function deriveRFEdges(
 
     // If filtering by view, both endpoints must be in the view
     if (viewFilter && (!viewFilter.has(visSource) || !viewFilter.has(visTarget))) continue
+
+    // Skip "parent ↔ own descendant" virtual edges. They appear when a child
+    // is in the view and its sibling (also a child of the same parent) is NOT
+    // in the view: that sibling resolves up to the parent, producing a
+    // misleading visual link from the child to its own parent. Hide them.
+    if (visSource !== rel.sourceId || visTarget !== rel.targetId) {
+      if (isAncestorOf(visSource, visTarget, nodes) || isAncestorOf(visTarget, visSource, nodes)) {
+        continue
+      }
+    }
 
     const key = `${visSource}→${visTarget}`
     const isVirtual = visSource !== rel.sourceId || visTarget !== rel.targetId
@@ -536,25 +683,48 @@ function deriveRFEdges(
 
 // ─── Sample diagram ──────────────────────────────────────────────────────────
 
-function buildSampleDiagram(): { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> } {
-  const nodes: Record<string, C4Node> = {}
-  const relations: Record<string, C4Relation> = {}
+function buildSampleDiagram(): {
+  nodes: Record<string, C4Node>
+  relations: Record<string, C4Relation>
+  snapshots: DiagramSnapshot[]
+} {
+  const add = (nodes: Record<string, C4Node>, n: C4Node) => { nodes[n.id] = n }
+  const rel = (relations: Record<string, C4Relation>, r: C4Relation) => { relations[r.id] = r }
 
-  const add = (n: C4Node) => { nodes[n.id] = n }
-  const rel = (r: C4Relation) => { relations[r.id] = r }
+  // ── Snapshot 1: MVP – Frontend + API ──────────────────────────────────────
+  const snap1nodes: Record<string, C4Node> = {}
+  const snap1rels: Record<string, C4Relation> = {}
+  add(snap1nodes, { id: 'sys1', type: 'system', label: 'Platform', description: 'Main system', collapsed: false, x: 200, y: 100, width: 700, height: 400 })
+  add(snap1nodes, { id: 'ctn1', type: 'container', label: 'Frontend',  technology: 'React',    description: 'Web UI',      parentId: 'sys1', collapsed: false, x: 40,  y: 70,  ...NODE_SIZES.container })
+  add(snap1nodes, { id: 'ctn2', type: 'container', label: 'API',       technology: 'Node.js',  description: 'REST API',    parentId: 'sys1', collapsed: false, x: 360, y: 70,  ...NODE_SIZES.container })
+  add(snap1nodes, { id: 'usr1', type: 'person',    label: 'End User',  description: 'Uses web app', collapsed: false, x: -100, y: 180, ...NODE_SIZES.person })
+  rel(snap1rels, { id: 'r01', sourceId: 'ctn1', targetId: 'ctn2', label: 'Calls', technology: 'HTTPS' })
+  rel(snap1rels, { id: 'r00', sourceId: 'usr1', targetId: 'ctn1', label: 'Uses', technology: 'Browser' })
 
-  // ── 1 system + 3 containers (minimal reference model) ─────────────────────
-  add({ id: 'sys1', type: 'system', label: 'Platform', description: 'Main system', collapsed: false, x: 200, y: 100, width: 800, height: 500 })
+  // ── Snapshot 2: Added Database container ──────────────────────────────────
+  const snap2nodes: Record<string, C4Node> = JSON.parse(JSON.stringify(snap1nodes))
+  const snap2rels: Record<string, C4Relation> = JSON.parse(JSON.stringify(snap1rels))
+  snap2nodes['sys1'] = { ...snap2nodes['sys1'], width: 900, height: 400 }
+  add(snap2nodes, { id: 'ctn3', type: 'container', label: 'Database', technology: 'Postgres', description: 'Data storage', parentId: 'sys1', collapsed: false, x: 580, y: 70, ...NODE_SIZES.container })
+  rel(snap2rels, { id: 'r02', sourceId: 'ctn2', targetId: 'ctn3', label: 'Reads/writes', technology: 'SQL' })
 
-  add({ id: 'ctn1', type: 'container', label: 'Frontend',   technology: 'React',    description: 'Web UI',        parentId: 'sys1', collapsed: false, x:  30, y:  60, ...NODE_SIZES.container })
-  add({ id: 'ctn2', type: 'container', label: 'API',        technology: 'Node.js',  description: 'REST API',      parentId: 'sys1', collapsed: false, x: 280, y:  60, ...NODE_SIZES.container })
-  add({ id: 'ctn3', type: 'container', label: 'Database',   technology: 'Postgres', description: 'Data storage',  parentId: 'sys1', collapsed: false, x: 530, y:  60, ...NODE_SIZES.container })
+  // ── Snapshot 3: API renamed to "Backend", added Cache + Auth service ──────
+  const snap3nodes: Record<string, C4Node> = JSON.parse(JSON.stringify(snap2nodes))
+  const snap3rels: Record<string, C4Relation> = JSON.parse(JSON.stringify(snap2rels))
+  snap3nodes['ctn2'] = { ...snap3nodes['ctn2'], label: 'Backend', description: 'GraphQL API', technology: 'Node.js / GraphQL' }
+  snap3nodes['sys1'] = { ...snap3nodes['sys1'], width: 1100, height: 500 }
+  add(snap3nodes, { id: 'ctn4', type: 'container', label: 'Cache',         technology: 'Redis',   description: 'Session cache',    parentId: 'sys1', collapsed: false, x: 580, y: 260, ...NODE_SIZES.container })
+  add(snap3nodes, { id: 'ctn5', type: 'container', label: 'Auth Service',  technology: 'Keycloak', description: 'Identity provider', parentId: 'sys1', collapsed: false, x: 820, y: 70,  ...NODE_SIZES.container })
+  rel(snap3rels, { id: 'r03', sourceId: 'ctn2', targetId: 'ctn4', label: 'Caches', technology: 'Redis protocol' })
+  rel(snap3rels, { id: 'r04', sourceId: 'ctn1', targetId: 'ctn5', label: 'Auth', technology: 'OAuth2' })
 
-  // Relations: Frontend → API → Database
-  rel({ id: 'r01', sourceId: 'ctn1', targetId: 'ctn2', label: 'Calls', technology: 'HTTPS' })
-  rel({ id: 'r02', sourceId: 'ctn2', targetId: 'ctn3', label: 'Reads/writes', technology: 'SQL' })
+  const snapshots: DiagramSnapshot[] = [
+    { id: 'snap-1', name: 'v1 – MVP',             timestamp: Date.now() - 7 * 86400000, nodes: snap1nodes, relations: snap1rels },
+    { id: 'snap-2', name: 'v2 – Added Database',  timestamp: Date.now() - 3 * 86400000, nodes: snap2nodes, relations: snap2rels },
+    { id: 'snap-3', name: 'v3 – Auth + Cache',    timestamp: Date.now(),                nodes: snap3nodes, relations: snap3rels },
+  ]
 
-  return { nodes, relations }
+  return { nodes: snap3nodes, relations: snap3rels, snapshots }
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -569,6 +739,8 @@ interface DiagramStore {
   activeViewId: string | null
   /** Positions for the "All" (default) view */
   defaultPositions: Record<string, NodePosition>
+  /** Camera state (pan + zoom) for the "All" (default) view */
+  defaultViewport: { x: number; y: number; zoom: number } | null
 
   // ── derived React Flow state ──
   rfNodes: Node<C4NodeRFData>[]
@@ -577,6 +749,12 @@ interface DiagramStore {
   // ── UI state ──
   selectedNodeId: string | null
   selectedEdgeId: string | null
+  /**
+   * All currently selected node ids on the canvas. The first entry mirrors
+   * `selectedNodeId` (“primary” selection) when non-empty. Maintained from
+   * ReactFlow selection changes; multi-select uses Shift/Cmd by default.
+   */
+  selectedNodeIds: string[]
   layoutMode: 'elk' | 'cola' | 'radical'
   isLayoutRunning: boolean
   liveLayoutActive: boolean
@@ -600,6 +778,22 @@ interface DiagramStore {
   // ── actions: selection ──
   selectNode: (id: string | null) => void
   selectEdge: (id: string | null) => void
+  /** Replace the multi-selection set. */
+  setSelectedNodeIds: (ids: string[]) => void
+  /** Wrap the current selection in a new parent of `parentTypeId`. */
+  wrapSelectionInNewParent: (parentTypeId: string) => void
+  /**
+   * Remove a parent node but keep its direct children (re-parented to the
+   * grandparent) along with any relations the children participate in.
+   * Relations that touched the removed node itself are dropped.
+   */
+  unwrapNode: (id: string) => void
+  /**
+   * Move one or more nodes (which must currently share the same parent) into
+   * a new parent. Pass `null` to move them to the canvas root. Coordinates
+   * are translated so on-screen position is preserved as closely as possible.
+   */
+  reparentNodes: (ids: string[], newParentId: string | null) => void
 
   // ── actions: views ──
   addView: (name: string) => string
@@ -608,6 +802,10 @@ interface DiagramStore {
   setActiveView: (id: string | null) => void
   addNodeToView: (viewId: string, nodeId: string) => void
   removeNodeFromView: (viewId: string, nodeId: string) => void
+  /** Hide a specific relation from the view, even if both endpoints are visible. */
+  hideRelationFromView: (viewId: string, relationId: string) => void
+  /** Reverse `hideRelationFromView`. */
+  unhideRelationInView: (viewId: string, relationId: string) => void
 
   // ── actions: React Flow sync ──
   onNodesChange: (changes: NodeChange[]) => void
@@ -620,6 +818,7 @@ interface DiagramStore {
   runColaLayout: () => void
   runRadicalLayout: () => void
   runReferenceLayout: () => void
+  runSmartLayout: () => Promise<void>
   setLayoutMode: (mode: 'elk' | 'cola' | 'radical') => void
   startLiveLayout: () => void
   stopLiveLayout: () => void
@@ -642,12 +841,97 @@ interface DiagramStore {
   canUndo: boolean
   canRedo: boolean
 
-  // ── actions: snapshots (versions) ──
+  // ── actions: snapshots (versions / milestones) ──
   snapshots: DiagramSnapshot[]
+  /** ID of the milestone currently loaded onto the canvas (null = live HEAD). */
+  activeSnapshotId: string | null
+  /** Backup of the live HEAD state, kept while a milestone is loaded. */
+  liveBackup: { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> } | null
+  /** True after the user makes a structural edit while viewing a milestone. */
+  milestoneDirty: boolean
+  /** Open the propagate/new prompt modal. */
+  milestonePromptOpen: boolean
   createSnapshot: (name: string) => string
   restoreSnapshot: (id: string) => void
   removeSnapshot: (id: string) => void
   renameSnapshot: (id: string, name: string) => void
+  /** Load a milestone onto the canvas for inspection / editing. */
+  selectMilestone: (id: string) => void
+  /** Commit milestone edits: 'propagate' = apply diff to this + later milestones; 'new' = insert new milestone after current. */
+  commitMilestoneChanges: (mode: 'propagate' | 'new', newName?: string) => void
+  /** Discard milestone edits and return to live HEAD state. */
+  discardMilestoneChanges: () => void
+  /** Close the prompt modal without committing (banner stays). */
+  dismissMilestonePrompt: () => void
+
+  // ── delete confirmation ──
+  /** When the user presses Delete on the canvas, the request is parked here
+   * until they choose between "remove from model" or "hide from current view". */
+  pendingDelete: { nodeIds: string[]; edgeIds: string[] } | null
+  /** Called by the confirm dialog. */
+  resolvePendingDelete: (action: 'model' | 'view' | 'cancel') => void
+
+  // ── diff highlight (time travel) ──
+  diffHighlight: Record<string, 'new' | 'changed' | 'removed'>
+  setDiffHighlight: (diff: Record<string, 'new' | 'changed' | 'removed'>) => void
+  /** Snapshot id used as the diff base when viewing a milestone. `null` means
+   *  "auto" — use the milestone immediately before the active one (or live
+   *  HEAD when the active milestone is the very first). User can override
+   *  via {@link setDiffBase} to compare against any milestone. */
+  diffBaseSnapshotId: string | null
+  setDiffBase: (id: string | null) => void
+  /** Ghost copies of items that exist in the diff base but are missing from
+   *  the active milestone. Merged into rfNodes/rfEdges by `_sync()` so the
+   *  user can see what got removed, without these ghosts polluting the
+   *  actual `c4Nodes` / `c4Relations` model. */
+  diffGhostNodes: Record<string, C4Node>
+  diffGhostRelations: Record<string, C4Relation>
+
+  // ── app mode ──
+  appMode: 'designer' | 'presenter' | 'viewer' | 'metamodel'
+  setAppMode: (mode: 'designer' | 'presenter' | 'viewer' | 'metamodel') => void
+
+  // ── metamodel (per document) ──
+  metamodel: Metamodel
+  setMetamodel: (m: Metamodel) => void
+  resetMetamodelToC4: () => void
+  upsertNodeType: (def: NodeTypeDef) => void
+  removeNodeType: (id: string) => void
+  upsertRelationType: (def: RelationTypeDef) => void
+  removeRelationType: (id: string) => void
+
+  // ── transient notifications (toasts) ──
+  notifications: Array<{ id: string; severity: 'error' | 'warning' | 'info'; message: string; ts: number }>
+  pushNotification: (message: string, severity?: 'error' | 'warning' | 'info') => void
+  dismissNotification: (id: string) => void
+
+  // ── presentation mode ──
+  /** All presentations (each contains its own slides) */
+  presentations: Presentation[]
+  /** Currently selected presentation id (null only if none exist) */
+  activePresentationId: string | null
+  /** Slides of the active presentation (mirror — kept in sync) */
+  presentationSlides: PresentationSlide[]
+  presentationActive: boolean
+  presentationSlideIndex: number
+  addPresentation: (name?: string) => string
+  removePresentation: (id: string) => void
+  renamePresentation: (id: string, name: string) => void
+  setActivePresentation: (id: string) => void
+  addPresentationSlide: (name?: string) => void
+  removePresentationSlide: (id: string) => void
+  renamePresentationSlide: (id: string, name: string) => void
+  updatePresentationSlideViewport: (id: string, vp: { x: number; y: number; zoom: number }) => void
+  startPresentation: () => void
+  stopPresentation: () => void
+  goToSlide: (index: number) => void
+  captureSlideViewport: (id: string) => void
+  linkSnapshotToSlide: (slideId: string, snapshotId: string | null) => void
+  linkViewToSlide: (slideId: string, viewId: string | null) => void
+  setViewportFns: (
+    getVP: () => { x: number; y: number; zoom: number },
+    setVP: (vp: { x: number; y: number; zoom: number }, opts?: { duration?: number }) => void,
+  ) => void
 
   // ── actions: viewport ──
   autoFitActive: boolean
@@ -658,56 +942,166 @@ interface DiagramStore {
   // ── internal ──
   _sync: () => void
   _pushUndo: () => void
+  _markMilestoneEdit: () => void
   _resizeParentsBottomUp: (viewFilter?: Set<string>, viewCollapsedSet?: Set<string>) => void
 }
 
 // ─── Live layout singleton (not serialisable → kept outside store) ───────────
 
 let _liveLayout: LiveColaLayout | null = null
-let _fitViewFn: (() => void) | null = null
-let _fitViewInstantFn: (() => void) | null = null
 
-// Use window to survive HMR module reloads
-const _getAutoFitTimer = (): ReturnType<typeof setInterval> | null =>
-  (window as any).__radicalAutoFitTimer ?? null
-const _setAutoFitTimer = (t: ReturnType<typeof setInterval> | null) => {
-  (window as any).__radicalAutoFitTimer = t
+// Use window to survive HMR module reloads — otherwise after a hot-reload the
+// module-local references become null and the auto-fit interval keeps ticking
+// against a dead closure.
+const _getFitViewFn = (): (() => void) | null =>
+  (typeof window !== 'undefined' ? (window as any).__radicalFitViewFn : null) ?? null
+const _setFitViewFnRef = (fn: (() => void) | null) => {
+  if (typeof window !== 'undefined') (window as any).__radicalFitViewFn = fn
 }
+const _getFitViewInstantFn = (): (() => void) | null =>
+  (typeof window !== 'undefined' ? (window as any).__radicalFitViewInstantFn : null) ?? null
+const _setFitViewInstantFnRef = (fn: (() => void) | null) => {
+  if (typeof window !== 'undefined') (window as any).__radicalFitViewInstantFn = fn
+}
+const _getAutoFitTimer = (): ReturnType<typeof setInterval> | null =>
+  (typeof window !== 'undefined' ? (window as any).__radicalAutoFitTimer : null) ?? null
+const _setAutoFitTimer = (t: ReturnType<typeof setInterval> | null) => {
+  if (typeof window !== 'undefined') (window as any).__radicalAutoFitTimer = t
+}
+// Viewport fns — stored on window so HMR module reloads don't lose them
+const _getViewportFn = (): (() => { x: number; y: number; zoom: number }) | null =>
+  (window as any).__rfGetViewport ?? null
+const _setViewportFn = (): ((vp: { x: number; y: number; zoom: number }, opts?: { duration?: number }) => void) | null =>
+  (window as any).__rfSetViewport ?? null
 
 // ─── Store implementation ────────────────────────────────────────────────────
 
 export const useDiagramStore = create<DiagramStore>()(
   immer((set, get) => {
-    const sample = buildSampleDiagram()
+    // ── Document persistence boot ────────────────────────────────────────
+    // We always have an "active" document. If the index is empty we seed one
+    // with the built-in sample. For LS-backed docs we can hydrate
+    // synchronously; FS-backed docs are loaded asynchronously below.
+    const buildSampleData = (): DiagramData => {
+      const sample = buildSampleDiagram()
+      return {
+        nodes: Object.values(sample.nodes),
+        relations: Object.values(sample.relations),
+        defaultPositions: snapshotPositions(sample.nodes),
+        snapshots: sample.snapshots,
+      }
+    }
+    const { meta: activeMeta } = documents.ensureActive(buildSampleData)
+
+    let initNodes: Record<string, C4Node>
+    let initRelations: Record<string, C4Relation>
+    let initViews: Record<string, DiagramView>
+    let initDefaultPositions: Record<string, NodePosition>
+    let initSnapshots: DiagramSnapshot[]
+    let initPres: ReturnType<typeof buildPresentationsFromData>
+    let initMetamodel: Metamodel
+
+    let persisted: DiagramData | null = null
+    if (activeMeta.source === 'ls') {
+      // Synchronous LS read so the UI shows the right diagram on first paint.
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem('radical-doc:' + activeMeta.id)
+          if (raw) persisted = JSON.parse(raw) as DiagramData
+        }
+      } catch (e) { console.warn('[diagramStore] sync LS read failed:', e) }
+    }
+    // FS-backed docs: render sample first, then async hydrate (see below).
+
+    if (persisted && Array.isArray(persisted.nodes) && Array.isArray(persisted.relations)) {
+      initNodes = {}
+      initRelations = {}
+      initViews = {}
+      for (const n of persisted.nodes) initNodes[n.id] = n
+      for (const r of persisted.relations) initRelations[r.id] = r
+      if (persisted.views) for (const v of persisted.views) initViews[v.id] = v
+      initDefaultPositions = persisted.defaultPositions ?? snapshotPositions(initNodes)
+      initSnapshots = persisted.snapshots ?? []
+      initPres = buildPresentationsFromData(persisted.presentations, persisted.presentationSlides)
+      // Auto-refresh the built-in C4 preset so persisted documents pick up
+      // metamodel updates shipped with new app versions.
+      initMetamodel = (persisted.metamodel && persisted.metamodel.id !== 'c4-builtin')
+        ? persisted.metamodel
+        : builtInC4Metamodel()
+    } else {
+      const sample = buildSampleDiagram()
+      initNodes = sample.nodes
+      initRelations = sample.relations
+      initViews = {}
+      initDefaultPositions = snapshotPositions(sample.nodes)
+      initSnapshots = sample.snapshots
+      initPres = buildPresentationsFromData(undefined, [])
+      initMetamodel = builtInC4Metamodel()
+    }
 
     return {
-      c4Nodes: sample.nodes,
-      c4Relations: sample.relations,
-      views: {},
+      c4Nodes: initNodes,
+      c4Relations: initRelations,
+      views: initViews,
       activeViewId: null,
-      defaultPositions: snapshotPositions(sample.nodes),
-      rfNodes: deriveRFNodes(sample.nodes),
-      rfEdges: deriveRFEdges(sample.nodes, sample.relations),
+      defaultPositions: initDefaultPositions,
+      defaultViewport: persisted?.defaultViewport ?? null,
+      rfNodes: deriveRFNodes(initNodes),
+      rfEdges: deriveRFEdges(initNodes, initRelations),
       selectedNodeId: null,
       selectedEdgeId: null,
+      selectedNodeIds: [],
       layoutMode: 'radical',
       isLayoutRunning: false,
       liveLayoutActive: true,
       connectSource: null,
       connectionModifier: 'alt' as const,
-      autoFitActive: false,
+      autoFitActive: true,
       canUndo: false,
       canRedo: false,
-      snapshots: [],
+      snapshots: initSnapshots,
+      activeSnapshotId: null,
+      liveBackup: null,
+      milestoneDirty: false,
+      milestonePromptOpen: false,
+      pendingDelete: null,
+      diffHighlight: {},
+      diffBaseSnapshotId: null,
+      diffGhostNodes: {},
+      diffGhostRelations: {},
+      appMode: 'designer' as const,
+      metamodel: initMetamodel,
+      notifications: [],
+      presentations: initPres.presentations,
+      activePresentationId: initPres.activeId,
+      presentationSlides: initPres.presentations[0].slides,
+      presentationActive: false,
+      presentationSlideIndex: 0,
 
       // ── sync helper ──────────────────────────────────────────────────────
       _sync() {
         set((state) => {
           const view = state.activeViewId ? state.views[state.activeViewId] : undefined
-          const filter = computeViewNodeSet(view as DiagramView | undefined, state.c4Nodes as Record<string, C4Node>)
-          const vcs = computeViewCollapsedSet(filter, state.c4Nodes as Record<string, C4Node>)
-          state.rfNodes = deriveRFNodes(state.c4Nodes as Record<string, C4Node>, filter, vcs) as any
-          state.rfEdges = deriveRFEdges(state.c4Nodes as Record<string, C4Node>, state.c4Relations as Record<string, C4Relation>, filter, vcs) as any
+          // Merge diff ghosts (items removed in the active milestone but
+          // present in the diff base) so the user can see what's gone.
+          // The ghosts are kept in a separate map so they never end up in
+          // the real c4Nodes / c4Relations on save.
+          const ghostNodes = state.diffGhostNodes as Record<string, C4Node>
+          const ghostRels = state.diffGhostRelations as Record<string, C4Relation>
+          const hasGhosts = Object.keys(ghostNodes).length > 0 || Object.keys(ghostRels).length > 0
+          const liveNodes = state.c4Nodes as Record<string, C4Node>
+          const liveRels = state.c4Relations as Record<string, C4Relation>
+          const mergedNodes: Record<string, C4Node> = hasGhosts ? { ...ghostNodes, ...liveNodes } : liveNodes
+          const mergedRels: Record<string, C4Relation> = hasGhosts ? { ...ghostRels, ...liveRels } : liveRels
+          const filter = computeViewNodeSet(view as DiagramView | undefined, mergedNodes)
+          const vcs = computeViewCollapsedSet(filter, mergedNodes)
+          const ghostIdSet = hasGhosts ? new Set(Object.keys(ghostNodes)) : undefined
+          const locked = state.appMode !== 'designer'
+          state.rfNodes = deriveRFNodes(mergedNodes, filter, vcs, ghostIdSet, locked) as any
+          const hiddenRels = view?.hiddenRelationIds && view.hiddenRelationIds.length
+            ? new Set(view.hiddenRelationIds)
+            : undefined
+          state.rfEdges = deriveRFEdges(mergedNodes, mergedRels, filter, vcs, hiddenRels) as any
         })
       },
 
@@ -717,9 +1111,54 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => { state.canUndo = true; state.canRedo = false })
       },
 
+      /** Mark milestone as dirty if currently editing one (auto-opens prompt on first edit). */
+      _markMilestoneEdit() {
+        const { activeSnapshotId, milestoneDirty, appMode } = get()
+        if (!activeSnapshotId) return
+        // Milestones are read-only outside designer mode — ignore edit signals
+        // so viewer/presenter can browse historical state without ever being
+        // pushed into the "unsaved milestone changes" workflow.
+        if (appMode !== 'designer') return
+        if (milestoneDirty) return
+        set((state) => {
+          state.milestoneDirty = true
+          state.milestonePromptOpen = true
+        })
+      },
+
       // ── nodes ────────────────────────────────────────────────────────────
       addNode(node) {
+        const state0 = get()
+        const mm = state0.metamodel
+        const def = mm?.nodeTypes[node.type]
+        const typeLabel = def?.label ?? node.type
+        // Cardinality.max
+        const count = Object.values(state0.c4Nodes).filter(n => n.type === node.type).length
+        if (!canAddMoreOfType(mm, node.type, count)) {
+          get().pushNotification(
+            `Cannot add another ${typeLabel}: maximum (${def?.cardinality?.max}) reached in the metamodel.`,
+            'error',
+          )
+          return ''
+        }
+        // Parent containment
+        const parent = node.parentId ? state0.c4Nodes[node.parentId] : undefined
+        if (!isParentAllowed(mm, node.type, parent?.type)) {
+          const allowed = def?.allowedParents
+          const parentLabel = parent
+            ? (mm?.nodeTypes[parent.type]?.label ?? parent.type)
+            : 'the canvas root'
+          const allowedStr = allowed && allowed.length
+            ? allowed.map(t => mm?.nodeTypes[t]?.label ?? t).join(', ')
+            : 'the canvas root'
+          get().pushNotification(
+            `Cannot place ${typeLabel} inside ${parentLabel}. Allowed parents: ${allowedStr}.`,
+            'error',
+          )
+          return ''
+        }
         get()._pushUndo()
+        get()._markMilestoneEdit()
         const id = uid()
         set((state) => {
           state.c4Nodes[id] = { id, ...node }
@@ -734,7 +1173,35 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       updateNode(id, updates) {
+        const state0 = get()
+        const existing = state0.c4Nodes[id]
+        if (!existing) return
+        // If a reparent or retype is requested, validate against metamodel.
+        if ('parentId' in updates || 'type' in updates) {
+          const newType = (updates.type as string | undefined) ?? existing.type
+          const newParentId = ('parentId' in updates
+            ? (updates.parentId as string | null | undefined)
+            : existing.parentId) ?? undefined
+          const parent = newParentId ? state0.c4Nodes[newParentId] : undefined
+          if (!isParentAllowed(state0.metamodel, newType, parent?.type)) {
+            const def = state0.metamodel?.nodeTypes[newType]
+            const allowed = def?.allowedParents
+            const typeLabel = def?.label ?? newType
+            const parentLabel = parent
+              ? (state0.metamodel?.nodeTypes[parent.type]?.label ?? parent.type)
+              : 'the canvas root'
+            const allowedStr = allowed && allowed.length
+              ? allowed.map(t => state0.metamodel?.nodeTypes[t]?.label ?? t).join(', ')
+              : 'the canvas root'
+            get().pushNotification(
+              `Cannot move ${typeLabel} "${existing.label}" into ${parentLabel}. Allowed parents: ${allowedStr}.`,
+              'error',
+            )
+            return
+          }
+        }
         get()._pushUndo()
+        get()._markMilestoneEdit()
         set((state) => {
           if (!state.c4Nodes[id]) return
           Object.assign(state.c4Nodes[id], updates)
@@ -745,6 +1212,7 @@ export const useDiagramStore = create<DiagramStore>()(
 
       removeNode(id) {
         get()._pushUndo()
+        get()._markMilestoneEdit()
         set((state) => {
           // Remove node and all its descendants
           const toRemove = new Set([id, ...getDescendants(id, state.c4Nodes)])
@@ -765,13 +1233,86 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       toggleCollapse(id) {
+        // Layout is read-only in viewer/presenter — collapse/expand mutates
+        // positions and parent sizes, so it stays designer-only.
+        if (get().appMode !== 'designer') return
         get()._pushUndo()
+        const prevCollapsed = get().c4Nodes[id]?.collapsed === true
         set((state) => {
           const node = state.c4Nodes[id]
           if (!node) return
           node.collapsed = !node.collapsed
         })
-        get()._sync()
+
+        // ── Expand origin: ensure children "spawn from the parent" ─────
+        // When opening a parent, its children may still hold stale x/y
+        // from a previous layout (or from before any layout ran). On the
+        // very next frame ReactFlow would render them at those stale
+        // positions and cola would then animate them into the new spot
+        // — visible as a "teleport, then drift" jump.
+        // Fix: reset all direct children to a tight cluster anchored at
+        // the parent's top-left header area (parent-relative coords with
+        // small jittered offsets, so cola has a non-degenerate starting
+        // configuration). Cola then unfolds them outward — the user sees
+        // a clean expansion animation originating from the parent.
+        if (prevCollapsed) {
+          const allNodes = get().c4Nodes
+          const parent = allNodes[id]
+          if (parent && (parent.type === 'system' || parent.type === 'container')) {
+            const HEADER_OFFSET = parent.type === 'system' ? 50 : 40
+            const PAD = 24
+            const children = Object.values(allNodes).filter((c) => c.parentId === id)
+            if (children.length > 0) {
+              // 1) Reset model positions (parent-relative) so a future render
+              //    without live cola also shows children clustered inside the
+              //    parent's header area instead of at stale coordinates.
+              set((state) => {
+                children.forEach((child, i) => {
+                  const c = state.c4Nodes[child.id]
+                  if (!c) return
+                  // Tiny deterministic jitter so cola has distinct starting
+                  // positions to push apart (otherwise overlapping nodes
+                  // produce zero gradient and stay stuck).
+                  const jx = ((i * 17) % 11) - 5
+                  const jy = ((i * 23) % 9) - 4
+                  c.x = PAD + jx
+                  c.y = HEADER_OFFSET + jy
+                })
+              })
+              // 2) Seed live cola directly. Cola tracks absolute centre
+              //    coordinates, so compute parent's absolute top-left by
+              //    walking the ancestor chain. Without this, cola treats
+              //    re-appearing children as "new" and spawns them at the
+              //    average of their connected neighbours' positions —
+              //    making them visibly appear next to the neighbour, not
+              //    inside the parent.
+              if (_liveLayout) {
+                let absX = parent.x
+                let absY = parent.y
+                let cur: C4Node | undefined = parent
+                while (cur?.parentId) {
+                  const p: C4Node | undefined = allNodes[cur.parentId]
+                  if (!p) break
+                  absX += p.x
+                  absY += p.y
+                  cur = p
+                }
+                const parentCx = absX + (parent.width ?? 0) / 2
+                const parentCy = absY + (parent.height ?? 0) / 2
+                children.forEach((child, i) => {
+                  const jx = ((i * 17) % 21) - 10
+                  const jy = ((i * 23) % 17) - 8
+                  _liveLayout!.seedPosition(child.id, parentCx + jx, parentCy + jy)
+                })
+              }
+            }
+          }
+        }
+
+        // NOTE: no intermediate _sync() here — it would push a render with the
+        // new `collapsed` flag but stale sibling positions, which auto-fit would
+        // then snap to. The loop below only reads/writes the model; we sync
+        // once at the end so the viewport sees a single consistent change.
 
         // Walk up the ancestor chain:
         // At each level: separate siblings of current node, then refit the parent.
@@ -803,7 +1344,24 @@ export const useDiagramStore = create<DiagramStore>()(
 
       // ── relations ────────────────────────────────────────────────────────
       addRelation(rel) {
+        // Enforce metamodel relation rules: refuse to create a relation
+        // whose (from, to) type pair is not permitted by the active
+        // metamodel. Existing in-memory relations are left untouched and
+        // surface as Issues instead.
+        const state0 = get()
+        const src = state0.c4Nodes[rel.sourceId]
+        const dst = state0.c4Nodes[rel.targetId]
+        if (src && dst && !isRelationAllowed(state0.metamodel, src.type, dst.type)) {
+          const srcLabel = state0.metamodel?.nodeTypes[src.type]?.label ?? src.type
+          const dstLabel = state0.metamodel?.nodeTypes[dst.type]?.label ?? dst.type
+          get().pushNotification(
+            `Relation not allowed: ${srcLabel} \u2192 ${dstLabel}. The metamodel does not permit this connection.`,
+            'error',
+          )
+          return
+        }
         get()._pushUndo()
+        get()._markMilestoneEdit()
         const id = uid()
         set((state) => {
           state.c4Relations[id] = { id, ...rel }
@@ -814,6 +1372,7 @@ export const useDiagramStore = create<DiagramStore>()(
 
       updateRelation(id, updates) {
         get()._pushUndo()
+        get()._markMilestoneEdit()
         set((state) => {
           if (!state.c4Relations[id]) return
           Object.assign(state.c4Relations[id], updates)
@@ -823,6 +1382,7 @@ export const useDiagramStore = create<DiagramStore>()(
 
       removeRelation(id) {
         get()._pushUndo()
+        get()._markMilestoneEdit()
         set((state) => {
           delete state.c4Relations[id]
         })
@@ -840,15 +1400,404 @@ export const useDiagramStore = create<DiagramStore>()(
       selectNode(id) {
         set((state) => {
           state.selectedNodeId = id
+          state.selectedNodeIds = id ? [id] : []
           if (id) state.selectedEdgeId = null
+          // Mirror into RF so the canvas paints the selection ring.
+          for (const rn of state.rfNodes as Array<{ id: string; selected?: boolean }>) {
+            const want = rn.id === id
+            if (!!rn.selected !== want) rn.selected = want
+          }
+          if (id) {
+            for (const re of state.rfEdges as Array<{ selected?: boolean }>) {
+              if (re.selected) re.selected = false
+            }
+          }
         })
       },
 
       selectEdge(id) {
         set((state) => {
           state.selectedEdgeId = id
-          if (id) state.selectedNodeId = null
+          if (id) {
+            state.selectedNodeId = null
+            state.selectedNodeIds = []
+          }
+          // Mirror into RF.
+          for (const re of state.rfEdges as Array<{ id: string; selected?: boolean }>) {
+            const want = re.id === id
+            if (!!re.selected !== want) re.selected = want
+          }
+          if (id) {
+            for (const rn of state.rfNodes as Array<{ selected?: boolean }>) {
+              if (rn.selected) rn.selected = false
+            }
+          }
         })
+      },
+
+      setSelectedNodeIds(ids) {
+        set((state) => {
+          // De-dup while preserving order.
+          const seen = new Set<string>()
+          const clean: string[] = []
+          for (const id of ids) {
+            if (state.c4Nodes[id] && !seen.has(id)) { seen.add(id); clean.push(id) }
+          }
+          state.selectedNodeIds = clean
+          state.selectedNodeId = clean[0] ?? null
+          if (clean.length > 0) state.selectedEdgeId = null
+          // Mirror into rfNodes so React Flow paints its selection ring.
+          // Without this, programmatic selection (Quick Search, multi-select
+          // bar) updates the store but the canvas wouldn't reflect it.
+          const selSet = new Set(clean)
+          for (const rn of state.rfNodes as Array<{ id: string; selected?: boolean }>) {
+            const want = selSet.has(rn.id)
+            if (!!rn.selected !== want) rn.selected = want
+          }
+          if (clean.length > 0) {
+            for (const re of state.rfEdges as Array<{ selected?: boolean }>) {
+              if (re.selected) re.selected = false
+            }
+          }
+        })
+      },
+
+      wrapSelectionInNewParent(parentTypeId) {
+        const state0 = get()
+        const ids = state0.selectedNodeIds.length
+          ? state0.selectedNodeIds
+          : (state0.selectedNodeId ? [state0.selectedNodeId] : [])
+        if (ids.length === 0) {
+          state0.pushNotification('Nothing selected to wrap.', 'warning')
+          return
+        }
+        const nodes = ids.map(id => state0.c4Nodes[id]).filter(Boolean) as C4Node[]
+        if (nodes.length === 0) return
+
+        const mm = state0.metamodel
+        const parentDef = mm?.nodeTypes[parentTypeId]
+        if (!parentDef) {
+          state0.pushNotification(`Unknown wrapper type "${parentTypeId}".`, 'error')
+          return
+        }
+        const wrapperLabel = parentDef.label
+
+        // All selected nodes must currently share the same parent — otherwise
+        // wrapping would break the existing containment hierarchy.
+        const commonParentId = nodes[0].parentId ?? null
+        if (!nodes.every(n => (n.parentId ?? null) === commonParentId)) {
+          state0.pushNotification(
+            'Cannot wrap: selected nodes have different parents. Select siblings only.',
+            'error',
+          )
+          return
+        }
+        const commonParent = commonParentId ? state0.c4Nodes[commonParentId] : undefined
+
+        // Wrapper must be allowed inside the common parent.
+        if (!isParentAllowed(mm, parentTypeId, commonParent?.type)) {
+          const allowed = parentDef.allowedParents
+          const allowedStr = allowed && allowed.length
+            ? allowed.map(t => mm?.nodeTypes[t]?.label ?? t).join(', ')
+            : 'the canvas root'
+          const where = commonParent
+            ? (mm?.nodeTypes[commonParent.type]?.label ?? commonParent.type)
+            : 'the canvas root'
+          state0.pushNotification(
+            `Cannot create ${wrapperLabel} inside ${where}. Allowed parents: ${allowedStr}.`,
+            'error',
+          )
+          return
+        }
+
+        // Each selected child type must be allowed inside the new wrapper.
+        for (const n of nodes) {
+          if (!isParentAllowed(mm, n.type, parentTypeId)) {
+            const childDef = mm?.nodeTypes[n.type]
+            const childLabel = childDef?.label ?? n.type
+            const allowed = childDef?.allowedParents
+            const allowedStr = allowed && allowed.length
+              ? allowed.map(t => mm?.nodeTypes[t]?.label ?? t).join(', ')
+              : 'the canvas root'
+            state0.pushNotification(
+              `Cannot place ${childLabel} "${n.label}" inside ${wrapperLabel}. Allowed parents: ${allowedStr}.`,
+              'error',
+            )
+            return
+          }
+        }
+
+        // Bounding box (relative to common parent) + padding & header room.
+        const PAD = 30
+        const HEADER = 40
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        for (const n of nodes) {
+          minX = Math.min(minX, n.x)
+          minY = Math.min(minY, n.y)
+          maxX = Math.max(maxX, n.x + (n.width ?? 0))
+          maxY = Math.max(maxY, n.y + (n.height ?? 0))
+        }
+        const newX = minX - PAD
+        const newY = minY - PAD - HEADER
+        // Hug the children — don't inflate to parentDef defaults, otherwise a
+        // freshly-wrapped group looks much larger than its content and may
+        // overflow its own parent.
+        const newW = maxX - minX + 2 * PAD
+        const newH = maxY - minY + 2 * PAD + HEADER
+
+        // Create the wrapper. addNode will re-validate metamodel; we already
+        // checked but it's a defensive double-check.
+        const newId = get().addNode({
+          type: parentTypeId,
+          label: `New ${wrapperLabel}`,
+          description: '',
+          technology: '',
+          collapsed: false,
+          external: false,
+          parentId: commonParentId ?? undefined,
+          x: newX,
+          y: newY,
+          width: newW,
+          height: newH,
+        } as Omit<C4Node, 'id'>)
+        if (!newId) return
+
+        // Reparent each selected node into the wrapper, converting coords to
+        // be relative to it. updateNode also re-validates.
+        for (const n of nodes) {
+          get().updateNode(n.id, {
+            parentId: newId,
+            x: n.x - newX,
+            y: n.y - newY,
+          } as Partial<Omit<C4Node, 'id'>>)
+        }
+
+        // Tighten the wrapper around its new children, then expand all
+        // ancestors bottom-up so each containing system grows to fit. With
+        // arbitrary nesting depth (system → system → system) we can't just
+        // fit one level — every ancestor needs to recompute.
+        get().fitParentToChildren(newId)
+        let cur: string | undefined = commonParentId ?? undefined
+        const seen = new Set<string>()
+        while (cur && !seen.has(cur)) {
+          seen.add(cur)
+          get().fitParentToChildren(cur)
+          cur = get().c4Nodes[cur]?.parentId
+        }
+
+        // Promote the new wrapper to the active selection.
+        get().setSelectedNodeIds([newId])
+        get().pushNotification(
+          `Wrapped ${nodes.length} ${nodes.length === 1 ? 'node' : 'nodes'} into ${wrapperLabel}.`,
+          'info',
+        )
+      },
+
+      unwrapNode(id) {
+        const state0 = get()
+        const node = state0.c4Nodes[id]
+        if (!node) return
+        const mm = state0.metamodel
+        const grandparentId = node.parentId ?? undefined
+        const grandparent = grandparentId ? state0.c4Nodes[grandparentId] : undefined
+        const grandparentLabel = grandparent
+          ? (mm?.nodeTypes[grandparent.type]?.label ?? grandparent.type)
+          : 'the canvas root'
+
+        // Direct children only — grandchildren stay nested in their existing
+        // parents, which themselves get re-parented one level up.
+        const directChildren = Object.values(state0.c4Nodes).filter(
+          (n) => n.parentId === id,
+        ) as C4Node[]
+
+        // Validate: each direct child must be allowed to live inside the
+        // grandparent (or at root). Block early with a useful message.
+        for (const c of directChildren) {
+          if (!isParentAllowed(mm, c.type, grandparent?.type)) {
+            const childDef = mm?.nodeTypes[c.type]
+            const childLabel = childDef?.label ?? c.type
+            const allowed = childDef?.allowedParents
+            const allowedStr = allowed && allowed.length
+              ? allowed.map((t) => mm?.nodeTypes[t]?.label ?? t).join(', ')
+              : 'the canvas root'
+            state0.pushNotification(
+              `Cannot unwrap: ${childLabel} "${c.label}" is not allowed inside ${grandparentLabel}. Allowed: ${allowedStr}.`,
+              'error',
+            )
+            return
+          }
+        }
+
+        get()._pushUndo()
+        get()._markMilestoneEdit()
+        const removedLabel = mm?.nodeTypes[node.type]?.label ?? node.type
+        const childCount = directChildren.length
+        const nodeAbsX = node.x
+        const nodeAbsY = node.y
+
+        set((state) => {
+          // Re-parent direct children, preserving their on-screen position by
+          // converting child-local coords (relative to the removed node) to
+          // grandparent-local coords (relative to grandparent or root).
+          for (const c of directChildren) {
+            const sn = state.c4Nodes[c.id]
+            if (!sn) continue
+            sn.parentId = grandparentId
+            sn.x = c.x + nodeAbsX
+            sn.y = c.y + nodeAbsY
+          }
+          // Drop the node itself.
+          delete state.c4Nodes[id]
+          // Drop only relations that touched the removed node directly;
+          // children's relations survive unchanged.
+          for (const [rid, rel] of Object.entries(state.c4Relations)) {
+            if (rel.sourceId === id || rel.targetId === id) {
+              delete state.c4Relations[rid]
+            }
+          }
+          // Remove the node from every view; its children stay in views they
+          // were already part of.
+          for (const view of Object.values(state.views)) {
+            view.nodeIds = view.nodeIds.filter((nid) => nid !== id)
+          }
+        })
+
+        // Refit the grandparent (and on up) so containment stays tight.
+        let cur: string | undefined = grandparentId
+        const seen = new Set<string>()
+        while (cur && !seen.has(cur)) {
+          seen.add(cur)
+          get().fitParentToChildren(cur)
+          cur = get().c4Nodes[cur]?.parentId
+        }
+
+        // Selection: promote the now-unparented children so the user can see
+        // what survived.
+        get().setSelectedNodeIds(directChildren.map((c) => c.id))
+
+        get()._sync()
+        _liveLayout?.invalidate()
+        get().pushNotification(
+          childCount === 0
+            ? `Removed ${removedLabel} "${node.label}".`
+            : `Removed ${removedLabel} "${node.label}", kept ${childCount} ${childCount === 1 ? 'child' : 'children'}.`,
+          'info',
+        )
+      },
+
+      reparentNodes(ids, newParentId) {
+        const state0 = get()
+        const mm = state0.metamodel
+        const nodes = ids
+          .map((id) => state0.c4Nodes[id])
+          .filter((n): n is C4Node => !!n)
+        if (nodes.length === 0) return
+
+        // All selected nodes must currently share the same parent so we don't
+        // silently merge two different sub-trees.
+        const oldParentId = nodes[0].parentId ?? null
+        if (!nodes.every((n) => (n.parentId ?? null) === oldParentId)) {
+          state0.pushNotification(
+            'Cannot move: selected nodes have different parents. Select siblings only.',
+            'error',
+          )
+          return
+        }
+        if ((newParentId ?? null) === oldParentId) {
+          // Nothing to do — new parent is the current parent.
+          return
+        }
+
+        const newParent = newParentId ? state0.c4Nodes[newParentId] : undefined
+        if (newParentId && !newParent) {
+          state0.pushNotification('Target parent no longer exists.', 'error')
+          return
+        }
+        const newParentLabel = newParent
+          ? (mm?.nodeTypes[newParent.type]?.label ?? newParent.type)
+          : 'the canvas root'
+
+        // Cycle guard: new parent must not be one of the moved nodes nor any
+        // of their descendants.
+        const movedSet = new Set(ids)
+        for (const id of ids) {
+          for (const d of getDescendants(id, state0.c4Nodes)) movedSet.add(d)
+        }
+        if (newParentId && movedSet.has(newParentId)) {
+          state0.pushNotification(
+            'Cannot move a node into itself or one of its descendants.',
+            'error',
+          )
+          return
+        }
+
+        // Metamodel: each moved node's type must be allowed inside the target.
+        for (const n of nodes) {
+          if (!isParentAllowed(mm, n.type, newParent?.type)) {
+            const childDef = mm?.nodeTypes[n.type]
+            const childLabel = childDef?.label ?? n.type
+            const allowed = childDef?.allowedParents
+            const allowedStr = allowed && allowed.length
+              ? allowed.map((t) => mm?.nodeTypes[t]?.label ?? t).join(', ')
+              : 'the canvas root'
+            state0.pushNotification(
+              `Cannot place ${childLabel} "${n.label}" inside ${newParentLabel}. Allowed: ${allowedStr}.`,
+              'error',
+            )
+            return
+          }
+        }
+
+        // Compute absolute (root-space) coords by walking up the parent chain.
+        const absOf = (id: string): { x: number; y: number } => {
+          let x = 0, y = 0
+          let cur: C4Node | undefined = state0.c4Nodes[id]
+          const seen = new Set<string>()
+          while (cur && !seen.has(cur.id)) {
+            seen.add(cur.id)
+            x += cur.x
+            y += cur.y
+            cur = cur.parentId ? state0.c4Nodes[cur.parentId] : undefined
+          }
+          return { x, y }
+        }
+        const newParentAbs = newParentId
+          ? absOf(newParentId)
+          : { x: 0, y: 0 }
+
+        get()._pushUndo()
+        get()._markMilestoneEdit()
+        set((state) => {
+          for (const n of nodes) {
+            const sn = state.c4Nodes[n.id]
+            if (!sn) continue
+            const a = absOf(n.id) // computed against the original tree (state0)
+            sn.parentId = newParentId ?? undefined
+            sn.x = a.x - newParentAbs.x
+            sn.y = a.y - newParentAbs.y
+          }
+        })
+
+        // Refit both sides of the move bottom-up so containers grow/shrink.
+        const refitChain = (startId: string | null | undefined): void => {
+          let cur: string | undefined = startId ?? undefined
+          const seen = new Set<string>()
+          while (cur && !seen.has(cur)) {
+            seen.add(cur)
+            get().fitParentToChildren(cur)
+            cur = get().c4Nodes[cur]?.parentId
+          }
+        }
+        refitChain(oldParentId)
+        refitChain(newParentId)
+
+        get().setSelectedNodeIds(ids)
+        get()._sync()
+        _liveLayout?.invalidate()
+        get().pushNotification(
+          `Moved ${nodes.length} ${nodes.length === 1 ? 'node' : 'nodes'} into ${newParentLabel}.`,
+          'info',
+        )
       },
 
       // ── views ────────────────────────────────────────────────────────────
@@ -860,15 +1809,18 @@ export const useDiagramStore = create<DiagramStore>()(
         return id
       },
       removeView(id) {
+        let positionsRestored = false
         set((state) => {
           delete state.views[id]
           if (state.activeViewId === id) {
             // Restore default positions before switching away
             applyPositions(state.c4Nodes as Record<string, C4Node>, state.defaultPositions as Record<string, NodePosition>)
             state.activeViewId = null
+            positionsRestored = true
           }
         })
         get()._sync()
+        if (positionsRestored) _liveLayout?.reset()
       },
       renameView(id, name) {
         set((state) => {
@@ -881,24 +1833,35 @@ export const useDiagramStore = create<DiagramStore>()(
 
         // 1. Snapshot current positions from c4Nodes
         const currentPos = snapshotPositions(c4Nodes)
+        // 1b. Snapshot current camera (pan + zoom). Canvas keeps this fresh
+        //     in window.__rfCurrentViewport via React Flow's onMove handler.
+        const rawVP = (window as any).__rfCurrentViewport
+        const currentViewport: { x: number; y: number; zoom: number } | null = rawVP
+          ? { x: rawVP.x, y: rawVP.y, zoom: rawVP.zoom }
+          : null
 
         set((state) => {
           // 2. Save to outgoing context
           if (activeViewId === null) {
             state.defaultPositions = currentPos as any
+            if (currentViewport) state.defaultViewport = currentViewport
           } else if (state.views[activeViewId]) {
             state.views[activeViewId].positions = currentPos as any
+            if (currentViewport) state.views[activeViewId].viewport = currentViewport
           }
 
           // 3. Load from incoming context
           let incoming: Record<string, NodePosition> | undefined
+          let incomingViewport: { x: number; y: number; zoom: number } | null = null
           if (newId === null) {
             incoming = state.defaultPositions as Record<string, NodePosition>
+            incomingViewport = state.defaultViewport as typeof incomingViewport
           } else {
             const view = state.views[newId]
             if (view && Object.keys(view.positions).length > 0) {
               incoming = view.positions as Record<string, NodePosition>
             }
+            if (view?.viewport) incomingViewport = view.viewport
             // New view with no positions yet → keep current positions
           }
 
@@ -907,8 +1870,28 @@ export const useDiagramStore = create<DiagramStore>()(
           }
 
           state.activeViewId = newId
+          // Stash for the post-set effect below; we apply the viewport AFTER
+          // _sync() so React Flow has already re-rendered nodes.
+          ;(state as any).__pendingViewport = incomingViewport
         })
         get()._sync()
+        // Apply restored camera. Defer so React Flow finishes rendering the
+        // newly-positioned nodes before we move the viewport.
+        const pending = (get() as any).__pendingViewport as
+          | { x: number; y: number; zoom: number }
+          | null
+        if (pending) {
+          requestAnimationFrame(() => {
+            const setVP = (window as any).__rfSetViewport as
+              | ((vp: { x: number; y: number; zoom: number }, opts?: { duration?: number }) => void)
+              | null
+            setVP?.(pending, { duration: 250 })
+          })
+        }
+        set((state) => { delete (state as any).__pendingViewport })
+        // Drop cola's cached positions so the live layout doesn't immediately
+        // overwrite the just-restored coordinates with stale ones.
+        _liveLayout?.reset()
       },
       addNodeToView(viewId, nodeId) {
         set((state) => {
@@ -924,20 +1907,71 @@ export const useDiagramStore = create<DiagramStore>()(
         })
         get()._sync()
       },
+      hideRelationFromView(viewId, relationId) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          if (!view.hiddenRelationIds) view.hiddenRelationIds = []
+          if (!view.hiddenRelationIds.includes(relationId)) {
+            view.hiddenRelationIds.push(relationId)
+          }
+        })
+        get()._sync()
+      },
+      unhideRelationInView(viewId, relationId) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view || !view.hiddenRelationIds) return
+          view.hiddenRelationIds = view.hiddenRelationIds.filter((id) => id !== relationId)
+        })
+        get()._sync()
+      },
 
       // ── React Flow sync ──────────────────────────────────────────────────
       onNodesChange(changes) {
+        // Intercept Delete-key removals — show a confirmation prompt instead
+        // of silently dropping nodes from the canvas (which previously left
+        // them in the model and out-of-sync with rfNodes).
+        const removals = changes.filter((c) => c.type === 'remove') as Array<{ type: 'remove'; id: string }>
+        if (removals.length > 0) {
+          const ids = removals.map((c) => c.id)
+          set((state) => {
+            const prev = state.pendingDelete ?? { nodeIds: [], edgeIds: [] }
+            state.pendingDelete = {
+              nodeIds: Array.from(new Set([...prev.nodeIds, ...ids])),
+              edgeIds: prev.edgeIds,
+            }
+          })
+        }
+        const passthrough = changes.filter((c) => c.type !== 'remove')
         set((state) => {
           // During live layout, Cola controls non-dragged node positions.
           // But we MUST let ReactFlow's own drag position changes through
           // so the user sees immediate feedback (no 1-frame delay via Cola).
           // Filter out dimension changes from Cola — rfNodes get those via applyPositions.
           const effectiveChanges = state.liveLayoutActive
-            ? changes.filter((c) => c.type !== 'dimensions')
-            : changes
+            ? passthrough.filter((c) => c.type !== 'dimensions')
+            : passthrough
           state.rfNodes = applyNodeChanges(effectiveChanges, state.rfNodes) as any
 
-          for (const change of changes) {
+          // Track multi-selection driven by ReactFlow (shift/cmd-click,
+          // selection box). We rebuild selectedNodeIds from the current
+          // rfNodes' selected flag so it reflects the true UI state.
+          const hasSelectChange = passthrough.some(c => c.type === 'select')
+          if (hasSelectChange) {
+            const ids: string[] = []
+            for (const rn of state.rfNodes) {
+              if ((rn as any).selected) ids.push(rn.id)
+            }
+            state.selectedNodeIds = ids
+            state.selectedNodeId = ids[0] ?? state.selectedNodeId
+            // Compatibility with single-select consumers: when nothing is
+            // selected on canvas, also clear the primary id.
+            if (ids.length === 0) state.selectedNodeId = null
+            if (ids.length > 0) state.selectedEdgeId = null
+          }
+
+          for (const change of passthrough) {
             if (change.type === 'select' && change.id) {
               if (change.selected) state.selectedNodeId = change.id
             }
@@ -946,14 +1980,52 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       onEdgesChange(changes) {
+        const removals = changes.filter((c) => c.type === 'remove') as Array<{ type: 'remove'; id: string }>
+        if (removals.length > 0) {
+          const ids = removals.map((c) => c.id)
+          set((state) => {
+            const prev = state.pendingDelete ?? { nodeIds: [], edgeIds: [] }
+            state.pendingDelete = {
+              nodeIds: prev.nodeIds,
+              edgeIds: Array.from(new Set([...prev.edgeIds, ...ids])),
+            }
+          })
+        }
+        const passthrough = changes.filter((c) => c.type !== 'remove')
         set((state) => {
-          state.rfEdges = applyEdgeChanges(changes, state.rfEdges) as any
-          for (const change of changes) {
+          state.rfEdges = applyEdgeChanges(passthrough, state.rfEdges) as any
+          for (const change of passthrough) {
             if (change.type === 'select' && change.id && change.selected) {
               state.selectedEdgeId = change.id
             }
           }
         })
+      },
+
+      resolvePendingDelete(action) {
+        const pending = get().pendingDelete
+        if (!pending) return
+        // Always clear pending first so the modal closes immediately.
+        set((state) => { state.pendingDelete = null })
+        if (action === 'cancel') return
+
+        const { nodeIds, edgeIds } = pending
+        if (action === 'view') {
+          const viewId = get().activeViewId
+          if (viewId) {
+            // Hide nodes from the active view only. Edges follow their
+            // endpoints, so we don't need a separate edge-hide step.
+            for (const id of nodeIds) get().removeNodeFromView(viewId, id)
+          } else {
+            // No active view → fall back to model deletion.
+            for (const id of nodeIds) get().removeNode(id)
+            for (const id of edgeIds) get().removeRelation(id)
+          }
+          return
+        }
+        // action === 'model'
+        for (const id of nodeIds) get().removeNode(id)
+        for (const id of edgeIds) get().removeRelation(id)
       },
 
       resolveOverlaps(draggedId) {
@@ -1054,6 +2126,7 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       async runElkLayout() {
+        if (get().appMode !== 'designer') return
         set((state) => { state.isLayoutRunning = true })
         try {
           const state = get()
@@ -1113,6 +2186,7 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       runColaLayout() {
+        if (get().appMode !== 'designer') return
         set((state) => { state.isLayoutRunning = true })
         try {
           const state = get()
@@ -1154,6 +2228,7 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       runRadicalLayout() {
+        if (get().appMode !== 'designer') return
         set((state) => { state.isLayoutRunning = true })
         try {
           const state = get()
@@ -1214,6 +2289,7 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       runReferenceLayout() {
+        if (get().appMode !== 'designer') return
         set((state) => { state.isLayoutRunning = true })
         try {
           const state = get()
@@ -1239,12 +2315,103 @@ export const useDiagramStore = create<DiagramStore>()(
         }
       },
 
+      async runSmartLayout() {
+        if (get().appMode !== 'designer') return
+        set((state) => { state.isLayoutRunning = true })
+        try {
+          const state = get()
+          const view = state.activeViewId ? state.views[state.activeViewId] : undefined
+          const vf = computeViewNodeSet(view, state.c4Nodes)
+          const vcs = computeViewCollapsedSet(vf, state.c4Nodes)
+          const { nodes: c4Nodes, relations: c4Relations } = filterForView(state.c4Nodes, state.c4Relations, vf, vcs)
+          const result = await runSmartLayout(c4Nodes, c4Relations, state.metamodel as Metamodel | undefined)
+          if (result.candidates.length === 0) {
+            get().pushNotification('Smart layout: no candidate produced a result.', 'warning')
+            return
+          }
+          set((state) => {
+            for (const [id, pos] of Object.entries(result.winner.positions)) {
+              const node = state.c4Nodes[id]
+              if (!node) continue
+              node.x = pos.x
+              node.y = pos.y
+              if (pos.width)  node.width  = pos.width
+              if (pos.height) node.height = pos.height
+            }
+          })
+          get()._resizeParentsBottomUp(vf, vcs)
+
+          // Final collision-safety pass at root level (same as ELK/Radical paths).
+          const { nodes: safetyNodes } = filterForView(get().c4Nodes, get().c4Relations, vf, vcs)
+          const rootIds = Object.values(safetyNodes)
+            .filter((n) => !n.parentId)
+            .map((n) => n.id)
+          for (const id of rootIds) {
+            const updates = separateSiblings(id, safetyNodes)
+            if (Object.keys(updates).length > 0) {
+              set((state) => {
+                for (const [sid, pos] of Object.entries(updates)) {
+                  const n = state.c4Nodes[sid]
+                  if (n) { n.x = pos.x; n.y = pos.y }
+                }
+              })
+            }
+          }
+          get()._sync()
+
+          // Drop cola caches so the live layout doesn't snap nodes back to
+          // their pre-smart positions on the next rebuild.
+          _liveLayout?.reset()
+
+          // Friendly summary so the user sees what happened.
+          const before = result.baseline
+          const after = result.winner.metrics
+          const pct = before.weightedCost > 0
+            ? Math.max(0, Math.round((1 - after.weightedCost / before.weightedCost) * 100))
+            : 0
+          const planarTag = result.planarity.verdict === 'planar'
+            ? 'planar ✓'
+            : `${Math.round((1 - result.planarity.ratio) * 100)}% planar`
+          const arrow = '\u2009\u2192\u2009'
+          const msg = before.weightedCost === 0
+            ? `Smart layout: ${result.winner.name} — ${after.crossings} crossings, ${after.overdraws} overdraws · ${planarTag}.`
+            : `Smart layout: ${result.winner.name} — crossings ${before.crossings}${arrow}${after.crossings}, overdraws ${before.overdraws}${arrow}${after.overdraws} (${pct}% better) · ${planarTag}.`
+          get().pushNotification(msg, 'info')
+          // Console breadcrumb with full ranking + SA stats — useful for tuning.
+          console.info(
+            '[smartLayout]', result.winner.name,
+            'crossings', after.crossings, 'overdraws', after.overdraws,
+            '· SA', result.refinement.before.toFixed(0), arrow, result.refinement.after.toFixed(0),
+            `(${result.refinement.iterations} iters)`,
+            '· planarity', result.planarity.verdict, `(${result.planarity.crossingEdges}/${result.planarity.totalEdges})`,
+            '· winner score', result.winner.score,
+            '· ranking:', result.candidates.map((c) =>
+              `${c.name} [composite=${c.score.composite.toFixed(0)} cross=${c.metrics.crossings}(rend${c.score.renderedCrossings}) over=${c.metrics.overdraws}(rend${c.score.renderedOverdraws}) loop=${c.score.stubLoopPenalty.toFixed(2)} olap=${c.score.nodeOverlap.toFixed(1)} long=${c.score.edgeLengthExcess.toFixed(1)} lmean=${c.score.edgeLengthMean.toFixed(2)} leaf=${c.score.leafCentrality.toFixed(2)} ar=${c.score.aspectPenalty.toFixed(2)} sym=${c.score.symmetryDeficit.toFixed(2)}]`,
+            ).join(' | '),
+          )
+        } catch (err) {
+          console.error('[smartLayout] failed:', err)
+          get().pushNotification('Smart layout failed — see console.', 'error')
+        } finally {
+          set((state) => { state.isLayoutRunning = false })
+        }
+      },
+
       setLayoutMode(mode) {
         set((state) => { state.layoutMode = mode })
       },
 
       startLiveLayout() {
         if (_liveLayout?.running) return
+        // Reuse existing instance if present so its _bulkDone flag persists
+        // across pause/resume cycles (mode switches, presentation exit).
+        // Re-creating would always do a full bulk re-arrange and visibly
+        // shift the diagram.
+        if (_liveLayout) {
+          _liveLayout.start()
+          set((state) => { state.liveLayoutActive = true })
+          return
+        }
         _liveLayout = new LiveColaLayout({
           getModel: () => {
             const state = get()
@@ -1300,10 +2467,11 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       stopLiveLayout() {
-        if (_liveLayout) {
-          _liveLayout.stop()
-          _liveLayout = null
-        }
+        // Keep the LiveColaLayout instance around so a subsequent
+        // startLiveLayout() doesn't redo the heavy first-time bulk
+        // arrangement (which would shift every node from its current
+        // position). The instance internally tracks _bulkDone.
+        _liveLayout?.stop()
         set((state) => { state.liveLayoutActive = false })
       },
 
@@ -1317,6 +2485,11 @@ export const useDiagramStore = create<DiagramStore>()(
 
       liveRelease(nodeId) {
         _liveLayout?.release(nodeId)
+        // A drag while editing a milestone is a real edit too — mark dirty
+        // so the user is asked how to persist it (propagate / save as new).
+        // Without this, positions never make it into the snapshot and switching
+        // milestones reverts the move.
+        get()._markMilestoneEdit()
       },
 
       setConnectionModifier(mod) {
@@ -1344,7 +2517,7 @@ export const useDiagramStore = create<DiagramStore>()(
           state.canRedo = true
         })
         get()._sync()
-        _liveLayout?.invalidate()
+        _liveLayout?.reset()
       },
 
       redo() {
@@ -1359,7 +2532,7 @@ export const useDiagramStore = create<DiagramStore>()(
           state.canRedo = _redoStack.length > 0
         })
         get()._sync()
-        _liveLayout?.invalidate()
+        _liveLayout?.reset()
       },
 
       // ── snapshots (versions) ────────────────────────────────────────────
@@ -1385,21 +2558,664 @@ export const useDiagramStore = create<DiagramStore>()(
           state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
           state.canUndo = _undoStack.length > 0
           state.canRedo = _redoStack.length > 0
+          state.activeSnapshotId = id
         })
         get()._sync()
-        _liveLayout?.invalidate()
+        _liveLayout?.reset()
       },
 
       removeSnapshot(id) {
         set((state) => {
           state.snapshots = state.snapshots.filter(s => s.id !== id) as any
+          if (state.activeSnapshotId === id) {
+            // If the active milestone is being deleted, restore live and clear flags.
+            if (state.liveBackup) {
+              state.c4Nodes = JSON.parse(JSON.stringify(state.liveBackup.nodes)) as any
+              state.c4Relations = JSON.parse(JSON.stringify(state.liveBackup.relations)) as any
+            }
+            state.activeSnapshotId = null
+            state.liveBackup = null
+            state.milestoneDirty = false
+            state.milestonePromptOpen = false
+            state.diffHighlight = {} as any
+            state.diffBaseSnapshotId = null
+            state.diffGhostNodes = {} as any
+            state.diffGhostRelations = {} as any
+          }
         })
+        get()._sync()
+        _liveLayout?.reset()
       },
 
       renameSnapshot(id, name) {
         set((state) => {
           const snap = state.snapshots.find(s => s.id === id)
           if (snap) snap.name = name
+        })
+      },
+
+      // ── Milestone editing workflow ───────────────────────────────────────
+      selectMilestone(id) {
+        const { snapshots, activeSnapshotId, milestoneDirty, c4Nodes, c4Relations } = get()
+        // If selecting the already-active milestone, just close any open prompt.
+        if (activeSnapshotId === id) {
+          set((state) => { state.milestonePromptOpen = false })
+          return
+        }
+        // Block switching with unsaved milestone edits — user must commit/discard first.
+        if (activeSnapshotId && milestoneDirty) {
+          set((state) => { state.milestonePromptOpen = true })
+          return
+        }
+        const snap = snapshots.find(s => s.id === id)
+        if (!snap) return
+        // Backup live HEAD if we don't already have one.
+        const backup = activeSnapshotId
+          ? get().liveBackup
+          : { nodes: JSON.parse(JSON.stringify(c4Nodes)), relations: JSON.parse(JSON.stringify(c4Relations)) }
+        // Compute diff vs previous milestone (or vs live HEAD if it's the first one)
+        // so the user can see what changed at this point in time.
+        const idx = snapshots.findIndex(s => s.id === id)
+        const prev = idx > 0 ? snapshots[idx - 1] : null
+        const baseNodes = prev
+          ? (prev.nodes as Record<string, C4Node>)
+          : (backup!.nodes as Record<string, C4Node>)
+        const baseRels = prev
+          ? (prev.relations as Record<string, C4Relation>)
+          : (backup!.relations as Record<string, C4Relation>)
+        const diff = computeSnapDiff(
+          baseNodes,
+          snap.nodes as Record<string, C4Node>,
+          baseRels,
+          snap.relations as Record<string, C4Relation>,
+        )
+        const ghosts = computeDiffGhosts(
+          baseNodes,
+          snap.nodes as Record<string, C4Node>,
+          baseRels,
+          snap.relations as Record<string, C4Relation>,
+        )
+        _pushUndo(get())
+        set((state) => {
+          state.c4Nodes = JSON.parse(JSON.stringify(snap.nodes)) as any
+          state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
+          state.activeSnapshotId = id
+          state.liveBackup = backup as any
+          state.milestoneDirty = false
+          state.milestonePromptOpen = false
+          state.diffHighlight = diff as any
+          state.diffBaseSnapshotId = prev ? prev.id : null
+          state.diffGhostNodes = ghosts.nodes as any
+          state.diffGhostRelations = ghosts.relations as any
+          state.canUndo = _undoStack.length > 0
+          state.canRedo = _redoStack.length > 0
+        })
+        get()._sync()
+        // Reseed cola from the freshly-loaded milestone positions so the
+        // live layout continues from there (instead of carrying over the
+        // previous canvas's cached coords). Physics keeps running so the
+        // user can still drag / nudge nodes around on the milestone.
+        _liveLayout?.reset()
+      },
+
+      dismissMilestonePrompt() {
+        set((state) => { state.milestonePromptOpen = false })
+      },
+
+      discardMilestoneChanges() {
+        const { liveBackup } = get()
+        set((state) => {
+          if (state.liveBackup) {
+            state.c4Nodes = JSON.parse(JSON.stringify(state.liveBackup.nodes)) as any
+            state.c4Relations = JSON.parse(JSON.stringify(state.liveBackup.relations)) as any
+          }
+          state.activeSnapshotId = null
+          state.liveBackup = null
+          state.milestoneDirty = false
+          state.milestonePromptOpen = false
+          state.diffHighlight = {} as any
+          state.diffBaseSnapshotId = null
+          state.diffGhostNodes = {} as any
+          state.diffGhostRelations = {} as any
+        })
+        get()._sync()
+        _liveLayout?.reset()
+        void liveBackup
+      },
+
+      commitMilestoneChanges(mode, newName) {
+        const { activeSnapshotId, snapshots, c4Nodes, c4Relations, liveBackup } = get()
+        if (!activeSnapshotId) return
+        const idx = snapshots.findIndex(s => s.id === activeSnapshotId)
+        if (idx < 0) return
+
+        // Deep clones of the current (edited) canvas state.
+        const editedNodes: Record<string, C4Node> = JSON.parse(JSON.stringify(c4Nodes))
+        const editedRels: Record<string, C4Relation> = JSON.parse(JSON.stringify(c4Relations))
+        // Snapshot of the milestone BEFORE edits — used to compute the diff.
+        const baseSnap = snapshots[idx]
+        const baseNodes = baseSnap.nodes as Record<string, C4Node>
+        const baseRels = baseSnap.relations as Record<string, C4Relation>
+
+        if (mode === 'new') {
+          // Insert a new milestone immediately after the active one with the edited state.
+          const newId = uid()
+          const namePrefix = newName?.trim() || `${baseSnap.name} (edited)`
+          const newSnap: DiagramSnapshot = {
+            id: newId,
+            name: namePrefix,
+            timestamp: Date.now(),
+            nodes: editedNodes,
+            relations: editedRels,
+          }
+          set((state) => {
+            state.snapshots.splice(idx + 1, 0, newSnap as any)
+            // Stay viewing the freshly-created milestone (canvas already shows its content).
+            // liveBackup is preserved so the user can still discard back to live HEAD.
+            state.activeSnapshotId = newId
+            state.milestoneDirty = false
+            state.milestonePromptOpen = false
+          })
+          get()._sync()
+          _liveLayout?.reset()
+          void liveBackup
+          return
+        }
+
+        // mode === 'propagate':
+        // Compute element-level diff: added / removed / per-field updated.
+        const addedNodes: C4Node[] = []
+        const updatedNodes: { id: string; updates: Partial<C4Node> }[] = []
+        const removedNodeIds: string[] = []
+        for (const id of Object.keys(editedNodes)) {
+          if (!baseNodes[id]) {
+            addedNodes.push(editedNodes[id])
+          } else {
+            const before = baseNodes[id]
+            const after = editedNodes[id]
+            const updates: Partial<C4Node> = {}
+            for (const k of ['label', 'description', 'technology', 'type', 'parentId', 'external', 'x', 'y', 'width', 'height', 'collapsed'] as const) {
+              if ((before as any)[k] !== (after as any)[k]) (updates as any)[k] = (after as any)[k]
+            }
+            if (Object.keys(updates).length > 0) updatedNodes.push({ id, updates })
+          }
+        }
+        for (const id of Object.keys(baseNodes)) {
+          if (!editedNodes[id]) removedNodeIds.push(id)
+        }
+
+        const addedRels: C4Relation[] = []
+        const updatedRels: { id: string; updates: Partial<C4Relation> }[] = []
+        const removedRelIds: string[] = []
+        for (const id of Object.keys(editedRels)) {
+          if (!baseRels[id]) {
+            addedRels.push(editedRels[id])
+          } else {
+            const before = baseRels[id]
+            const after = editedRels[id]
+            const updates: Partial<C4Relation> = {}
+            for (const k of ['sourceId', 'targetId', 'label', 'technology'] as const) {
+              if ((before as any)[k] !== (after as any)[k]) (updates as any)[k] = (after as any)[k]
+            }
+            if (Object.keys(updates).length > 0) updatedRels.push({ id, updates })
+          }
+        }
+        for (const id of Object.keys(baseRels)) {
+          if (!editedRels[id]) removedRelIds.push(id)
+        }
+
+        // Apply diff to active milestone + every later milestone + live HEAD backup.
+        const applyDiff = (
+          targetNodes: Record<string, C4Node>,
+          targetRels: Record<string, C4Relation>,
+        ) => {
+          for (const n of addedNodes) targetNodes[n.id] = JSON.parse(JSON.stringify(n))
+          for (const { id, updates } of updatedNodes) {
+            if (targetNodes[id]) Object.assign(targetNodes[id], updates)
+          }
+          for (const id of removedNodeIds) delete targetNodes[id]
+          for (const r of addedRels) targetRels[r.id] = JSON.parse(JSON.stringify(r))
+          for (const { id, updates } of updatedRels) {
+            if (targetRels[id]) Object.assign(targetRels[id], updates)
+          }
+          for (const id of removedRelIds) delete targetRels[id]
+        }
+
+        set((state) => {
+          // Apply to active milestone (overwrite to be exact) and to all later milestones (diff).
+          for (let i = idx; i < state.snapshots.length; i++) {
+            const snap = state.snapshots[i] as any
+            if (i === idx) {
+              snap.nodes = JSON.parse(JSON.stringify(editedNodes))
+              snap.relations = JSON.parse(JSON.stringify(editedRels))
+            } else {
+              applyDiff(snap.nodes, snap.relations)
+            }
+          }
+          // Apply to the live HEAD backup so it picks up future-facing changes too,
+          // but DO NOT swap the canvas to live HEAD — keep showing the milestone the
+          // user just edited (otherwise the canvas appears to "jump back" to current).
+          if (state.liveBackup) {
+            applyDiff(state.liveBackup.nodes as any, state.liveBackup.relations as any)
+          }
+          state.milestoneDirty = false
+          state.milestonePromptOpen = false
+          // Keep activeSnapshotId + liveBackup so user can still discard / switch later.
+        })
+        get()._sync()
+        _liveLayout?.reset()
+      },
+
+      setDiffHighlight(diff) {
+        set((state) => { state.diffHighlight = diff as any })
+      },
+
+      /** Set (or clear) the milestone used as the diff base. Pass `null` to
+       *  return to the auto pick (the milestone immediately before the
+       *  active one). Recomputes `diffHighlight` and ghost overlays. */
+      setDiffBase(id) {
+        const { activeSnapshotId, snapshots, c4Nodes, c4Relations, liveBackup } = get()
+        if (!activeSnapshotId) return
+        const idx = snapshots.findIndex(s => s.id === activeSnapshotId)
+        if (idx < 0) return
+        // Resolve effective base: explicit id > previous > liveBackup HEAD.
+        let baseNodes: Record<string, C4Node>
+        let baseRels: Record<string, C4Relation>
+        let resolvedBaseId: string | null = null
+        if (id) {
+          const baseSnap = snapshots.find(s => s.id === id)
+          if (!baseSnap) return
+          baseNodes = baseSnap.nodes as Record<string, C4Node>
+          baseRels = baseSnap.relations as Record<string, C4Relation>
+          resolvedBaseId = id
+        } else if (idx > 0) {
+          const prev = snapshots[idx - 1]
+          baseNodes = prev.nodes as Record<string, C4Node>
+          baseRels = prev.relations as Record<string, C4Relation>
+          resolvedBaseId = prev.id
+        } else if (liveBackup) {
+          baseNodes = liveBackup.nodes as Record<string, C4Node>
+          baseRels = liveBackup.relations as Record<string, C4Relation>
+          resolvedBaseId = null
+        } else {
+          // No base available — nothing to diff against; clear overlays.
+          set((state) => {
+            state.diffHighlight = {} as any
+            state.diffBaseSnapshotId = null
+            state.diffGhostNodes = {} as any
+            state.diffGhostRelations = {} as any
+          })
+          get()._sync()
+          return
+        }
+        const diff = computeSnapDiff(baseNodes, c4Nodes as Record<string, C4Node>, baseRels, c4Relations as Record<string, C4Relation>)
+        const ghosts = computeDiffGhosts(baseNodes, c4Nodes as Record<string, C4Node>, baseRels, c4Relations as Record<string, C4Relation>)
+        set((state) => {
+          state.diffHighlight = diff as any
+          state.diffBaseSnapshotId = resolvedBaseId
+          state.diffGhostNodes = ghosts.nodes as any
+          state.diffGhostRelations = ghosts.relations as any
+        })
+        get()._sync()
+      },
+
+      // ── Notifications (toasts) ─────────────────────────────────────
+      pushNotification(message, severity = 'error') {
+        const id = uid()
+        set((state) => {
+          state.notifications.push({ id, severity, message, ts: Date.now() })
+        })
+        // Auto-dismiss is handled by the toast component (so it can pause
+        // on hover and play a leave animation before removal).
+      },
+
+      dismissNotification(id) {
+        set((state) => {
+          state.notifications = state.notifications.filter(n => n.id !== id)
+        })
+      },
+
+      // ── App mode ─────────────────────────────────────────────────────
+      setAppMode(mode) {
+        // Skip if mode hasn't actually changed — avoids needless physics
+        // restarts that visibly fight an active auto-fit loop.
+        const prevMode = get().appMode
+        if (prevMode === mode) return
+        if (get().presentationActive) {
+          // stopPresentation will restore __prePresState; let it run first
+          // so the layout snapshot we take below is the user's true layout,
+          // not whatever slide was being shown.
+          get().stopPresentation()
+        }
+        // Snapshot positions whenever we leave designer so any
+        // viewer/presenter side-effects (slide playback, future readers)
+        // can't perturb the saved layout. Restore on the way back.
+        //
+        // We snapshot c4Nodes AND every view.positions / defaultPositions
+        // because the auto-persist subscriber writes currentPos into the
+        // active view's `positions` on every save — so even though cola is
+        // stopped in read-only modes, a save tick during the read-only
+        // window could capture mid-frame coordinates and overwrite the
+        // user's curated view layout. Restoring the maps as a whole guards
+        // against that and keeps named views as stable as the "All
+        // elements" view (which writes to defaultPositions instead).
+        const W = window as any
+        if (prevMode === 'designer' && mode !== 'designer') {
+          W.__preModeLayout = {
+            c4Nodes: JSON.parse(JSON.stringify(get().c4Nodes)),
+            c4Relations: JSON.parse(JSON.stringify(get().c4Relations)),
+            views: JSON.parse(JSON.stringify(get().views)),
+            defaultPositions: JSON.parse(JSON.stringify(get().defaultPositions)),
+            activeViewId: get().activeViewId,
+          }
+        } else if (prevMode !== 'designer' && mode === 'designer' && W.__preModeLayout) {
+          const pre = W.__preModeLayout as {
+            c4Nodes: Record<string, C4Node>
+            c4Relations: Record<string, C4Relation>
+            views: Record<string, DiagramView>
+            defaultPositions: Record<string, NodePosition>
+            activeViewId: string | null
+          }
+          set((state) => {
+            state.c4Nodes = pre.c4Nodes as any
+            state.c4Relations = pre.c4Relations as any
+            state.views = pre.views as any
+            state.defaultPositions = pre.defaultPositions as any
+            state.activeViewId = pre.activeViewId
+          })
+          W.__preModeLayout = undefined
+          // NOTE: do NOT call _liveLayout.reset() here. Cola's internal
+          // colaNodes/prevPos cache mirrors the very c4Nodes coordinates we
+          // just restored (cola was stopped in read-only mode, so neither
+          // c4Nodes nor cola moved). Wiping the cache would force the next
+          // rebuild to re-seed from c4Nodes via toAbsoluteTopLeft and lose
+          // cola's settled centres — visibly re-equilibrating the layout,
+          // which is exactly the "rozsypanie" the user reports inside
+          // custom views.
+        }
+        if (mode === 'designer') {
+          // Restart physics when going back to designer (other modes are read-only)
+          get().startLiveLayout()
+        } else {
+          get().stopLiveLayout()
+        }
+        set((state) => { state.appMode = mode as any })
+        // Rebuild rfNodes so per-node draggable/selectable flags reflect
+        // the new mode (designer = editable, viewer/presenter = locked).
+        get()._sync()
+      },
+
+      // ── Metamodel ──────────────────────────────────────────────────────
+      setMetamodel(m) {
+        set((state) => { state.metamodel = m as any })
+      },
+      resetMetamodelToC4() {
+        set((state) => { state.metamodel = builtInC4Metamodel() as any })
+      },
+      upsertNodeType(def) {
+        set((state) => {
+          (state.metamodel as Metamodel).nodeTypes[def.id] = def
+        })
+      },
+      removeNodeType(id) {
+        set((state) => {
+          const mm = state.metamodel as Metamodel
+          if (mm.nodeTypes[id]?.builtin) return
+          delete mm.nodeTypes[id]
+        })
+      },
+      upsertRelationType(def) {
+        set((state) => {
+          (state.metamodel as Metamodel).relationTypes[def.id] = def
+        })
+      },
+      removeRelationType(id) {
+        set((state) => {
+          const mm = state.metamodel as Metamodel
+          if (mm.relationTypes[id]?.builtin) return
+          delete mm.relationTypes[id]
+        })
+      },
+
+      // ── Presentation mode ──────────────────────────────────────────────
+      addPresentation(name) {
+        const id = uid()
+        const presName = name ?? `Presentation ${get().presentations.length + 1}`
+        set((state) => {
+          state.presentations.push({ id, name: presName, slides: [] })
+          state.activePresentationId = id
+          state.presentationSlides = state.presentations[state.presentations.length - 1].slides
+          state.presentationSlideIndex = 0
+        })
+        return id
+      },
+
+      removePresentation(id) {
+        set((state) => {
+          state.presentations = state.presentations.filter(p => p.id !== id)
+          // Always keep at least one presentation
+          if (state.presentations.length === 0) {
+            const newId = uid()
+            state.presentations.push({ id: newId, name: 'Presentation 1', slides: [] })
+            state.activePresentationId = newId
+          } else if (state.activePresentationId === id) {
+            state.activePresentationId = state.presentations[0].id
+          }
+          const active = state.presentations.find(p => p.id === state.activePresentationId)!
+          state.presentationSlides = active.slides
+          state.presentationSlideIndex = 0
+        })
+      },
+
+      renamePresentation(id, name) {
+        set((state) => {
+          const p = state.presentations.find(p => p.id === id)
+          if (p) p.name = name
+        })
+      },
+
+      setActivePresentation(id) {
+        set((state) => {
+          const p = state.presentations.find(p => p.id === id)
+          if (!p) return
+          state.activePresentationId = id
+          state.presentationSlides = p.slides
+          state.presentationSlideIndex = 0
+        })
+      },
+
+      addPresentationSlide(name) {
+        const raw = (window as any).__rfCurrentViewport
+        const viewport: { x: number; y: number; zoom: number } = raw
+          ? { x: raw.x, y: raw.y, zoom: raw.zoom }
+          : (_getViewportFn()?.() ?? { x: 0, y: 0, zoom: 1 })
+        const { presentationSlides, activeSnapshotId, activeViewId } = get()
+        const canvasState = captureCanvasState(get().c4Nodes as Record<string, C4Node>)
+        const id = uid()
+        const slideName = name ?? `Slide ${presentationSlides.length + 1}`
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          pres.slides.push({ id, name: slideName, snapshotId: activeSnapshotId, viewId: activeViewId, viewport, canvasState } as any)
+          state.presentationSlides = pres.slides
+        })
+      },
+
+      removePresentationSlide(id) {
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          pres.slides = pres.slides.filter(s => s.id !== id)
+          state.presentationSlides = pres.slides
+          if (state.presentationSlideIndex >= pres.slides.length) {
+            state.presentationSlideIndex = Math.max(0, pres.slides.length - 1)
+          }
+        })
+      },
+
+      renamePresentationSlide(id, name) {
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          const slide = pres.slides.find(s => s.id === id)
+          if (slide) slide.name = name
+          state.presentationSlides = pres.slides
+        })
+      },
+
+      updatePresentationSlideViewport(id, vp) {
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          const slide = pres.slides.find(s => s.id === id)
+          if (slide) slide.viewport = vp
+          state.presentationSlides = pres.slides
+        })
+      },
+
+      startPresentation() {
+        const { presentationSlides } = get()
+        if (presentationSlides.length === 0) return
+        get().stopLiveLayout()
+        // Snapshot full model + active view so we can restore on exit.
+        // (goToSlide replaces c4Nodes/c4Relations from a slide snapshot,
+        // so restoring just positions wouldn't be enough.)
+        ;(window as any).__prePresState = {
+          c4Nodes: JSON.parse(JSON.stringify(get().c4Nodes)),
+          c4Relations: JSON.parse(JSON.stringify(get().c4Relations)),
+          activeViewId: get().activeViewId,
+        }
+        set((state) => { state.presentationActive = true; state.presentationSlideIndex = 0 })
+        setTimeout(() => get().goToSlide(0), 50)
+      },
+
+      stopPresentation() {
+        set((state) => { state.presentationActive = false })
+        get().setDiffHighlight({})
+        const pre = (window as any).__prePresState as
+          | { c4Nodes: Record<string, C4Node>; c4Relations: Record<string, C4Relation>; activeViewId: string | null }
+          | undefined
+        if (pre) {
+          set((state) => {
+            state.c4Nodes = pre.c4Nodes as any
+            state.c4Relations = pre.c4Relations as any
+            state.activeViewId = pre.activeViewId
+          })
+          ;(window as any).__prePresState = undefined
+        }
+        get()._sync()
+        // Resume live layout in designer (gentle rebuild — no bulk re-arrange
+        // because the LiveColaLayout instance is kept across stop/start).
+        if (get().appMode === 'designer') {
+          _liveLayout?.reset()
+          get().startLiveLayout()
+        }
+      },
+
+      goToSlide(index) {
+        const { presentationSlides } = get()
+        if (!presentationSlides.length) return
+        const i = Math.max(0, Math.min(index, presentationSlides.length - 1))
+        const slide = presentationSlides[i]
+        const targetViewId = (slide as any).viewId ?? null
+        set((state) => { state.presentationSlideIndex = i })
+
+        // Disable physics while presenting
+        get().stopLiveLayout()
+
+        // Restore snapshot (nodes + relations) if slide has one
+        if (slide.snapshotId) {
+          const snap = get().snapshots.find(s => s.id === slide.snapshotId)
+          if (snap) {
+            set((state) => {
+              state.c4Nodes = JSON.parse(JSON.stringify(snap.nodes)) as any
+              state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
+            })
+          }
+        }
+
+        // Apply saved canvas state (positions + collapsed) — overrides snapshot positions
+        if (slide.canvasState) {
+          set((state) => {
+            for (const [id, ns] of Object.entries(slide.canvasState!.nodes)) {
+              const n = state.c4Nodes[id]
+              if (!n) continue
+              n.x = ns.x; n.y = ns.y
+              n.width = ns.width; n.height = ns.height
+              n.collapsed = ns.collapsed
+            }
+          })
+        }
+
+        // Activate the view linked to this slide (or reset to "all" if none)
+        const currentViewId = get().activeViewId
+        if (targetViewId !== currentViewId) {
+          set((state) => { state.activeViewId = targetViewId })
+        }
+
+        // Re-derive rfNodes / rfEdges (always needed: view filter or canvas state may have changed)
+        get()._sync()
+
+        // Compute diff highlight between previous and current slide snapshots
+        {
+          const prevSlide = i > 0 ? presentationSlides[i - 1] : null
+          const currSnap = slide.snapshotId ? get().snapshots.find(s => s.id === slide.snapshotId) : null
+          const prevSnap = prevSlide?.snapshotId ? get().snapshots.find(s => s.id === prevSlide.snapshotId) : null
+          if (currSnap && prevSnap) {
+            get().setDiffHighlight(computeSnapDiff(prevSnap.nodes as Record<string, C4Node>, currSnap.nodes as Record<string, C4Node>, prevSnap.relations as Record<string, C4Relation>, currSnap.relations as Record<string, C4Relation>))
+          } else {
+            get().setDiffHighlight({})
+          }
+        }
+
+        // Animate viewport transition — defer to next frame so React re-render finishes first
+        const vp = { x: slide.viewport.x, y: slide.viewport.y, zoom: slide.viewport.zoom }
+        requestAnimationFrame(() => _setViewportFn()?.(vp, { duration: 600 }))
+      },
+
+      setViewportFns(getVP, setVP) {
+        ;(window as any).__rfGetViewport = getVP
+        ;(window as any).__rfSetViewport = setVP
+      },
+
+      captureSlideViewport(id: string) {
+        const raw = (window as any).__rfCurrentViewport
+        const vp: { x: number; y: number; zoom: number } | null = raw
+          ? { x: raw.x, y: raw.y, zoom: raw.zoom }
+          : (_getViewportFn()?.() ?? null)
+        if (!vp) return
+        const canvasState = captureCanvasState(get().c4Nodes as Record<string, C4Node>)
+        const currentViewId = get().activeViewId
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          const slide = pres.slides.find(s => s.id === id)
+          if (slide) {
+            slide.viewport = vp
+            ;(slide as any).canvasState = canvasState
+            ;(slide as any).viewId = currentViewId
+          }
+          state.presentationSlides = pres.slides
+        })
+      },
+
+      linkSnapshotToSlide(slideId: string, snapshotId: string | null) {
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          const slide = pres.slides.find(s => s.id === slideId)
+          if (slide) slide.snapshotId = snapshotId
+          state.presentationSlides = pres.slides
+        })
+      },
+
+      linkViewToSlide(slideId: string, viewId: string | null) {
+        set((state) => {
+          const pres = state.presentations.find(p => p.id === state.activePresentationId)
+          if (!pres) return
+          const slide = pres.slides.find(s => s.id === slideId)
+          if (slide) (slide as any).viewId = viewId
+          state.presentationSlides = pres.slides
         })
       },
 
@@ -1417,35 +3233,63 @@ export const useDiagramStore = create<DiagramStore>()(
 
         // Restore snapshots (backward compat: old files won't have them)
         const snapshots: DiagramSnapshot[] = data.snapshots ?? []
+        const presInit = buildPresentationsFromData(data.presentations, data.presentationSlides)
 
         // Restore per-view positions (backward compat: old files won't have them)
         const defaultPos = data.defaultPositions ?? snapshotPositions(nodes)
+        const defaultVP: { x: number; y: number; zoom: number } | null = data.defaultViewport ?? null
 
         set((state) => {
           state.c4Nodes = nodes as any
           state.c4Relations = relations as any
           state.views = views as any
           state.defaultPositions = defaultPos as any
+          state.defaultViewport = defaultVP
           state.activeViewId = null
           state.selectedNodeId = null
           state.selectedEdgeId = null
           state.canUndo = false
           state.canRedo = false
           state.snapshots = snapshots as any
+          state.activeSnapshotId = null
+          state.presentations = presInit.presentations as any
+          state.activePresentationId = presInit.activeId
+          state.presentationSlides = presInit.presentations[0].slides as any
+          state.presentationActive = false
+          state.presentationSlideIndex = 0
+          state.metamodel = ((data.metamodel && data.metamodel.id !== 'c4-builtin')
+            ? data.metamodel
+            : builtInC4Metamodel()) as any
         })
         get()._sync()
         get().startLiveLayout()
+        // Apply restored camera (loaded as activeViewId=null → default view).
+        if (defaultVP) {
+          requestAnimationFrame(() => {
+            const setVP = (window as any).__rfSetViewport as
+              | ((vp: { x: number; y: number; zoom: number }, opts?: { duration?: number }) => void)
+              | null
+            setVP?.(defaultVP, { duration: 0 })
+          })
+        }
       },
 
       saveDiagram() {
-        const { c4Nodes, c4Relations, views, activeViewId, defaultPositions, snapshots } = get()
+        const { c4Nodes, c4Relations, views, activeViewId, defaultPositions, defaultViewport, snapshots, presentations, metamodel } = get()
 
         // Snapshot current positions into the active context before saving
         const currentPos = snapshotPositions(c4Nodes)
         const savedDefaultPos = activeViewId === null ? currentPos : defaultPositions
+        // Same for camera state so on reload each view restores its framing.
+        const rawVP = (window as any).__rfCurrentViewport
+        const currentVP: { x: number; y: number; zoom: number } | null = rawVP
+          ? { x: rawVP.x, y: rawVP.y, zoom: rawVP.zoom }
+          : null
+        const savedDefaultVP = activeViewId === null ? (currentVP ?? defaultViewport) : defaultViewport
         const savedViews = Object.values(views).map(v => ({
           ...v,
           positions: v.id === activeViewId ? currentPos : v.positions,
+          viewport: v.id === activeViewId ? (currentVP ?? v.viewport) : v.viewport,
         }))
 
         return {
@@ -1453,7 +3297,10 @@ export const useDiagramStore = create<DiagramStore>()(
           relations: Object.values(c4Relations),
           views: savedViews,
           defaultPositions: savedDefaultPos,
+          defaultViewport: savedDefaultVP,
           snapshots: snapshots as DiagramSnapshot[],
+          presentations: presentations as Presentation[],
+          metamodel: metamodel as Metamodel,
         }
       },
 
@@ -1462,6 +3309,7 @@ export const useDiagramStore = create<DiagramStore>()(
         _undoStack.length = 0
         _redoStack.length = 0
         const sample = buildSampleDiagram()
+        const presInit = buildPresentationsFromData(undefined, [])
         set((state) => {
           state.c4Nodes = sample.nodes as any
           state.c4Relations = sample.relations as any
@@ -1472,7 +3320,18 @@ export const useDiagramStore = create<DiagramStore>()(
           state.selectedEdgeId = null
           state.canUndo = false
           state.canRedo = false
-          state.snapshots = [] as any
+          state.snapshots = sample.snapshots as any
+          state.activeSnapshotId = null
+          state.diffHighlight = {} as any
+          state.diffBaseSnapshotId = null
+          state.diffGhostNodes = {} as any
+          state.diffGhostRelations = {} as any
+          state.presentations = presInit.presentations as any
+          state.activePresentationId = presInit.activeId
+          state.presentationSlides = presInit.presentations[0].slides as any
+          state.presentationActive = false
+          state.presentationSlideIndex = 0
+          state.metamodel = builtInC4Metamodel() as any
         })
         get()._sync()
         get().startLiveLayout()
@@ -1482,6 +3341,7 @@ export const useDiagramStore = create<DiagramStore>()(
         get().stopLiveLayout()
         _undoStack.length = 0
         _redoStack.length = 0
+        const presInit = buildPresentationsFromData(undefined, [])
         set((state) => {
           state.c4Nodes = {}
           state.c4Relations = {}
@@ -1493,6 +3353,13 @@ export const useDiagramStore = create<DiagramStore>()(
           state.canUndo = false
           state.canRedo = false
           state.snapshots = [] as any
+          state.activeSnapshotId = null
+          state.presentations = presInit.presentations as any
+          state.activePresentationId = presInit.activeId
+          state.presentationSlides = presInit.presentations[0].slides as any
+          state.presentationActive = false
+          state.presentationSlideIndex = 0
+          state.metamodel = builtInC4Metamodel() as any
         })
         get()._sync()
         get().startLiveLayout()
@@ -1500,17 +3367,41 @@ export const useDiagramStore = create<DiagramStore>()(
 
       // ── viewport ────────────────────────────────────────────────────────
       setFitViewFn(fn, instantFn) {
-        _fitViewFn = fn
-        _fitViewInstantFn = instantFn ?? fn
-        // On HMR re-init, stop any stale auto-fit loop
-        const stale = _getAutoFitTimer()
-        if (stale !== null && !get().autoFitActive) {
-          clearInterval(stale)
-          _setAutoFitTimer(null)
+        _setFitViewFnRef(fn)
+        _setFitViewInstantFnRef(instantFn ?? fn)
+        // If autofit is currently on (e.g. survived HMR or appMode switch), the
+        // running interval might be referencing a dead closure from the previous
+        // ReactFlow instance. Restart it cleanly with the new fns.
+        if (get().autoFitActive) {
+          const stale = _getAutoFitTimer()
+          if (stale !== null) {
+            clearInterval(stale)
+            _setAutoFitTimer(null)
+          }
+          if (fn) {
+            // Animated re-fit so the user sees that autofit is still alive.
+            fn()
+            const t = setInterval(() => {
+              if (!get().autoFitActive) { clearInterval(t); _setAutoFitTimer(null); return }
+              if (get().presentationActive) return
+              _getFitViewInstantFn()?.()
+            }, 300)
+            _setAutoFitTimer(t)
+          }
+        } else {
+          // HMR cleanup: drop any orphan timer left behind.
+          const stale = _getAutoFitTimer()
+          if (stale !== null) {
+            clearInterval(stale)
+            _setAutoFitTimer(null)
+          }
         }
       },
       fitAll() {
-        _fitViewFn?.()
+        // Explicit one-shot fit-all: use the *animated* (force) fn so the
+        // user always sees the camera move, even if smart-fit decided
+        // nothing changed since the last tick.
+        _getFitViewFn()?.()
       },
       toggleAutoFit() {
         // Always cancel any existing timer first
@@ -1522,11 +3413,13 @@ export const useDiagramStore = create<DiagramStore>()(
         const next = !get().autoFitActive
         set((state) => { state.autoFitActive = next })
         if (next) {
-          _fitViewFn?.()  // start immediately
+          _getFitViewFn()?.()  // start immediately (animated)
           const t = setInterval(() => {
             if (!get().autoFitActive) { clearInterval(t); _setAutoFitTimer(null); return }
-            _fitViewFn?.()
-          }, 400)
+            // Don't fight with slide viewport transitions during playback
+            if (get().presentationActive) return
+            _getFitViewInstantFn()?.()  // instant snap — no animation fighting physics
+          }, 300)
           _setAutoFitTimer(t)
         }
       },
@@ -1537,4 +3430,83 @@ export const useDiagramStore = create<DiagramStore>()(
 // Auto-start live cola layout (skip in test/SSR environments)
 if (typeof requestAnimationFrame !== 'undefined') {
   useDiagramStore.getState().startLiveLayout()
+}
+
+// ─── Auto-persist to the active document ────────────────────────────────────
+// Subscribe to model slices and debounce-save into whatever the current
+// active document is (LS or FS, resolved fresh on every flush).
+if (typeof window !== 'undefined') {
+  let _persistTimer: ReturnType<typeof setTimeout> | null = null
+  let _suspended = false
+  const flushPersist = async (): Promise<void> => {
+    if (_suspended) return
+    const activeId = documents.getActiveId()
+    if (!activeId) return
+    try {
+      const data = useDiagramStore.getState().saveDiagram()
+      await documents.saveDocument(activeId, data)
+    } catch (e) {
+      console.warn('[diagramStore] persist failed:', e)
+    }
+  }
+  const schedulePersist = (): void => {
+    if (_persistTimer !== null) clearTimeout(_persistTimer)
+    _persistTimer = setTimeout(() => {
+      _persistTimer = null
+      void flushPersist()
+    }, 400)
+  }
+
+  let prev = useDiagramStore.getState()
+  useDiagramStore.subscribe((s) => {
+    if (
+      s.c4Nodes !== prev.c4Nodes ||
+      s.c4Relations !== prev.c4Relations ||
+      s.views !== prev.views ||
+      s.defaultPositions !== prev.defaultPositions ||
+      s.defaultViewport !== prev.defaultViewport ||
+      s.snapshots !== prev.snapshots ||
+      s.presentations !== prev.presentations ||
+      s.metamodel !== prev.metamodel
+    ) {
+      prev = s
+      schedulePersist()
+    } else {
+      prev = s
+    }
+  })
+
+  // ── Hydrate FS-backed active doc on boot ─────────────────────────────────
+  // We rendered the sample synchronously above; if the active doc is FS,
+  // load the file now and replace the in-memory model. We suspend the
+  // auto-persist while doing this so the "sample → loaded" replacement
+  // doesn't overwrite the file with stale data.
+  const activeId = documents.getActiveId()
+  if (activeId) {
+    const meta = documents.listDocuments().find(d => d.id === activeId)
+    if (meta?.source === 'fs') {
+      _suspended = true
+      documents.loadDocument(activeId).then((data) => {
+        if (data) useDiagramStore.getState().loadDiagram(data)
+      }).catch((e) => console.warn('[diagramStore] FS hydrate failed:', e))
+        .finally(() => { _suspended = false })
+    }
+  }
+
+  // ── React to active-document switches ────────────────────────────────────
+  // When the user picks a different document in the manager modal, load it.
+  let prevActive = documents.getActiveId()
+  useDocumentsStore.subscribe((s) => {
+    if (s.activeId === prevActive) return
+    prevActive = s.activeId
+    if (!s.activeId) return
+    _suspended = true
+    documents.loadDocument(s.activeId).then((data) => {
+      if (data) useDiagramStore.getState().loadDiagram(data)
+    }).catch((e) => console.warn('[diagramStore] switch-doc load failed:', e))
+      .finally(() => { _suspended = false })
+  })
+
+  // Expose hooks for other modules / future use.
+  ;(window as any).__radicalFlushPersist = flushPersist
 }

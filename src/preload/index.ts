@@ -12,6 +12,10 @@ const api = {
     ipcRenderer.invoke('dialog:save', json),
   openDiagram: (): Promise<{ success: boolean; filePath?: string; content?: string }> =>
     ipcRenderer.invoke('dialog:open'),
+  readFile: (filePath: string): Promise<{ success: boolean; content?: string; error?: string }> =>
+    ipcRenderer.invoke('file:read', filePath),
+  writeFile: (filePath: string, json: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('file:write', filePath, json),
 }
 
 if (process.contextIsolated) {

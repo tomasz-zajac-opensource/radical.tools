@@ -1,5 +1,7 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
+import { useDocumentsStore } from '../store/documentStore'
+import { DocumentManagerModal } from './DocumentManager'
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,21 @@ const IconFitAll = () => (
   </svg>
 )
 
+// Sparkle / wand icon — indicates the "smart" auto-arrange action.
+const IconSmartLayout = () => (
+  <svg className="toolbar-btn-accent-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 2v2M8 12v2M2 8h2M12 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4" />
+    <circle cx="8" cy="8" r="2" />
+  </svg>
+)
+
+const IconSearch = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <circle cx="7" cy="7" r="4.5" />
+    <path d="M10.5 10.5L14 14" strokeLinecap="round" />
+  </svg>
+)
+
 const IconReference = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
     <rect x="1" y="1" width="14" height="14" rx="2" />
@@ -89,6 +106,13 @@ const IconSun = () => (
 const IconMoon = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
     <path d="M13.5 8.5a5.5 5.5 0 01-7-7 5.5 5.5 0 107 7z" />
+  </svg>
+)
+
+const IconSmartFit = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M2 5V2h3M11 2h3v3M14 11v3h-3M5 14H2v-3" />
+    <path d="M8 6l1 2 2 .4-1.5 1.4.4 2L8 10.8 6.1 11.8l.4-2L5 8.4 7 8z" fill="currentColor" stroke="none" />
   </svg>
 )
 
@@ -114,15 +138,175 @@ const IconSnapshot = () => (
   </svg>
 )
 
+const IconModelling = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <rect x="2" y="2" width="5" height="5" rx="1" />
+    <rect x="9" y="9" width="5" height="5" rx="1" />
+    <rect x="2" y="9" width="5" height="5" rx="1" />
+    <path d="M9 4.5h2a1 1 0 011 1v2.5" strokeLinecap="round" />
+  </svg>
+)
+
+const IconPresentation = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <rect x="1" y="2" width="14" height="10" rx="1.5" />
+    <path d="M5 14h6M8 12v2" strokeLinecap="round" />
+    <path d="M6 6.5L10 8.5 6 10.5V6.5z" fill="currentColor" stroke="none" />
+  </svg>
+)
+
+const IconPresenter = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <rect x="1" y="2" width="14" height="9" rx="1.5" />
+    <path d="M3 4h6M3 6h4M3 8h5" strokeLinecap="round" />
+    <circle cx="12" cy="6" r="1.4" />
+    <path d="M10.5 10c0-1.2 0.7-2 1.5-2s1.5 0.8 1.5 2" strokeLinecap="round" />
+    <path d="M5 14h6M8 11v3" strokeLinecap="round" />
+  </svg>
+)
+
+const IconView = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" strokeLinejoin="round" />
+    <circle cx="8" cy="8" r="2" />
+  </svg>
+)
+
+const IconMetamodel = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4}>
+    <rect x="1.5" y="2" width="5" height="4" rx="0.6" />
+    <rect x="9.5" y="2" width="5" height="4" rx="0.6" />
+    <rect x="5.5" y="10" width="5" height="4" rx="0.6" />
+    <path d="M4 6v2h8V6M8 8v2" strokeLinecap="round" />
+  </svg>
+)
+
+// ── App menu (hamburger popover) ─────────────────────────────────────────────
+
+type ConnectionMod = 'alt' | 'shift' | 'ctrl' | 'meta'
+
+function AppMenu({
+  onManage, activeDocLabel, activeDocSource,
+  connectionModifier, setConnectionModifier,
+  theme, onToggleTheme,
+  smartFitActive, onToggleSmartFit,
+}: {
+  onManage: () => void
+  activeDocLabel: string | null
+  activeDocSource: 'ls' | 'fs' | null
+  connectionModifier: ConnectionMod
+  setConnectionModifier: (m: ConnectionMod) => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
+  smartFitActive: boolean
+  onToggleSmartFit: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const isMac = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac')
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('mousedown', onDoc); window.removeEventListener('keydown', onKey) }
+  }, [open])
+
+  const run = (fn: () => void) => () => { setOpen(false); fn() }
+
+  return (
+    <div className="app-menu-wrap" ref={wrapRef}>
+      <button
+        className={`app-brand${open ? ' open' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        title="Menu"
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        <span className="app-brand-logo" aria-hidden>
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round">
+            <path d="M10 1.8 L17.5 6 V14 L10 18.2 L2.5 14 V6 Z" fill="rgba(var(--accent-rgb),0.18)" />
+            <circle cx="10" cy="10" r="2.4" fill="currentColor" stroke="none" />
+          </svg>
+        </span>
+        <span className="app-brand-name">Radical</span>
+        <span className={`app-brand-caret${open ? ' open' : ''}`} aria-hidden>
+          <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 6 L8 10 L12 6" />
+          </svg>
+        </span>
+      </button>
+      {open && (
+        <div className="app-menu-popover" role="menu">
+          <div className="app-menu-section">
+            <div className="app-menu-label">Diagrams</div>
+            <button className="app-menu-item" role="menuitem" onClick={run(onManage)}>
+              <span className="app-menu-icon"><IconLoad /></span>
+              <span className="app-menu-text">
+                Manage diagrams…
+                {activeDocLabel && (
+                  <span className="app-menu-current-doc-inline">
+                    <span className={`toolbar-doc-badge ${activeDocSource}`}>
+                      {activeDocSource === 'fs' ? 'FILE' : 'LOCAL'}
+                    </span>
+                    <span className="app-menu-current-doc-name">{activeDocLabel}</span>
+                  </span>
+                )}
+              </span>
+            </button>
+          </div>
+
+          <div className="app-menu-divider" />
+
+          <div className="app-menu-section">
+            <div className="app-menu-label">Settings</div>
+            <div className="app-menu-row">
+              <span className="app-menu-row-label">Connect key</span>
+              <select
+                className="app-menu-select"
+                value={connectionModifier}
+                onChange={(e) => setConnectionModifier(e.target.value as ConnectionMod)}
+              >
+                <option value="alt">{isMac ? '⌥ Option' : 'Alt'}</option>
+                <option value="shift">⇧ Shift</option>
+                <option value="ctrl">Ctrl</option>
+                <option value="meta">{isMac ? '⌘ Cmd' : '⊞ Win'}</option>
+              </select>
+            </div>
+            <button className="app-menu-item" role="menuitem" onClick={run(onToggleTheme)}>
+              <span className="app-menu-icon">{theme === 'dark' ? <IconSun /> : <IconMoon />}</span>
+              <span className="app-menu-text">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </button>
+            <button
+              className={`app-menu-item${smartFitActive ? ' active' : ''}`}
+              role="menuitemcheckbox"
+              aria-checked={smartFitActive}
+              onClick={run(onToggleSmartFit)}
+            >
+              <span className="app-menu-icon"><IconSmartFit /></span>
+              <span className="app-menu-text">Smart fit {smartFitActive ? '(on)' : '(off)'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 
 export function Toolbar(): React.ReactElement {
-  const newDiagram = useDiagramStore((s) => s.newDiagram)
-  const saveDiagram = useDiagramStore((s) => s.saveDiagram)
-  const loadDiagram = useDiagramStore((s) => s.loadDiagram)
-  const resetDiagram = useDiagramStore((s) => s.resetDiagram)
+  const appMode = useDiagramStore((s) => s.appMode)
+  const setAppMode = useDiagramStore((s) => s.setAppMode)
   const autoFitActive = useDiagramStore((s) => s.autoFitActive)
   const toggleAutoFit = useDiagramStore((s) => s.toggleAutoFit)
+  const fitAll = useDiagramStore((s) => s.fitAll)
+  const runSmartLayout = useDiagramStore((s) => s.runSmartLayout)
+  const isLayoutRunning = useDiagramStore((s) => s.isLayoutRunning)
   const connectionModifier = useDiagramStore((s) => s.connectionModifier)
   const setConnectionModifier = useDiagramStore((s) => s.setConnectionModifier)
 
@@ -131,18 +315,11 @@ export function Toolbar(): React.ReactElement {
   const canUndo = useDiagramStore((s) => s.canUndo)
   const canRedo = useDiagramStore((s) => s.canRedo)
 
-  const snapshots = useDiagramStore((s) => s.snapshots)
-  const createSnapshot = useDiagramStore((s) => s.createSnapshot)
-  const restoreSnapshot = useDiagramStore((s) => s.restoreSnapshot)
-  const removeSnapshot = useDiagramStore((s) => s.removeSnapshot)
-  const renameSnapshot = useDiagramStore((s) => s.renameSnapshot)
+  const docs = useDocumentsStore((s) => s.docs)
+  const activeDocId = useDocumentsStore((s) => s.activeId)
+  const activeDoc = activeDocId ? docs.find(d => d.id === activeDocId) ?? null : null
+  const [managerOpen, setManagerOpen] = useState(false)
 
-  const [snapshotMenuOpen, setSnapshotMenuOpen] = useState(false)
-  const snapshotMenuRef = useRef<HTMLDivElement>(null)
-  const [editingSnapshotId, setEditingSnapshotId] = useState<string | null>(null)
-  const [editingName, setEditingName] = useState('')
-  const [creatingSnapshot, setCreatingSnapshot] = useState(false)
-  const [newSnapshotName, setNewSnapshotName] = useState('')
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('radical-theme') as 'dark' | 'light') || 'dark'
@@ -157,22 +334,16 @@ export function Toolbar(): React.ReactElement {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
   }, [])
 
-  // Close snapshot menu on outside click
-  useEffect(() => {
-    if (!snapshotMenuOpen) return
-    const handler = (e: MouseEvent) => {
-      if (snapshotMenuRef.current && !snapshotMenuRef.current.contains(e.target as Node)) {
-        setSnapshotMenuOpen(false)
-        setEditingSnapshotId(null)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [snapshotMenuOpen])
-
-  // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z (Mac), Ctrl+Z / Ctrl+Shift+Z (Win)
+  // Keyboard shortcuts: Cmd+Z / Cmd+Shift+Z (Mac), Ctrl+Z / Ctrl+Shift+Z (Win), F5
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.key === 'F5') {
+        e.preventDefault()
+        const state = useDiagramStore.getState()
+        if (state.presentationActive) state.stopPresentation()
+        else state.startPresentation()
+        return
+      }
       const mod = e.metaKey || e.ctrlKey
       if (!mod) return
       if (e.key === 'z' && !e.shiftKey) {
@@ -187,108 +358,38 @@ export function Toolbar(): React.ReactElement {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const handleStartCreate = useCallback(() => {
-    setNewSnapshotName(`v${snapshots.length + 1}`)
-    setCreatingSnapshot(true)
-  }, [snapshots.length])
-
-  const handleConfirmCreate = useCallback(() => {
-    const name = newSnapshotName.trim()
-    if (name) createSnapshot(name)
-    setCreatingSnapshot(false)
-    setNewSnapshotName('')
-  }, [createSnapshot, newSnapshotName])
-
-  const handleRestoreSnapshot = useCallback((id: string) => {
-    if (window.confirm('Restore this snapshot? Current state will be saved to undo history.')) {
-      restoreSnapshot(id)
-    }
-  }, [restoreSnapshot])
-
-  const handleNew = useCallback(() => {
-    if (window.confirm('Create a new empty diagram? All unsaved changes will be lost.')) {
-      newDiagram()
-    }
-  }, [newDiagram])
-
-  const handleSave = useCallback(async () => {
-    const data = saveDiagram()
-    const json = JSON.stringify(data, null, 2)
-    if (window.electronAPI?.saveDiagram) {
-      const result = await window.electronAPI.saveDiagram(json)
-      if (!result.success) return // user cancelled
-    } else {
-      // Fallback for browser / non-electron context
-      const blob = new Blob([json], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'diagram.c4.json'
-      a.click()
-      URL.revokeObjectURL(url)
-    }
-  }, [saveDiagram])
-
-  const handleLoad = useCallback(async () => {
-    if (window.electronAPI?.openDiagram) {
-      const result = await window.electronAPI.openDiagram()
-      if (!result.success || !result.content) return
-      try {
-        const data = JSON.parse(result.content)
-        loadDiagram(data)
-      } catch {
-        alert('Invalid diagram file.')
-      }
-    } else {
-      // Fallback for browser / non-electron context
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.accept = '.json,.c4.json'
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0]
-        if (!file) return
-        try {
-          const text = await file.text()
-          const data = JSON.parse(text)
-          loadDiagram(data)
-        } catch {
-          alert('Invalid diagram file.')
-        }
-      }
-      input.click()
-    }
-  }, [loadDiagram])
-
-  const handleReset = useCallback(() => {
-    if (window.confirm('Reset diagram to example? All changes will be lost.')) {
-      resetDiagram()
-    }
-  }, [resetDiagram])
+  const handleManage = useCallback(() => { setManagerOpen(true) }, [])
 
   return (
     <div className="toolbar">
-      <span className="toolbar-title">⬡ Radical Diagram</span>
-
+      <AppMenu
+        onManage={handleManage}
+        activeDocLabel={activeDoc?.name ?? null}
+        activeDocSource={activeDoc?.source ?? null}
+        connectionModifier={connectionModifier}
+        setConnectionModifier={setConnectionModifier}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        smartFitActive={autoFitActive}
+        onToggleSmartFit={toggleAutoFit}
+      />
       <div className="toolbar-sep" />
 
-      <button className="toolbar-btn" onClick={handleNew} title="New empty diagram">
-        <IconNew /> New
-      </button>
-      <button className="toolbar-btn" onClick={handleSave} title="Save diagram as JSON">
-        <IconSave /> Save
-      </button>
-      <button className="toolbar-btn" onClick={handleLoad} title="Load diagram from JSON">
-        <IconLoad /> Load
-      </button>
-      <button className="toolbar-btn danger" onClick={handleReset} title="Reset to example">
-        <IconReset /> Reset
-      </button>
       <button
-        className={`toolbar-btn${autoFitActive ? ' active' : ''}`}
-        onClick={toggleAutoFit}
-        title={autoFitActive ? 'Disable auto-fit' : 'Enable auto-fit'}
+        className="toolbar-btn"
+        onClick={fitAll}
+        title="Fit all visible nodes to viewport"
       >
-        <IconFitAll /> Auto Fit
+        <IconFitAll /> Fit All
+      </button>
+
+      <button
+        className="toolbar-btn toolbar-btn-accent"
+        onClick={() => { void runSmartLayout() }}
+        disabled={isLayoutRunning || appMode !== 'designer'}
+        title="Smart Layout — ensemble of layered + semantic algorithms with edge-crossing minimisation, picks the cleanest result."
+      >
+        <IconSmartLayout /> Smart Layout
       </button>
 
       <div className="toolbar-sep" />
@@ -310,121 +411,40 @@ export function Toolbar(): React.ReactElement {
         <IconRedo /> Redo
       </button>
 
-      <div className="toolbar-sep" />
-
-      <div className="toolbar-dropdown" ref={snapshotMenuRef}>
-        <button
-          className="toolbar-btn"
-          onClick={() => setSnapshotMenuOpen((o) => !o)}
-          title="Snapshots (versions)"
-        >
-          <IconSnapshot /> Snapshots{snapshots.length > 0 ? ` (${snapshots.length})` : ''}
-        </button>
-        {snapshotMenuOpen && (
-          <div className="toolbar-dropdown-menu">
-            {creatingSnapshot ? (
-              <div className="toolbar-dropdown-item create-input">
-                <input
-                  className="snapshot-rename-input"
-                  autoFocus
-                  placeholder="Snapshot name"
-                  value={newSnapshotName}
-                  onChange={(e) => setNewSnapshotName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleConfirmCreate()
-                    else if (e.key === 'Escape') { setCreatingSnapshot(false); setNewSnapshotName('') }
-                  }}
-                />
-                <button className="snapshot-action restore" onClick={handleConfirmCreate} title="Create">✓</button>
-                <button className="snapshot-action delete" onClick={() => { setCreatingSnapshot(false); setNewSnapshotName('') }} title="Cancel">✕</button>
-              </div>
-            ) : (
-              <button className="toolbar-dropdown-item create" onClick={handleStartCreate}>
-                + Create snapshot
-              </button>
-            )}
-            {snapshots.length === 0 && (
-              <div className="toolbar-dropdown-empty">No snapshots yet</div>
-            )}
-            {[...snapshots].reverse().map((snap) => (
-              <div key={snap.id} className="toolbar-dropdown-item snapshot-item">
-                {editingSnapshotId === snap.id ? (
-                  <input
-                    className="snapshot-rename-input"
-                    autoFocus
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onBlur={() => {
-                      if (editingName.trim()) renameSnapshot(snap.id, editingName.trim())
-                      setEditingSnapshotId(null)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (editingName.trim()) renameSnapshot(snap.id, editingName.trim())
-                        setEditingSnapshotId(null)
-                      } else if (e.key === 'Escape') {
-                        setEditingSnapshotId(null)
-                      }
-                    }}
-                  />
-                ) : (
-                  <span
-                    className="snapshot-name"
-                    onDoubleClick={() => { setEditingSnapshotId(snap.id); setEditingName(snap.name) }}
-                    title="Double-click to rename"
-                  >
-                    {snap.name}
-                  </span>
-                )}
-                <span className="snapshot-time">
-                  {new Date(snap.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                <button
-                  className="snapshot-action restore"
-                  onClick={() => handleRestoreSnapshot(snap.id)}
-                  title="Restore"
-                >
-                  ↩
-                </button>
-                <button
-                  className="snapshot-action delete"
-                  onClick={() => removeSnapshot(snap.id)}
-                  title="Delete"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="toolbar-sep" />
-
-      <label className="toolbar-label" title="Key to hold when clicking nodes to create connections">
-        Connect key
-        <select
-          className="toolbar-select"
-          value={connectionModifier}
-          onChange={(e) => setConnectionModifier(e.target.value as any)}
-        >
-          <option value="alt">{navigator.platform?.includes('Mac') ? '⌥ Option' : 'Alt'}</option>
-          <option value="shift">⇧ Shift</option>
-          <option value="ctrl">Ctrl</option>
-          <option value="meta">{navigator.platform?.includes('Mac') ? '⌘ Cmd' : '⊞ Win'}</option>
-        </select>
-      </label>
-
       <div style={{ flex: 1 }} />
 
-      <button
-        className="toolbar-btn"
-        onClick={toggleTheme}
-        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-      >
-        {theme === 'dark' ? <IconSun /> : <IconMoon />}
-        {theme === 'dark' ? 'Light' : 'Dark'}
-      </button>
+      <div className="toolbar-mode-switch">
+        <button
+          className={`toolbar-mode-btn${appMode === 'designer' ? ' active' : ''}`}
+          onClick={() => setAppMode('designer')}
+          title="Designer perspective — edit the model"
+        >
+          <IconModelling /> Designer
+        </button>
+        <button
+          className={`toolbar-mode-btn${appMode === 'presenter' ? ' active' : ''}`}
+          onClick={() => setAppMode('presenter')}
+          title="Presenter perspective — build slides on a read-only model"
+        >
+          <IconPresenter /> Presenter
+        </button>
+        <button
+          className={`toolbar-mode-btn${appMode === 'viewer' ? ' active' : ''}`}
+          onClick={() => setAppMode('viewer')}
+          title="Viewer perspective — read-only browse"
+        >
+          <IconPresentation /> Viewer
+        </button>
+        <button
+          className={`toolbar-mode-btn${appMode === 'metamodel' ? ' active' : ''}`}
+          onClick={() => setAppMode('metamodel')}
+          title="Metamodel perspective — define object types, relations and constraints"
+        >
+          <IconMetamodel /> Metamodel
+        </button>
+      </div>
+
+      <DocumentManagerModal open={managerOpen} onClose={() => setManagerOpen(false)} />
     </div>
   )
 }

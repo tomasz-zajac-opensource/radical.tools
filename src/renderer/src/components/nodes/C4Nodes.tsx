@@ -3,6 +3,46 @@ import { NodeProps, Handle, Position } from 'reactflow'
 import { C4NodeRFData, NODE_COLORS } from '../../types/c4'
 import { useDiagramStore } from '../../store/diagramStore'
 
+// ─── Diff highlight overlay ────────────────────────────────────────────────
+function DiffOverlay({ c4id }: { c4id: string }) {
+  const diff = useDiagramStore(s => s.diffHighlight[c4id])
+  if (!diff) return null
+  const color =
+    diff === 'new' ? 'var(--success)'
+    : diff === 'removed' ? 'var(--danger)'
+    : 'var(--warning, #d97706)'
+  const label =
+    diff === 'new' ? 'NEW'
+    : diff === 'removed' ? 'REMOVED'
+    : 'CHANGED'
+  const dashed = diff === 'removed'
+  return (
+    <div style={{
+      position: 'absolute',
+      inset: 0,
+      borderRadius: 'inherit',
+      border: `3px ${dashed ? 'dashed' : 'solid'} ${color}`,
+      boxShadow: `inset 0 0 14px ${color}44`,
+      pointerEvents: 'none',
+      zIndex: 10,
+    }}>
+      <div style={{
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        background: color,
+        color: diff === 'new' ? '#000' : '#fff',
+        fontSize: 9,
+        fontWeight: 800,
+        letterSpacing: '0.08em',
+        padding: '1px 5px',
+        borderRadius: 3,
+        pointerEvents: 'none',
+      }}>{label}</div>
+    </div>
+  )
+}
+
 const COLOR = NODE_COLORS.person
 const ALT_COLOR = '#6b6b6b' // external person
 
@@ -25,16 +65,11 @@ function AllHandles() {
 // ─── C4 Person silhouette (head circle + rounded body) ───────────────────────
 function PersonFigure({ color }: { color: string }) {
   return (
-    <svg width="38" height="32" viewBox="0 0 38 32" fill="none" style={{ marginTop: 6, flexShrink: 0 }}>
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" style={{ marginTop: 4, flexShrink: 0 }}>
       {/* Head */}
-      <circle cx="19" cy="8" r="8" fill={color} stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" />
-      {/* Body */}
-      <path
-        d="M5 32 C5 20, 33 20, 33 32"
-        fill={color}
-        stroke="rgba(255,255,255,0.6)"
-        strokeWidth="1.5"
-      />
+      <circle cx="22" cy="11" r="10" fill={color} stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+      {/* Body – rounded rectangle representing torso/shoulders */}
+      <rect x="2" y="25" width="40" height="18" rx="10" fill={color} stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
     </svg>
   )
 }
@@ -46,6 +81,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
     <div
       className="c4-node c4-person-node"
       style={{
+        position: 'relative',
         width: data.width,
         height: data.height,
         display: 'flex',
@@ -55,6 +91,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
       }}
     >
       <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
 
       {/* Person silhouette above the box */}
       <PersonFigure color={bg} />
@@ -98,6 +135,7 @@ PersonNode.displayName = 'PersonNode'
 
 export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
   const toggleCollapse = useDiagramStore((s) => s.toggleCollapse)
+  const canEdit = useDiagramStore((s) => s.appMode === 'designer')
   const onToggle = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -114,6 +152,7 @@ export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
     <div
       className="c4-node"
       style={{
+        position: 'relative',
         width: '100%',
         height: '100%',
         background: isExpanded ? 'transparent' : solidBg,
@@ -125,6 +164,7 @@ export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
       }}
     >
       <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
 
       {/* Header bar */}
       <div className="c4-node-header" style={{ background: isExpanded ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
@@ -155,6 +195,7 @@ SystemNode.displayName = 'SystemNode'
 
 export const ContainerNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
   const toggleCollapse = useDiagramStore((s) => s.toggleCollapse)
+  const canEdit = useDiagramStore((s) => s.appMode === 'designer')
   const onToggle = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -171,6 +212,7 @@ export const ContainerNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
     <div
       className="c4-node"
       style={{
+        position: 'relative',
         width: '100%',
         height: '100%',
         background: isExpanded ? 'transparent' : solidBg,
@@ -182,10 +224,11 @@ export const ContainerNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
       }}
     >
       <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
 
       <div className="c4-node-header" style={{ background: isExpanded ? 'transparent' : 'rgba(0,0,0,0.18)' }}>
         <span style={isExpanded ? { color: solidBg } : undefined}>Container</span>
-        {data.hasChildren && (
+        {data.hasChildren && canEdit && (
           <button className="c4-node-collapse-btn" onClick={onToggle} title={data.collapsed ? 'Expand' : 'Collapse'}>
             {data.collapsed ? '+' : '−'}
           </button>
@@ -212,6 +255,7 @@ export const ComponentNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
     <div
       className="c4-node"
       style={{
+        position: 'relative',
         width: data.width,
         height: data.height,
         background: NODE_COLORS.component,
@@ -222,6 +266,7 @@ export const ComponentNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
       }}
     >
       <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
 
       <div
         className="c4-node-header"
@@ -268,6 +313,7 @@ export const DatabaseNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) =
       }}
     >
       <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
 
       {/* Cylinder SVG background */}
       <svg
@@ -325,3 +371,150 @@ export const DatabaseNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) =
 })
 
 DatabaseNode.displayName = 'DatabaseNode'
+
+// ─── Web App Node ─────────────────────────────────────────────────────────────
+
+export const WebAppNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const w = data.width ?? 220
+  const h = data.height ?? 140
+  const bg = NODE_COLORS.webapp
+  const borderColor = selected ? 'var(--accent)' : 'rgba(0,0,0,0.25)'
+  const barH = 18
+
+  return (
+    <div
+      className="c4-node c4-webapp-node"
+      style={{
+        width: w,
+        height: h,
+        position: 'relative',
+        background: bg,
+        border: `2px solid ${borderColor}`,
+        borderRadius: 8,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      {/* Browser title bar */}
+      <div
+        style={{
+          height: barH,
+          background: 'rgba(0,0,0,0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '0 6px',
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ff5f57' }} />
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#febc2e' }} />
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#28c840' }} />
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '6px 8px',
+          textAlign: 'center',
+        }}
+      >
+        <div className="c4-node-label">{data.label}</div>
+        <div className="c4-node-tech" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+          Web App
+        </div>
+        {data.technology && (
+          <div className="c4-node-tech">[{data.technology}]</div>
+        )}
+        {data.description && (
+          <div className="c4-node-desc">{data.description}</div>
+        )}
+      </div>
+    </div>
+  )
+})
+
+WebAppNode.displayName = 'WebAppNode'
+
+// ─── Queue Node ───────────────────────────────────────────────────────────────
+
+export const QueueNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const w = data.width ?? 240
+  const h = data.height ?? 90
+  const bg = NODE_COLORS.queue
+  const borderColor = selected ? 'var(--accent)' : 'rgba(0,0,0,0.25)'
+  const rx = 16 // ellipse horizontal radius for caps
+
+  return (
+    <div
+      className="c4-node c4-queue-node"
+      style={{
+        width: w,
+        height: h,
+        position: 'relative',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      {/* Horizontal cylinder SVG background */}
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        width={w}
+        height={h}
+        style={{ position: 'absolute', inset: 0 }}
+      >
+        {/* Body */}
+        <path
+          d={`M${rx},0 H${w - rx} A${rx},${h / 2} 0 0,1 ${w - rx},${h} H${rx}`}
+          fill={bg}
+          stroke={borderColor}
+          strokeWidth="2"
+        />
+        {/* Right cap (visible arc) */}
+        <ellipse cx={w - rx} cy={h / 2} rx={rx} ry={h / 2} fill={bg} stroke={borderColor} strokeWidth="2" />
+        {/* Left cap (full) */}
+        <ellipse cx={rx} cy={h / 2} rx={rx} ry={h / 2} fill={bg} stroke={borderColor} strokeWidth="2" />
+        {/* Left highlight */}
+        <ellipse cx={rx} cy={h / 2} rx={rx - 2} ry={h / 2 - 2} fill="rgba(255,255,255,0.08)" stroke="none" />
+      </svg>
+
+      {/* Text content overlay */}
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          paddingLeft: rx + 4,
+          paddingRight: rx + 4,
+          textAlign: 'center',
+        }}
+      >
+        <div className="c4-node-label">{data.label}</div>
+        <div className="c4-node-tech" style={{ textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700 }}>
+          Queue
+        </div>
+        {data.technology && (
+          <div className="c4-node-tech">[{data.technology}]</div>
+        )}
+        {data.description && (
+          <div className="c4-node-desc">{data.description}</div>
+        )}
+      </div>
+    </div>
+  )
+})
+
+QueueNode.displayName = 'QueueNode'

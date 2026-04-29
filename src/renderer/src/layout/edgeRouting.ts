@@ -180,33 +180,47 @@ function stubToGrid(border: Pt, grid: Pt, side: Position): Pt[] {
   }
 }
 
-/** Build SVG path string with smooth Catmull-Rom spline (converted to cubic beziers) */
+/** Build SVG path string. If 3+ points, smooth the polyline with a
+ * cubic bezier through interior corners; otherwise emit a single bezier
+ * curve from first→last with control points pulled along the exit sides. */
 function buildSvgPath(pts: Pt[]): string {
   if (pts.length < 2) return ''
   if (pts.length === 2) {
+    // Straight line — caller will use buildBezierPath for endpoints
     return `M${pts[0].x},${pts[0].y}L${pts[1].x},${pts[1].y}`
   }
-
-  // Catmull-Rom to cubic bezier conversion (alpha=0, uniform parameterization)
-  // For n points, produce n-1 cubic segments. Duplicate first/last for end tangents.
-  const all = [pts[0], ...pts, pts[pts.length - 1]]
-  let p = `M${pts[0].x},${pts[0].y}`
-
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = all[i]
-    const p1 = all[i + 1]
-    const p2 = all[i + 2]
-    const p3 = all[i + 3]
-
-    // Convert Catmull-Rom segment (p0,p1,p2,p3) → cubic bezier control points
-    const c1x = p1.x + (p2.x - p0.x) / 6
-    const c1y = p1.y + (p2.y - p0.y) / 6
-    const c2x = p2.x - (p3.x - p1.x) / 6
-    const c2y = p2.y - (p3.y - p1.y) / 6
-
-    p += `C${c1x},${c1y},${c2x},${c2y},${p2.x},${p2.y}`
+  // Catmull-Rom-like smoothing: replace each interior corner with a
+  // quadratic-style rounded turn using cubic beziers.
+  const RADIUS = 24
+  let d = `M${pts[0].x},${pts[0].y}`
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1]
+    const cur = pts[i]
+    const next = pts[i + 1]
+    const d1 = Math.hypot(cur.x - prev.x, cur.y - prev.y)
+    const d2 = Math.hypot(next.x - cur.x, next.y - cur.y)
+    const r = Math.min(RADIUS, d1 / 2, d2 / 2)
+    if (r < 1) { d += `L${cur.x},${cur.y}`; continue }
+    const t1 = { x: cur.x - (cur.x - prev.x) * (r / d1), y: cur.y - (cur.y - prev.y) * (r / d1) }
+    const t2 = { x: cur.x + (next.x - cur.x) * (r / d2), y: cur.y + (next.y - cur.y) * (r / d2) }
+    d += `L${t1.x},${t1.y}Q${cur.x},${cur.y} ${t2.x},${t2.y}`
   }
-  return p
+  const last = pts[pts.length - 1]
+  d += `L${last.x},${last.y}`
+  return d
+}
+
+/** Build a cubic bezier with control points pulled along the exit sides. */
+function buildBezierPath(
+  s: Pt, sSide: Position, t: Pt, tSide: Position
+): string {
+  const dist = Math.hypot(t.x - s.x, t.y - s.y)
+  // Control-point pull: half the endpoint distance, capped so very long
+  // edges don't loop wildly and very short ones still get a visible bend.
+  const pull = Math.min(180, Math.max(40, dist * 0.5))
+  const c1 = extendPt(s.x, s.y, sSide, pull)
+  const c2 = extendPt(t.x, t.y, tSide, pull)
+  return `M${s.x},${s.y}C${c1.x},${c1.y} ${c2.x},${c2.y} ${t.x},${t.y}`
 }
 
 /** Compute midpoint along polyline by arc length */
@@ -235,41 +249,25 @@ function polyMidpoint(pts: Pt[]): Pt {
 export function computeRoutedEdge(
   sx: number, sy: number, srcSide: Position,
   tx: number, ty: number, tgtSide: Position,
-  obstacles: RoutingObstacle[],
+  _obstacles: RoutingObstacle[],
 ): { path: string; labelX: number; labelY: number } {
-  const src: Pt = { x: sx, y: sy }
-  const tgt: Pt = { x: tx, y: ty }
-
-  if (obstacles.length === 0) return makeFallbackPath(src, tgt, srcSide, tgtSide)
-
-  // Always use clean cubic bezier — direction-aware control points
-  return makeFallbackPath(src, tgt, srcSide, tgtSide)
-}
-
-/** Simple smooth bezier path without obstacle avoidance */
-function makeFallbackPath(
-  src: Pt, tgt: Pt, srcSide: Position, tgtSide: Position,
-): { path: string; labelX: number; labelY: number } {
-  // Compute control points based on exit directions for a smooth cubic bezier
-  const dist = Math.hypot(tgt.x - src.x, tgt.y - src.y)
-  const tension = Math.max(50, dist * 0.4)
-
-  let c1: Pt, c2: Pt
-  switch (srcSide) {
-    case Position.Top:    c1 = { x: src.x, y: src.y - tension }; break
-    case Position.Bottom: c1 = { x: src.x, y: src.y + tension }; break
-    case Position.Left:   c1 = { x: src.x - tension, y: src.y }; break
-    case Position.Right:  c1 = { x: src.x + tension, y: src.y }; break
-  }
-  switch (tgtSide) {
-    case Position.Top:    c2 = { x: tgt.x, y: tgt.y - tension }; break
-    case Position.Bottom: c2 = { x: tgt.x, y: tgt.y + tension }; break
-    case Position.Left:   c2 = { x: tgt.x - tension, y: tgt.y }; break
-    case Position.Right:  c2 = { x: tgt.x + tension, y: tgt.y }; break
-  }
-
-  const path = `M${src.x},${src.y}C${c1.x},${c1.y},${c2.x},${c2.y},${tgt.x},${tgt.y}`
-  const labelX = (src.x + tgt.x) / 2
-  const labelY = (src.y + tgt.y) / 2
+  // Curved edges: a single cubic bezier with control points pulled along
+  // each side's exit normal. The handle-side tangent makes the arrowhead
+  // align cleanly with the chosen side and gives a natural flow.
+  //
+  // We intentionally don't run A* obstacle avoidance here — orthogonal
+  // routing fights against curve aesthetics. Crossings are minimised by
+  // the upstream layout (radical/cola) instead.
+  const path = buildBezierPath(
+    { x: sx, y: sy }, srcSide,
+    { x: tx, y: ty }, tgtSide
+  )
+  // Bezier midpoint for labels: De Casteljau at t=0.5
+  const dist = Math.hypot(tx - sx, ty - sy)
+  const pull = Math.min(180, Math.max(40, dist * 0.5))
+  const c1 = extendPt(sx, sy, srcSide, pull)
+  const c2 = extendPt(tx, ty, tgtSide, pull)
+  const labelX = 0.125 * sx + 0.375 * c1.x + 0.375 * c2.x + 0.125 * tx
+  const labelY = 0.125 * sy + 0.375 * c1.y + 0.375 * c2.y + 0.125 * ty
   return { path, labelX, labelY }
 }

@@ -465,6 +465,85 @@ function assignLayers(
   return layers
 }
 
+// ─── Barycenter sort (Sugiyama crossing-reduction) ───────────────────────────
+
+/**
+ * Reorder nodes within each layer using barycenter heuristic.
+ * Iteratively sweeps down (using upstream neighbors as anchor) and up
+ * (using downstream neighbors), settling into a low-crossing ordering.
+ *
+ * Mutates layerGroups in-place. Persons and externals are not part of
+ * `layerGroups` — they are placed by weighted average AFTER systems, so
+ * they follow this ordering automatically.
+ */
+function barycenterSort(
+  layerGroups: Map<number, C4Node[]>,
+  rootDAG: Map<string, Set<string>>,
+  iterations: number = 4
+): void {
+  if (layerGroups.size === 0) return
+  const maxLayer = Math.max(...Array.from(layerGroups.keys()))
+  if (maxLayer < 1) return // nothing to reorder against
+
+  // Build reverse DAG once
+  const reverseDAG = new Map<string, Set<string>>()
+  for (const [src, targets] of rootDAG) {
+    if (!reverseDAG.has(src)) reverseDAG.set(src, new Set())
+    for (const t of targets) {
+      if (!reverseDAG.has(t)) reverseDAG.set(t, new Set())
+      reverseDAG.get(t)!.add(src)
+    }
+  }
+
+  // Position index per node (0-based within its layer)
+  const posOf = new Map<string, number>()
+  for (const [, nodes] of layerGroups) {
+    nodes.forEach((n, i) => posOf.set(n.id, i))
+  }
+
+  const sortLayer = (L: number, neighborsOf: Map<string, Set<string>>): boolean => {
+    const nodes = layerGroups.get(L)
+    if (!nodes || nodes.length < 2) return false
+    const scored = nodes.map((n) => {
+      const neigh = neighborsOf.get(n.id)
+      let sum = 0, count = 0
+      if (neigh) {
+        for (const id of neigh) {
+          const p = posOf.get(id)
+          if (p !== undefined) { sum += p; count++ }
+        }
+      }
+      return { n, bc: count > 0 ? sum / count : posOf.get(n.id) ?? 0 }
+    })
+    // Stable sort with current position as tie-breaker
+    scored.sort((a, b) => {
+      if (a.bc !== b.bc) return a.bc - b.bc
+      return (posOf.get(a.n.id) ?? 0) - (posOf.get(b.n.id) ?? 0)
+    })
+    const sorted = scored.map((s) => s.n)
+    let changed = false
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].id !== nodes[i].id) { changed = true; break }
+    }
+    layerGroups.set(L, sorted)
+    sorted.forEach((n, i) => posOf.set(n.id, i))
+    return changed
+  }
+
+  for (let iter = 0; iter < iterations; iter++) {
+    let anyChange = false
+    // Down sweep: re-order each layer using upstream (parents in reverseDAG)
+    for (let L = 1; L <= maxLayer; L++) {
+      if (sortLayer(L, reverseDAG)) anyChange = true
+    }
+    // Up sweep: re-order each layer using downstream (children in rootDAG)
+    for (let L = maxLayer - 1; L >= 0; L--) {
+      if (sortLayer(L, rootDAG)) anyChange = true
+    }
+    if (!anyChange) break
+  }
+}
+
 // ─── Phase 3: Coordinate assignment ──────────────────────────────────────────
 
 export function applyRadicalLayout(
@@ -504,6 +583,11 @@ export function applyRadicalLayout(
     if (!layerGroups.has(layer)) layerGroups.set(layer, [])
     layerGroups.get(layer)!.push(node)
   }
+
+  // ── Barycenter sweep: reorder each layer to minimise crossings ─────────
+  // Runs before X-placement so layer 0 (entry systems) gets ordered by
+  // who they call, and downstream layers get ordered by who calls them.
+  barycenterSort(layerGroups, rootDAG)
 
   // ── Place internal nodes layer by layer ────────────────────────────────
   const personRowH = persons.length > 0 ? NODE_SIZES.person.height : 0

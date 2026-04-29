@@ -1,5 +1,5 @@
 {
-  "name": "radical-diagram",
+  "name": "radical-model",
   "version": "1.0.0",
   "description": "C4 Architecture Diagram Tool",
   "main": "out/main/index.js",
@@ -7,7 +7,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc -p tsconfig.web.json --noEmit && tsc -p tsconfig.node.json --noEmit"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^2.0.1",
@@ -25,6 +25,7 @@
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.1",
     "electron-vite": "^2.0.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
     "vitest": "^4.1.4"

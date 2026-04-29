@@ -1,23 +1,55 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { ReactFlowProvider } from 'reactflow'
 import { Toolbar } from './components/Toolbar'
-import { ViewBar } from './components/ViewBar'
-import { Sidebar } from './components/Sidebar'
 import { Canvas } from './components/Canvas'
-import { PropertiesPanel } from './components/PropertiesPanel'
+import { PresentationBar, PresenterDock } from './components/PresentationBar'
+import { RightPanel, LeftPanel } from './components/RightPanel'
+import { MetamodelEditor } from './components/MetamodelEditor'
+import { NotificationHost } from './components/NotificationHost'
+import { SelectionActionBar } from './components/SelectionActionBar'
+import { EdgeActionBar } from './components/EdgeActionBar'
+import { QuickSearch } from './components/QuickSearch'
 import { useDiagramStore } from './store/diagramStore'
+
+const LS_LEFT = 'radical-leftpanel-collapsed'
+const LS_RIGHT = 'radical-rightpanel-collapsed'
 
 function AppInner(): React.ReactElement {
   const runRadicalLayout = useDiagramStore((s) => s.runRadicalLayout)
-  const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
-  const selectedEdgeId = useDiagramStore((s) => s.selectedEdgeId)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [propsOpen, setPropsOpen] = useState(false)
+  const appMode = useDiagramStore((s) => s.appMode)
+  const presentationActive = useDiagramStore((s) => s.presentationActive)
 
-  // Auto-open props panel when something is selected, auto-close when deselected
+  const isPresenting = presentationActive
+  const isDesigner = appMode === 'designer'
+  const isPresenter = appMode === 'presenter'
+  const isViewer = appMode === 'viewer'
+  const isMetamodel = appMode === 'metamodel'
+  const isReadOnlyMode = !isDesigner && !isMetamodel
+
+  const [leftCollapsed, setLeftCollapsed] = useState<boolean>(() => localStorage.getItem(LS_LEFT) === '1')
+  const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => localStorage.getItem(LS_RIGHT) === '1')
+  const toggleLeft = useCallback(() => {
+    setLeftCollapsed((c) => { localStorage.setItem(LS_LEFT, c ? '0' : '1'); return !c })
+  }, [])
+  const toggleRight = useCallback(() => {
+    setRightCollapsed((c) => { localStorage.setItem(LS_RIGHT, c ? '0' : '1'); return !c })
+  }, [])
+
+  // Expose a way for global features (e.g. Quick Search) to force the right
+  // panel open so the freshly-selected node's properties slide into view
+  // instead of being hidden behind a collapsed panel.
   useEffect(() => {
-    setPropsOpen(!!(selectedNodeId || selectedEdgeId))
-  }, [selectedNodeId, selectedEdgeId])
+    ;(window as unknown as { __radicalExpandRightPanel?: () => void }).__radicalExpandRightPanel = () => {
+      setRightCollapsed((c) => {
+        if (!c) return c
+        localStorage.setItem(LS_RIGHT, '0')
+        return false
+      })
+    }
+    return () => {
+      delete (window as unknown as { __radicalExpandRightPanel?: () => void }).__radicalExpandRightPanel
+    }
+  }, [])
 
   // Run Radical layout automatically on first load
   useEffect(() => {
@@ -30,17 +62,29 @@ function AppInner(): React.ReactElement {
 
   const layoutClass = [
     'app-layout',
-    sidebarOpen ? '' : 'sidebar-collapsed',
-    propsOpen ? '' : 'props-collapsed',
+    isPresenting ? 'mode-presenting' : '',
+    !isPresenting && isMetamodel ? 'mode-metamodel' : '',
+    !isPresenting && isReadOnlyMode ? 'mode-presentation' : '',
+    !isPresenting && leftCollapsed ? 'lp-collapsed' : '',
+    !isPresenting && rightCollapsed ? 'rp-collapsed' : '',
   ].filter(Boolean).join(' ')
 
   return (
     <div className={layoutClass}>
-      <Toolbar />
-      <ViewBar />
-      <Sidebar open={sidebarOpen} onToggle={() => setSidebarOpen((v) => !v)} />
-      <Canvas />
-      <PropertiesPanel open={propsOpen} onToggle={() => setPropsOpen((v) => !v)} />
+      {!isPresenting && <Toolbar />}
+      {!isPresenting && isDesigner && <LeftPanel mode="designer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
+      {!isPresenting && isPresenter && <LeftPanel mode="presenter" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
+      {!isPresenting && isViewer && <LeftPanel mode="viewer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
+      {isMetamodel && !isPresenting ? <MetamodelEditor /> : <Canvas />}
+      {!isPresenting && !isMetamodel && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
+      {!isPresenting && !isMetamodel && !isDesigner && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
+      {!isPresenting && isPresenter && <PresenterDock />}
+      {/* TimeTravelBar (slide strip) intentionally hidden in viewer mode — viewer is meant for free model browsing, slides belong to presenter mode. */}
+      <PresentationBar />
+      {!isPresenting && !isMetamodel && <SelectionActionBar />}
+      {!isPresenting && !isMetamodel && <EdgeActionBar />}
+      <QuickSearch />
+      <NotificationHost />
     </div>
   )
 }

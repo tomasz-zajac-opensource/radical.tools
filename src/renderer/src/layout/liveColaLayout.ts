@@ -38,6 +38,9 @@ interface ColaNode extends InputNode {
 
 interface C4Group extends Group {
   c4id: string
+  /** Visual shrink applied when emitting bounds (collision uses full padding,
+   * but we render a smaller box so sibling group borders don't touch). */
+  visualShrink?: number
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -92,11 +95,29 @@ export class LiveColaLayout {
   private idToGroup = new Map<string, C4Group>()
   private callbacks: LiveColaCallbacks
   private _running = false
+  private _bulkDone = false
   private _grabbedId: string | null = null
   private allNodes: Record<string, C4Node> = {}
+  /**
+   * One-shot seed positions consumed by the next rebuild(). Used when a
+   * caller wants a re-appearing node (e.g. children of a just-expanded
+   * parent) to start at a specific absolute centre coordinate, overriding
+   * the default "spawn near connected neighbours" heuristic. Entries are
+   * cleared after they are applied.
+   */
+  private seedPositions = new Map<string, { x: number; y: number }>()
 
   constructor(callbacks: LiveColaCallbacks) {
     this.callbacks = callbacks
+  }
+
+  /**
+   * Provide an absolute-centre seed position for a node, applied on the next
+   * rebuild() if the node was not present in the previous cola pass (i.e.
+   * a re-appearing child after expand). No-op once consumed.
+   */
+  seedPosition(id: string, x: number, y: number): void {
+    this.seedPositions.set(id, { x, y })
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -104,16 +125,29 @@ export class LiveColaLayout {
   start(): void {
     if (this._running) return
     this._running = true
-    this.rebuild()
+    if (this._bulkDone && this.cola) {
+      // Resume an existing layout WITHOUT calling cola.resume(): that
+      // method sets alpha=0.1 which immediately runs a synchronous
+      // convergence (kick) and visibly shifts nodes. We just re-arm
+      // _running so the live tick handler resumes emitting positions
+      // when cola is woken up by a drag (liveGrab/liveDrag → dragStart
+      // + resume in webcola).
+      // No-op otherwise — cola sits idle and positions stay put.
+    } else {
+      // First start of this instance: bulk-arrange to settle the diagram.
+      this.rebuild(true)
+      this._bulkDone = true
+    }
   }
 
   stop(): void {
     this._running = false
-    if (this.cola) { this.cola.stop(); this.cola = null }
-    this.colaNodes = []
-    this.colaGroups = []
-    this.idToNode.clear()
-    this.idToGroup.clear()
+    // Halt the d3.timer but keep this.cola + node/group caches intact so
+    // a subsequent start() can resume() instead of doing a full rebuild
+    // (which would re-seed positions and visibly shift the diagram).
+    if (this.cola) {
+      try { this.cola.stop() } catch { /* noop */ }
+    }
     this._grabbedId = null
   }
 
@@ -122,7 +156,23 @@ export class LiveColaLayout {
   }
 
   invalidate(): void {
-    if (this._running) this.rebuild()
+    if (this._running) this.rebuild(false)
+  }
+
+  /**
+   * Like invalidate(), but discards cola's cached positions first so the
+   * next rebuild seeds itself from the current c4Nodes coordinates instead
+   * of carrying over stale ones. Use this whenever the store's positions
+   * were replaced wholesale (view switch, milestone load, file load, etc.).
+   */
+  reset(): void {
+    // Drop cached positions; rebuild() will fall back to toAbsoluteTopLeft
+    // (which reads from c4Nodes) for every node.
+    this.colaNodes = []
+    this.idToNode.clear()
+    this.colaGroups = []
+    this.idToGroup.clear()
+    if (this._running) this.rebuild(false)
   }
 
   // ─── Grab / drag / release ─────────────────────────────────────────────────
@@ -257,7 +307,7 @@ export class LiveColaLayout {
 
   // ─── Build / rebuild ───────────────────────────────────────────────────────
 
-  private rebuild(): void {
+  private rebuild(firstRun: boolean = false): void {
     if (this.cola) this.cola.stop()
 
     const { nodes, relations } = this.callbacks.getModel()
@@ -291,19 +341,53 @@ export class LiveColaLayout {
     // ── Leaf nodes → cola nodes ─────────────────────────────────────────
     const leafNodes = visibleNodes.filter((n) => !parentIds.has(n.id))
 
+    // Build a quick relation index so brand-new nodes can spawn near a
+    // connected neighbour (instead of materialising at the origin and
+    // flying across the canvas to find their place).
+    const neighbourIds = new Map<string, string[]>()
+    for (const rel of Object.values(relations)) {
+      if (!neighbourIds.has(rel.sourceId)) neighbourIds.set(rel.sourceId, [])
+      if (!neighbourIds.has(rel.targetId)) neighbourIds.set(rel.targetId, [])
+      neighbourIds.get(rel.sourceId)!.push(rel.targetId)
+      neighbourIds.get(rel.targetId)!.push(rel.sourceId)
+    }
+
     for (const n of leafNodes) {
       const w = effectiveWidth(n)
       const h = effectiveHeight(n)
 
       const prev = prevPos.get(n.id)
+      const seed = this.seedPositions.get(n.id)
       let cx: number, cy: number
       if (prev) {
         cx = prev.x
         cy = prev.y
+      } else if (seed) {
+        // Caller-provided seed (e.g. expand: children spawn at parent's
+        // centre so cola can fan them outward instead of teleporting them
+        // to a neighbour-average and animating from there).
+        cx = seed.x
+        cy = seed.y
+        this.seedPositions.delete(n.id)
       } else {
-        const abs = toAbsoluteTopLeft(n, nodes)
-        cx = abs.x + w / 2
-        cy = abs.y + h / 2
+        // New node: try to position near average of its connected
+        // neighbours' previous cola positions; fall back to its store
+        // position (toAbsoluteTopLeft) when no neighbours have positions.
+        const neigh = neighbourIds.get(n.id) ?? []
+        let sx = 0, sy = 0, count = 0
+        for (const nid of neigh) {
+          const p = prevPos.get(nid)
+          if (p) { sx += p.x; sy += p.y; count++ }
+        }
+        if (count > 0) {
+          // Offset slightly so it doesn't overlap exactly with a neighbour
+          cx = sx / count + (Math.random() - 0.5) * 40
+          cy = sy / count + (Math.random() - 0.5) * 40
+        } else {
+          const abs = toAbsoluteTopLeft(n, nodes)
+          cx = abs.x + w / 2
+          cy = abs.y + h / 2
+        }
       }
 
       // Inflate dimensions by a margin so avoidOverlaps keeps unlinked
@@ -337,7 +421,9 @@ export class LiveColaLayout {
         .map((c) => nodeIndex.get(c.id))
         .filter((i) => i !== undefined) as number[]
       if (leafIndices.length > 0) {
-        const g: C4Group = { c4id: n.id, leaves: leafIndices as any, padding: 100 }
+        const PAD = 80
+        const VIS = 16
+        const g: C4Group = { c4id: n.id, leaves: leafIndices as any, padding: PAD, visualShrink: PAD - VIS }
         this.colaGroups.push(g)
         this.idToGroup.set(n.id, g)
       }
@@ -347,8 +433,26 @@ export class LiveColaLayout {
     const groupIndex = new Map<string, number>()
     this.colaGroups.forEach((g, i) => groupIndex.set(g.c4id, i))
 
-    for (const n of visibleNodes) {
-      if (!parentIds.has(n.id) || n.type !== 'system') continue
+    // ── Systems bottom-up by depth ──────────────────────────────────────
+    // Systems can nest (system inside system inside system…). We need each
+    // parent system's group to reference its children's group indices, which
+    // means children must be added to colaGroups (and thus groupIndex) BEFORE
+    // their parent. Sort by ancestor depth descending — deepest first.
+    const depthCache = new Map<string, number>()
+    const visibleNodeMap = new Map(visibleNodes.map(n => [n.id, n] as const))
+    const depthOf = (id: string): number => {
+      const cached = depthCache.get(id)
+      if (cached !== undefined) return cached
+      const n = visibleNodeMap.get(id)
+      const d = n?.parentId ? depthOf(n.parentId) + 1 : 0
+      depthCache.set(id, d)
+      return d
+    }
+    const systemNodes = visibleNodes
+      .filter(n => parentIds.has(n.id) && n.type === 'system')
+      .sort((a, b) => depthOf(b.id) - depthOf(a.id))
+
+    for (const n of systemNodes) {
       const childLeafIndices: number[] = []
       const childGroupIndices: number[] = []
       for (const c of visibleNodes.filter((v) => v.parentId === n.id)) {
@@ -360,13 +464,20 @@ export class LiveColaLayout {
         }
       }
       if (childLeafIndices.length + childGroupIndices.length > 0) {
+        // Padding scales with nesting depth so deeply-nested systems still
+        // have visual breathing room without exploding outer systems.
+        const d = depthOf(n.id)
+        const PAD = Math.max(60, 100 - d * 12)
+        const VIS = Math.max(12, 20 - d * 2)
         const g: C4Group = {
           c4id: n.id,
           leaves: childLeafIndices.length > 0 ? childLeafIndices as any : undefined,
           groups: childGroupIndices.length > 0 ? childGroupIndices as any : undefined,
-          padding: 120,
+          padding: PAD,
+          visualShrink: PAD - VIS,
         }
         this.colaGroups.push(g)
+        groupIndex.set(n.id, this.colaGroups.length - 1)
         this.idToGroup.set(n.id, g)
       }
     }
@@ -392,26 +503,114 @@ export class LiveColaLayout {
       .avoidOverlaps(true)
       .handleDisconnected(false)
       .linkDistance((link: any) => {
-        // Compute ideal distance based on the two endpoint node sizes.
-        // This keeps nodes separated proportionally to their dimensions
-        // instead of a single fixed value that's too big for small nodes
-        // or too small for large nodes.
+        // ── A: Hierarchical link distance ────────────────────────────────
+        // Distance varies by C4 semantics so the physics produces layouts
+        // closer to what the radical layout would give:
+        //   • siblings inside the same parent          → short  (tight cluster)
+        //   • person → system (entry edges)            → long   (push persons up)
+        //   • internal ↔ external                      → longer (push externals away)
+        //   • internal ↔ internal across systems       → medium
         const s = link.source as ColaNode
         const t = link.target as ColaNode
-        const avgW = (s.width + t.width) / 2
-        const avgH = (s.height + t.height) / 2
-        return Math.max(avgW, avgH) + 200
+        const sn = this.allNodes[s.c4id]
+        const tn = this.allNodes[t.c4id]
+        const baseAvg = Math.max(
+          (s.width + t.width) / 2,
+          (s.height + t.height) / 2
+        )
+        if (sn && tn) {
+          // Same direct parent: containers inside a system, components inside container
+          if (sn.parentId && sn.parentId === tn.parentId) {
+            return baseAvg + 40
+          }
+          const isPerson = sn.type === 'person' || tn.type === 'person'
+          const sExt = !!sn.external
+          const tExt = !!tn.external
+          // External crosses internal boundary → push apart
+          if (sExt !== tExt && !isPerson) return baseAvg + 160
+          // Person → system (entry edge)
+          if (isPerson) return baseAvg + 120
+        }
+        return baseAvg + 100
       })
+
+    // ── E: Layer separation constraints ──────────────────────────────────
+    // Lock the C4 ordering during continuous physics so the radical layout
+    // doesn't get scrambled. Only constrain ROOT-LEVEL nodes (children of a
+    // group are positioned by their group bounds — adding constraints to
+    // them fights avoidOverlaps inside the group).
+    //
+    //   persons      → strictly above   internals + externals
+    //   internals    → strictly left of externals
+    //
+    // Using cola separation constraints: right.axis - left.axis >= gap
+    // Coordinates are CENTERS of inflated rects, so gap accounts for both
+    // halves plus desired padding.
+    const PERSON_GAP_PX = 80
+    const EXT_GAP_PX = 100
+    const personIdx: number[] = []
+    const internalIdx: number[] = []
+    const externalIdx: number[] = []
+    this.colaNodes.forEach((cn, i) => {
+      const n = this.allNodes[cn.c4id]
+      if (!n || n.parentId) return
+      if (n.type === 'person') personIdx.push(i)
+      else if (n.external) externalIdx.push(i)
+      else internalIdx.push(i)
+    })
+    const constraints: Array<{
+      type: 'separation'
+      axis: 'x' | 'y'
+      left: number
+      right: number
+      gap: number
+    }> = []
+    const halfH = (i: number): number => this.colaNodes[i].height / 2
+    const halfW = (i: number): number => this.colaNodes[i].width / 2
+    for (const p of personIdx) {
+      for (const s of [...internalIdx, ...externalIdx]) {
+        constraints.push({
+          type: 'separation',
+          axis: 'y',
+          left: p,
+          right: s,
+          gap: halfH(p) + halfH(s) + PERSON_GAP_PX,
+        })
+      }
+    }
+    for (const i of internalIdx) {
+      for (const e of externalIdx) {
+        constraints.push({
+          type: 'separation',
+          axis: 'x',
+          left: i,
+          right: e,
+          gap: halfW(i) + halfW(e) + EXT_GAP_PX,
+        })
+      }
+    }
+    if (constraints.length > 0) {
+      ;(layout as any).constraints(constraints)
+    }
 
     layout.on('tick', () => {
       if (!this._running) return
       this.emitPositions()
     })
 
-    // Like smallgroups: .start() — keepRunning=true starts the d3.timer.
-    // The timer fires tick() each frame. When stress < threshold → stops.
+    // First start: heavy bulk iterations to settle the diagram quickly so
+    // the user doesn't watch the layout slowly assemble from scratch.
+    // Subsequent rebuilds (model edits): NO bulk iterations — let the live
+    // d3.timer evolve positions tick-by-tick so changes animate smoothly
+    // from current positions to the new equilibrium. Persisting prevPos
+    // across rebuilds means newly-added nodes start near their neighbours
+    // instead of jumping in from the origin.
     try {
-      layout.start()
+      if (firstRun) {
+        ;(layout as any).start(30, 30, 50, 0, true, true)
+      } else {
+        ;(layout as any).start(0, 0, 0, 0, true, false)
+      }
     } catch (err) {
       console.error('[cola] start() failed:', err)
     }
@@ -455,14 +654,55 @@ export class LiveColaLayout {
     // 1. Collect absolute top-left positions from cola
     const abs: Record<string, { x: number; y: number; width?: number; height?: number }> = {}
 
+    // While the user is dragging a parent (group), ReactFlow moves the
+    // parent + its children visually on its own. If we also emit cola
+    // positions for them, RF gets two competing position sources every
+    // tick and the parent flickers. So compute the set of ids to skip:
+    // the grabbed node itself + (if it's a group) all its descendants.
+    const skip = new Set<string>()
+    if (this._grabbedId) {
+      skip.add(this._grabbedId)
+      const grabbedGroup = this.idToGroup.get(this._grabbedId)
+      if (grabbedGroup) {
+        const collect = (gid: string) => {
+          const g = this.idToGroup.get(gid)
+          if (!g) return
+          if (g.leaves) {
+            for (const leaf of g.leaves as any[]) {
+              const cn = typeof leaf === 'number' ? this.colaNodes[leaf] : leaf
+              if (cn?.c4id) skip.add(cn.c4id)
+            }
+          }
+          if (g.groups) {
+            for (const child of g.groups as any[]) {
+              const childGroup = typeof child === 'number' ? this.colaGroups[child] : child
+              const childId = (childGroup as C4Group)?.c4id
+              if (childId) { skip.add(childId); collect(childId) }
+            }
+          }
+        }
+        collect(this._grabbedId)
+      }
+    }
+
     for (const cn of this.colaNodes) {
-      if (cn.c4id === this._grabbedId) continue
+      if (skip.has(cn.c4id)) continue
       abs[cn.c4id] = { x: cn.x - cn.realWidth / 2, y: cn.y - cn.realHeight / 2 }
     }
     for (const g of this.colaGroups) {
+      if (skip.has(g.c4id)) continue
       const b = (g as any).bounds
       if (b) {
-        abs[g.c4id] = { x: b.x, y: b.y, width: b.X - b.x, height: b.Y - b.y }
+        // Shrink the rendered box vs collision box so sibling groups don't
+        // share borders. Collision uses bounds at full `padding`; we render
+        // at `padding - visualShrink` ≈ a small visible inner padding.
+        const s = g.visualShrink ?? 0
+        abs[g.c4id] = {
+          x: b.x + s,
+          y: b.y + s,
+          width: (b.X - b.x) - 2 * s,
+          height: (b.Y - b.y) - 2 * s,
+        }
       }
     }
 
