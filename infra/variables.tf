@@ -32,3 +32,21 @@ variable "create_oidc_provider" {
   type        = bool
   default     = true
 }
+
+variable "www_domain" {
+  description = "Custom www domain to serve on CloudFront (e.g. www.radical.tools). Leave empty to skip ACM + alias setup."
+  type        = string
+  default     = ""
+}
+
+variable "apex_domain" {
+  description = "Apex/root domain (e.g. radical.tools). Required when www_domain is set — creates Route 53 hosted zone."
+  type        = string
+  default     = ""
+}
+
+variable "app_domain" {
+  description = "App subdomain to serve on CloudFront (e.g. app.radical.tools). Leave empty to skip."
+  type        = string
+  default     = ""
+}

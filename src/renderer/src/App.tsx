@@ -9,7 +9,12 @@ import { NotificationHost } from './components/NotificationHost'
 import { SelectionActionBar } from './components/SelectionActionBar'
 import { EdgeActionBar } from './components/EdgeActionBar'
 import { QuickSearch } from './components/QuickSearch'
+import { WelcomeScreen } from './components/WelcomeScreen'
 import { useDiagramStore } from './store/diagramStore'
+
+const DevSampleToolbar = import.meta.env.DEV
+  ? React.lazy(() => import('./components/DevSampleToolbar').then(m => ({ default: m.DevSampleToolbar })))
+  : null
 
 const LS_LEFT = 'radical-leftpanel-collapsed'
 const LS_RIGHT = 'radical-rightpanel-collapsed'
@@ -28,6 +33,7 @@ function AppInner(): React.ReactElement {
 
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(() => localStorage.getItem(LS_LEFT) === '1')
   const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => localStorage.getItem(LS_RIGHT) === '1')
+  const [showWelcome, setShowWelcome] = useState(true)
   const toggleLeft = useCallback(() => {
     setLeftCollapsed((c) => { localStorage.setItem(LS_LEFT, c ? '0' : '1'); return !c })
   }, [])
@@ -85,6 +91,12 @@ function AppInner(): React.ReactElement {
       {!isPresenting && !isMetamodel && <EdgeActionBar />}
       <QuickSearch />
       <NotificationHost />
+      {showWelcome && <WelcomeScreen onDismiss={() => setShowWelcome(false)} />}
+      {DevSampleToolbar && (
+        <React.Suspense fallback={null}>
+          <DevSampleToolbar onSampleLoaded={() => setShowWelcome(false)} />
+        </React.Suspense>
+      )}
     </div>
   )
 }

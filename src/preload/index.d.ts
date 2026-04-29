@@ -11,6 +11,8 @@ declare global {
       openDiagram: () => Promise<{ success: boolean; filePath?: string; content?: string }>
       readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
       writeFile: (filePath: string, json: string) => Promise<{ success: boolean; error?: string }>
+      devSaveSample: (json: string) => Promise<{ success: boolean; error?: string }>
+      devLoadSample: () => Promise<{ success: boolean; content?: string; error?: string }>
     }
   }
 }

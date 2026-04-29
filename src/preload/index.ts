@@ -16,6 +16,10 @@ const api = {
     ipcRenderer.invoke('file:read', filePath),
   writeFile: (filePath: string, json: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('file:write', filePath, json),
+  devSaveSample: (json: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('dev:saveSample', json),
+  devLoadSample: (): Promise<{ success: boolean; content?: string; error?: string }> =>
+    ipcRenderer.invoke('dev:loadSample'),
 }
 
 if (process.contextIsolated) {

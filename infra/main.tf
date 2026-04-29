@@ -1,7 +1,9 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  name_prefix = "${var.project_name}-${var.environment}"
+  name_prefix  = "${var.project_name}-${var.environment}"
+  use_www      = var.www_domain != "" && var.apex_domain != ""
+  use_app      = local.use_www && var.app_domain != ""
 }
 
 # ── S3 bucket ────────────────────────────────────────────────────────────────
@@ -51,6 +53,86 @@ resource "aws_s3_bucket_lifecycle_configuration" "spa" {
   }
 }
 
+# ── Route 53 hosted zone ────────────────────────────────────────────────────
+
+resource "aws_route53_zone" "apex" {
+  count = local.use_www ? 1 : 0
+  name  = var.apex_domain
+}
+
+# ── ACM certificate (us-east-1, required by CloudFront) ─────────────────────
+
+resource "aws_acm_certificate" "www" {
+  count                     = local.use_www ? 1 : 0
+  provider                  = aws.us_east_1
+  domain_name               = var.apex_domain
+  subject_alternative_names = local.use_app ? [var.www_domain, var.app_domain] : [var.www_domain]
+  validation_method         = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# ACM validation CNAMEs — one per domain in the cert (apex + www SAN).
+resource "aws_route53_record" "acm_validation" {
+  for_each = local.use_www ? {
+    for dvo in aws_acm_certificate.www[0].domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  } : {}
+
+  allow_overwrite = true
+  zone_id         = aws_route53_zone.apex[0].zone_id
+  name            = each.value.name
+  type            = each.value.type
+  records         = [each.value.record]
+  ttl             = 60
+}
+
+# app CNAME → CloudFront
+resource "aws_route53_record" "app" {
+  count   = local.use_app ? 1 : 0
+  zone_id = aws_route53_zone.apex[0].zone_id
+  name    = var.app_domain
+  type    = "CNAME"
+  records = [aws_cloudfront_distribution.spa.domain_name]
+  ttl     = 300
+}
+
+# www CNAME → CloudFront (DNS only; alias ownership stays on apex)
+resource "aws_route53_record" "www" {
+  count   = local.use_www ? 1 : 0
+  zone_id = aws_route53_zone.apex[0].zone_id
+  name    = var.www_domain
+  type    = "CNAME"
+  records = [aws_cloudfront_distribution.spa.domain_name]
+  ttl     = 300
+}
+
+# apex A alias → CloudFront (Route 53 supports apex aliases to CloudFront)
+resource "aws_route53_record" "apex" {
+  count   = local.use_www ? 1 : 0
+  zone_id = aws_route53_zone.apex[0].zone_id
+  name    = var.apex_domain
+  type    = "A"
+  alias {
+    name                   = aws_cloudfront_distribution.spa.domain_name
+    zone_id                = "Z2FDTNDATAQYW2"
+    evaluate_target_health = false
+  }
+}
+
+# Waits until ACM DNS validation completes via Route 53 records above.
+resource "aws_acm_certificate_validation" "www" {
+  count                   = local.use_www ? 1 : 0
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.www[0].arn
+  validation_record_fqdns = [for record in aws_route53_record.acm_validation : record.fqdn]
+}
+
 # ── CloudFront Origin Access Control (OAC) ───────────────────────────────────
 
 resource "aws_cloudfront_origin_access_control" "spa" {
@@ -70,6 +152,8 @@ resource "aws_cloudfront_distribution" "spa" {
   comment             = local.name_prefix
   # PriceClass_100 = US + Canada + Europe. Use PriceClass_All for global CDN.
   price_class = "PriceClass_100"
+
+  aliases = local.use_app ? [var.app_domain] : []
 
   origin {
     domain_name              = aws_s3_bucket.spa.bucket_regional_domain_name
@@ -125,12 +209,10 @@ resource "aws_cloudfront_distribution" "spa" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = local.use_www ? false : true
+    acm_certificate_arn            = local.use_www ? aws_acm_certificate_validation.www[0].certificate_arn : null
+    ssl_support_method             = local.use_www ? "sni-only" : null
     minimum_protocol_version       = "TLSv1.2_2021"
-    # To use a custom domain, replace the above two lines with:
-    # acm_certificate_arn      = aws_acm_certificate.spa.arn   # must be in us-east-1
-    # ssl_support_method       = "sni-only"
-    # minimum_protocol_version = "TLSv1.2_2021"
   }
 }
 

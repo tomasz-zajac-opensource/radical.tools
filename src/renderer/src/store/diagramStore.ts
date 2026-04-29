@@ -2329,6 +2329,7 @@ export const useDiagramStore = create<DiagramStore>()(
             get().pushNotification('Smart layout: no candidate produced a result.', 'warning')
             return
           }
+          get()._markMilestoneEdit()
           set((state) => {
             for (const [id, pos] of Object.entries(result.winner.positions)) {
               const node = state.c4Nodes[id]
