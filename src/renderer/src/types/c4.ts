@@ -142,33 +142,33 @@ export type PositionMap = Record<string, { x: number; y: number; width?: number;
 // ─── Node default sizes ──────────────────────────────────────────────────────
 
 export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }> = {
-  person:    { width: 130, height: 140 },
-  system:    { width: 340, height: 240 },
-  container: { width: 280, height: 180 },
-  component: { width: 200, height: 100 },
-  database:  { width: 200, height: 120 },
-  webapp:    { width: 220, height: 140 },
-  queue:     { width: 240, height: 90 },
+  person:    { width: 150, height: 170 },
+  system:    { width: 360, height: 260 },
+  container: { width: 300, height: 200 },
+  component: { width: 200, height: 120 },
+  database:  { width: 190, height: 130 },
+  webapp:    { width: 210, height: 140 },
+  queue:     { width: 220, height: 95 },
 }
 
 export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
-  person:    140,
-  system:    70,
-  container: 60,
-  component: 100,
-  database:  120,
+  person:    170,
+  system:    180,
+  container: 160,
+  component: 120,
+  database:  130,
   webapp:    140,
-  queue:     90,
+  queue:     95,
 }
 
 export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
-  person:    130,
-  system:    220,
-  container: 200,
+  person:    150,
+  system:    280,
+  container: 240,
   component: 200,
-  database:  200,
-  webapp:    220,
-  queue:     240,
+  database:  190,
+  webapp:    210,
+  queue:     220,
 }
 
 export const NODE_COLORS: Record<C4ElementType, string> = {

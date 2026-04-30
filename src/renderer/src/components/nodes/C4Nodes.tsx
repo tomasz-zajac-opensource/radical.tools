@@ -150,7 +150,7 @@ export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
 
   return (
     <div
-      className="c4-node"
+      className={`c4-node${isExpanded ? ' c4-node-expanded' : ''}`}
       style={{
         position: 'relative',
         width: '100%',
@@ -177,11 +177,11 @@ export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
       </div>
 
       <div className="c4-node-label" style={isExpanded ? { color: solidBg } : undefined}>{data.label}</div>
-      {data.technology && (
-        <div className="c4-node-tech" style={isExpanded ? { color: solidBg, opacity: 0.7 } : undefined}>[{data.technology}]</div>
+      {!isExpanded && data.technology && (
+        <div className="c4-node-tech">[{data.technology}]</div>
       )}
-      {data.description && (
-        <div className="c4-node-desc" style={isExpanded ? { color: solidBg, opacity: 0.8 } : undefined}>{data.description}</div>
+      {!isExpanded && data.description && (
+        <div className="c4-node-desc">{data.description}</div>
       )}
 
       {/* Children are rendered by React Flow as separate nodes */}
@@ -210,7 +210,7 @@ export const ContainerNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
 
   return (
     <div
-      className="c4-node"
+      className={`c4-node${isExpanded ? ' c4-node-expanded' : ''}`}
       style={{
         position: 'relative',
         width: '100%',
@@ -236,11 +236,11 @@ export const ContainerNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
       </div>
 
       <div className="c4-node-label" style={{ fontSize: 12, ...(isExpanded ? { color: solidBg } : {}) }}>{data.label}</div>
-      {data.technology && (
-        <div className="c4-node-tech" style={isExpanded ? { color: solidBg, opacity: 0.7 } : undefined}>[{data.technology}]</div>
+      {!isExpanded && data.technology && (
+        <div className="c4-node-tech">[{data.technology}]</div>
       )}
-      {data.description && (
-        <div className="c4-node-desc" style={{ fontSize: 10, ...(isExpanded ? { color: solidBg, opacity: 0.8 } : {}) }}>{data.description}</div>
+      {!isExpanded && data.description && (
+        <div className="c4-node-desc" style={{ fontSize: 10 }}>{data.description}</div>
       )}
     </div>
   )

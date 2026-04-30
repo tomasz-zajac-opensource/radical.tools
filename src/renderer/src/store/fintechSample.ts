@@ -192,8 +192,8 @@ function _makeBaseData(): { allNodes: C4Node[]; allRels: C4Relation[] } {
       'React / Swift / Kotlin', 2320, 80, 420, 530),
 
     nd('ctn-web',     'webapp', 'Web Banking', 'Full-featured banking portal and admin console for browsers', 'React 18 / TypeScript',    40, 80,  WAW, WAH, { parentId: 'sys-channels' }),
-    nd('ctn-ios',     'webapp', 'iOS App',     'Native banking app for iPhone and iPad',                      'Swift 5.9 / SwiftUI',      40, 280, PW,  PH,  { parentId: 'sys-channels' }),
-    nd('ctn-android', 'webapp', 'Android App', 'Native banking app for Android phones and tablets',           'Kotlin / Jetpack Compose', 230, 280, PW,  PH,  { parentId: 'sys-channels' }),
+    nd('ctn-ios',     'webapp', 'iOS App',     'Native banking app for iPhone and iPad',                      'Swift 5.9 / SwiftUI',      40, 280, WAW, WAH, { parentId: 'sys-channels' }),
+    nd('ctn-android', 'webapp', 'Android App', 'Native banking app for Android phones and tablets',           'Kotlin / Jetpack Compose', 280, 280, WAW, WAH, { parentId: 'sys-channels' }),
 
     // ── External systems ──────────────────────────────────────────────────────
     nd('sys-swift', 'system', 'SWIFT Network',      'International interbank messaging for cross-border wire transfers', 'SWIFT MT / ISO 20022',  100,  960, 340, 240, { external: true }),

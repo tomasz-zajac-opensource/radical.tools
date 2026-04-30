@@ -1354,7 +1354,7 @@ function refinePerCompound(
  * Padding mirrors the values used by ELK / fitParentToChildren in the store.
  */
 const PARENT_PAD_X = 16
-const PARENT_PAD_TOP = 40   // room for the type/label header
+const PARENT_PAD_TOP = 120  // header (30) + 2-line label (~52) + breathing room
 const PARENT_PAD_BOTTOM = 16
 
 function fitParentsToChildren(

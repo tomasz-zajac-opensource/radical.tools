@@ -544,24 +544,45 @@ function deriveRFNodes(
   // Pre-compute which nodes have children (in the full model)
   const parentSet = new Set(Object.values(nodes).map((n) => n.parentId).filter(Boolean))
 
+  // Minimum top offset for children inside an expanded parent — must clear
+  // the header (~30px) + 2-line label (~52px) + small gap. Mirrors the value
+  // used by ELK / smartLayout / fitParentToChildren.
+  const PARENT_LABEL_PAD = 110
+
   for (const n of sorted) {
     const hidden = isNodeHidden(n.id, nodes, viewCollapsedSet)
     const hasChildren = parentSet.has(n.id)
     const collapsed = isEffectivelyCollapsed(n, viewCollapsedSet)
     const isGhost = ghostIds?.has(n.id) ?? false
     const effHeight =
-      (n.type === 'system' || n.type === 'container') && collapsed
+      (n.type === 'system' || n.type === 'container') && (collapsed || !hasChildren)
         ? COLLAPSED_HEIGHT[n.type]
         : n.height
     const effWidth =
-      (n.type === 'system' || n.type === 'container') && collapsed
+      (n.type === 'system' || n.type === 'container') && (collapsed || !hasChildren)
         ? COLLAPSED_WIDTH[n.type]
         : n.width
+
+    // Render-time safeguard: if a child sits too close to its parent's top
+    // (because the saved layout pre-dates the larger header padding), push
+    // the visible position down without mutating the model.
+    let renderY = n.y
+    if (n.parentId) {
+      const parent = nodes[n.parentId]
+      const parentExpanded =
+        parent &&
+        (parent.type === 'system' || parent.type === 'container') &&
+        !isEffectivelyCollapsed(parent, viewCollapsedSet) &&
+        parentSet.has(parent.id)
+      if (parentExpanded && renderY < PARENT_LABEL_PAD) {
+        renderY = PARENT_LABEL_PAD
+      }
+    }
 
     rfNodes.push({
       id: n.id,
       type: n.type,
-      position: { x: n.x, y: n.y },
+      position: { x: n.x, y: renderY },
       parentNode: n.parentId,
       extent: undefined,
       expandParent: false,
@@ -1207,7 +1228,15 @@ export const useDiagramStore = create<DiagramStore>()(
           Object.assign(state.c4Nodes[id], updates)
         })
         get()._sync()
-        _liveLayout?.invalidate()
+        // Only wake the live layout if the change actually affects geometry
+        // or graph topology. Editing label / description / technology must
+        // NOT trigger a cola rebuild — cola would then re-run from scratch
+        // and visibly drift the diagram toward its spring equilibrium
+        // (typically up-and-left). Pure text edits are a no-op for layout.
+        const LAYOUT_KEYS = ['x', 'y', 'width', 'height', 'parentId', 'type', 'collapsed'] as const
+        if (LAYOUT_KEYS.some((k) => k in updates)) {
+          _liveLayout?.invalidate()
+        }
       },
 
       removeNode(id) {
@@ -1259,7 +1288,7 @@ export const useDiagramStore = create<DiagramStore>()(
           const allNodes = get().c4Nodes
           const parent = allNodes[id]
           if (parent && (parent.type === 'system' || parent.type === 'container')) {
-            const HEADER_OFFSET = parent.type === 'system' ? 50 : 40
+            const HEADER_OFFSET = parent.type === 'system' ? 120 : 110
             const PAD = 24
             const children = Object.values(allNodes).filter((c) => c.parentId === id)
             if (children.length > 0) {

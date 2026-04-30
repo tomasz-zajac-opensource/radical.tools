@@ -51,7 +51,7 @@ const LAYERED_OPTIONS: LayoutOptions = {
   // ── Post-layout ──────────────────────────────────────────────────────────
   'elk.layered.unnecessaryBendpoints': 'true',
   'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH',
-  'elk.padding': '[top=40, right=30, bottom=30, left=30]',
+  'elk.padding': '[top=120, right=30, bottom=30, left=30]',
 }
 
 // Layout options for compound nodes (systems containing containers, or
@@ -73,7 +73,7 @@ const CHILD_OPTIONS: LayoutOptions = {
   'elk.spacing.edgeEdge': '8',
   'elk.layered.unnecessaryBendpoints': 'true',
   'elk.layered.compaction.postCompaction.strategy': 'EDGE_LENGTH',
-  'elk.padding': '[top=40, right=20, bottom=20, left=20]',
+  'elk.padding': '[top=110, right=20, bottom=20, left=20]',
 }
 
 // ─── Ancestor helpers ─────────────────────────────────────────────────────────
