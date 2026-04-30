@@ -2378,6 +2378,14 @@ export const useDiagramStore = create<DiagramStore>()(
             ? `Smart layout: ${result.winner.name} — ${after.crossings} crossings, ${after.overdraws} overdraws · ${planarTag}.`
             : `Smart layout: ${result.winner.name} — crossings ${before.crossings}${arrow}${after.crossings}, overdraws ${before.overdraws}${arrow}${after.overdraws} (${pct}% better) · ${planarTag}.`
           get().pushNotification(msg, 'info')
+          // Auto fit-all so the user immediately sees the freshly-laid-out
+          // diagram framed in the viewport. Defer one paint so React Flow
+          // has applied the new node positions before fitView measures them.
+          if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => { _getFitViewFn()?.() })
+          } else {
+            _getFitViewFn()?.()
+          }
           // Console breadcrumb with full ranking + SA stats — useful for tuning.
           console.info(
             '[smartLayout]', result.winner.name,

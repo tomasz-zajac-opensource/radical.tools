@@ -869,6 +869,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   overflow: visible;
   position: relative;
 }
@@ -941,6 +942,7 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
 }
 .left-panel .panel-content {
@@ -1239,6 +1241,7 @@ body {
   position: relative;
   background: var(--bg-canvas);
   overflow: hidden;
+  min-height: 0;
 }
 
 /* ─── Properties panel ────────────────────────────────────────────── */

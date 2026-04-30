@@ -246,28 +246,147 @@ function polyMidpoint(pts: Pt[]): Pt {
 
 // ── Main export ───────────────────────────────────────────────────────
 
+/**
+ * De Casteljau sample of cubic bezier at t∈[0,1].
+ */
+function cubicAt(
+  p0x: number, p0y: number, p1x: number, p1y: number,
+  p2x: number, p2y: number, p3x: number, p3y: number,
+  t: number,
+): Pt {
+  const u = 1 - t
+  const uu = u * u, uuu = uu * u
+  const tt = t * t, ttt = tt * t
+  return {
+    x: uuu * p0x + 3 * uu * t * p1x + 3 * u * tt * p2x + ttt * p3x,
+    y: uuu * p0y + 3 * uu * t * p1y + 3 * u * tt * p2y + ttt * p3y,
+  }
+}
+
+/** Does the cubic bezier pass through any obstacle rect (with padding)?  */
+function bezierHitsObstacles(
+  s: Pt, c1: Pt, c2: Pt, t: Pt,
+  obstacles: RoutingObstacle[],
+  pad: number,
+  samples = 16,
+): boolean {
+  if (obstacles.length === 0) return false
+  for (let i = 1; i < samples; i++) {
+    const u = i / samples
+    const p = cubicAt(s.x, s.y, c1.x, c1.y, c2.x, c2.y, t.x, t.y, u)
+    for (let j = 0; j < obstacles.length; j++) {
+      const o = obstacles[j]
+      if (
+        p.x >= o.x - pad && p.x <= o.x + o.w + pad &&
+        p.y >= o.y - pad && p.y <= o.y + o.h + pad
+      ) return true
+    }
+  }
+  return false
+}
+
+/** Run A* on a grid built from obstacles; returns world-space polyline
+ *  including the start/end border points, or null if no path was found. */
+function routeAround(
+  s: Pt, sSide: Position, t: Pt, tSide: Position,
+  obstacles: RoutingObstacle[],
+): Pt[] | null {
+  // Build a bounding box that contains all obstacles + endpoints + margin.
+  const margin = OBS_PAD * 2 + EXIT_DIST * 2
+  let minX = Math.min(s.x, t.x), minY = Math.min(s.y, t.y)
+  let maxX = Math.max(s.x, t.x), maxY = Math.max(s.y, t.y)
+  for (const o of obstacles) {
+    if (o.x - OBS_PAD < minX) minX = o.x - OBS_PAD
+    if (o.y - OBS_PAD < minY) minY = o.y - OBS_PAD
+    if (o.x + o.w + OBS_PAD > maxX) maxX = o.x + o.w + OBS_PAD
+    if (o.y + o.h + OBS_PAD > maxY) maxY = o.y + o.h + OBS_PAD
+  }
+  minX -= margin; minY -= margin
+  maxX += margin; maxY += margin
+
+  const cols = Math.max(4, Math.ceil((maxX - minX) / CELL))
+  const rows = Math.max(4, Math.ceil((maxY - minY) / CELL))
+  // Bail out on pathological grids — keeps worst-case cost bounded.
+  if (cols * rows > 60_000) return null
+
+  const blocked = new Uint8Array(cols * rows)
+  for (const o of obstacles) {
+    const c0 = clamp(Math.floor((o.x - OBS_PAD - minX) / CELL), 0, cols - 1)
+    const c1 = clamp(Math.ceil((o.x + o.w + OBS_PAD - minX) / CELL), 0, cols - 1)
+    const r0 = clamp(Math.floor((o.y - OBS_PAD - minY) / CELL), 0, rows - 1)
+    const r1 = clamp(Math.ceil((o.y + o.h + OBS_PAD - minY) / CELL), 0, rows - 1)
+    for (let r = r0; r <= r1; r++) {
+      for (let c = c0; c <= c1; c++) blocked[r * cols + c] = 1
+    }
+  }
+
+  // Compute grid entry/exit points (one cell off the border, along the side normal).
+  const sExit = extendPt(s.x, s.y, sSide, EXIT_DIST)
+  const tExit = extendPt(t.x, t.y, tSide, EXIT_DIST)
+  const sc = clamp(Math.round((sExit.x - minX) / CELL), 0, cols - 1)
+  const sr = clamp(Math.round((sExit.y - minY) / CELL), 0, rows - 1)
+  const tc = clamp(Math.round((tExit.x - minX) / CELL), 0, cols - 1)
+  const tr = clamp(Math.round((tExit.y - minY) / CELL), 0, rows - 1)
+  // Force start/end cells passable so we never reject the path because the
+  // endpoint sits just inside a node's padding band.
+  blocked[sr * cols + sc] = 0
+  blocked[tr * cols + tc] = 0
+
+  const cells = astarSearch(sc, sr, tc, tr, cols, rows, blocked)
+  if (!cells) return null
+
+  // Convert grid cells back to world coords.
+  const grid: Pt[] = cells.map(([c, r]) => ({
+    x: minX + c * CELL,
+    y: minY + r * CELL,
+  }))
+  // Stitch border → grid stub → ... → grid stub → border so the polyline
+  // exits along the correct side normal at both endpoints.
+  const head = stubToGrid(s, grid[0], sSide)
+  const tail = stubToGrid(t, grid[grid.length - 1], tSide).reverse()
+  return simplifyPath([s, ...head, ...grid, ...tail, t])
+}
+
 export function computeRoutedEdge(
   sx: number, sy: number, srcSide: Position,
   tx: number, ty: number, tgtSide: Position,
-  _obstacles: RoutingObstacle[],
+  obstacles: RoutingObstacle[],
 ): { path: string; labelX: number; labelY: number } {
-  // Curved edges: a single cubic bezier with control points pulled along
-  // each side's exit normal. The handle-side tangent makes the arrowhead
-  // align cleanly with the chosen side and gives a natural flow.
-  //
-  // We intentionally don't run A* obstacle avoidance here — orthogonal
-  // routing fights against curve aesthetics. Crossings are minimised by
-  // the upstream layout (radical/cola) instead.
-  const path = buildBezierPath(
-    { x: sx, y: sy }, srcSide,
-    { x: tx, y: ty }, tgtSide
-  )
-  // Bezier midpoint for labels: De Casteljau at t=0.5
+  // Prefer a single cubic bezier with control points pulled along each
+  // side's exit normal — clean arrowhead alignment, natural flow.
+  // Only fall back to obstacle-avoiding A* + smoothed polyline when the
+  // direct curve would actually cross a node, since A* paths look stiffer.
+  const s = { x: sx, y: sy }
+  const t = { x: tx, y: ty }
   const dist = Math.hypot(tx - sx, ty - sy)
   const pull = Math.min(180, Math.max(40, dist * 0.5))
   const c1 = extendPt(sx, sy, srcSide, pull)
   const c2 = extendPt(tx, ty, tgtSide, pull)
-  const labelX = 0.125 * sx + 0.375 * c1.x + 0.375 * c2.x + 0.125 * tx
-  const labelY = 0.125 * sy + 0.375 * c1.y + 0.375 * c2.y + 0.125 * ty
-  return { path, labelX, labelY }
+
+  // Padding for the hit test is smaller than the routing OBS_PAD: we only
+  // re-route when the curve clearly goes *through* a node, not when it just
+  // grazes the padding zone. Otherwise nearly every edge would be re-routed.
+  const HIT_PAD = 4
+  const hits = bezierHitsObstacles(s, c1, c2, t, obstacles, HIT_PAD)
+
+  if (!hits) {
+    const path = buildBezierPath(s, srcSide, t, tgtSide)
+    const labelX = 0.125 * sx + 0.375 * c1.x + 0.375 * c2.x + 0.125 * tx
+    const labelY = 0.125 * sy + 0.375 * c1.y + 0.375 * c2.y + 0.125 * ty
+    return { path, labelX, labelY }
+  }
+
+  // Direct curve hits at least one node — route around with A*.
+  const polyline = routeAround(s, srcSide, t, tgtSide, obstacles)
+  if (!polyline || polyline.length < 2) {
+    // Routing failed (grid too big, or unreachable) — fall back to direct.
+    const path = buildBezierPath(s, srcSide, t, tgtSide)
+    const labelX = 0.125 * sx + 0.375 * c1.x + 0.375 * c2.x + 0.125 * tx
+    const labelY = 0.125 * sy + 0.375 * c1.y + 0.375 * c2.y + 0.125 * ty
+    return { path, labelX, labelY }
+  }
+
+  const path = buildSvgPath(polyline)
+  const mid = polyMidpoint(polyline)
+  return { path, labelX: mid.x, labelY: mid.y }
 }
