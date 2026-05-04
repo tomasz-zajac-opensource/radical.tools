@@ -132,6 +132,36 @@ function defaultWebFilePicker(): Promise<{ name: string; content: string } | nul
   })
 }
 
+/** Browser-only downloader used when running outside Electron. Triggers a
+ *  download of `json` as `suggestedName` and resolves with the filename used
+ *  (or null if the environment cannot download). The browser does not tell
+ *  us whether the user picked a different name in their Save dialog, so we
+ *  return the suggested name and the meta display name reflects that. */
+function defaultWebDownloader(suggestedName: string, json: string): Promise<string | null> {
+  if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') {
+    return Promise.resolve(null)
+  }
+  try {
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = suggestedName
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    // Defer cleanup so Safari/Firefox have time to consume the blob URL.
+    setTimeout(() => {
+      try { document.body.removeChild(a) } catch { /* already gone */ }
+      URL.revokeObjectURL(url)
+    }, 1000)
+    return Promise.resolve(suggestedName)
+  } catch (e) {
+    console.warn('[documentStore] saveAsFile web download failed:', e)
+    return Promise.resolve(null)
+  }
+}
+
 /** One-shot migration: if the user has data under the legacy single-slot key
  *  but the new index is empty, import it as the first LS document. */
 function migrateLegacyIfNeeded(index: DocumentsIndex): DocumentsIndex {
@@ -192,9 +222,19 @@ export interface DocumentsAPI {
     pickerOverride?: () => Promise<{ name: string; content: string } | null>,
   ): Promise<DocumentMeta | null>
 
-  /** Native save dialog for an existing doc -> turn it into an FS doc bound
-   *  to the chosen path (and write the current payload there). */
-  saveAsFile(id: string, data: DiagramData): Promise<DocumentMeta | null>
+  /** Save the doc's payload to disk.
+   *  Electron path: native Save dialog -> writes via preload IPC and turns
+   *  the doc into FS-backed, bound to the chosen path.
+   *  Web path: triggers a browser download of the JSON; the doc stays
+   *  LS-backed (the browser has no writable absolute path) but its display
+   *  name is updated to match the chosen filename. The optional
+   *  `downloadOverride` is an injection seam for tests.
+   *  Returns the (possibly mutated) meta, or null on cancel / failure. */
+  saveAsFile(
+    id: string,
+    data: DiagramData,
+    downloadOverride?: (filename: string, json: string) => Promise<string | null>,
+  ): Promise<DocumentMeta | null>
 
   /** Convenience: ensure there's at least one document; create an empty LS
    *  doc if the index is empty. Returns the active doc. */
@@ -338,19 +378,42 @@ export const documents: DocumentsAPI = {
     return this.createLSDocument(name, parsed)
   },
 
-  async saveAsFile(id, data) {
-    if (!window.electronAPI?.saveDiagram) return null
+  async saveAsFile(id, data, downloadOverride) {
     const json = JSON.stringify(data, null, 2)
-    const res = await window.electronAPI.saveDiagram(json)
-    if (!res.success || !res.filePath) return null
+
+    // ── Electron path: native Save dialog returns an absolute path; we
+    //    convert the doc into FS-backed and drop any LS payload.
+    if (typeof window !== 'undefined' && window.electronAPI?.saveDiagram) {
+      const res = await window.electronAPI.saveDiagram(json)
+      if (!res.success || !res.filePath) return null
+      const idx = readIndex()
+      const meta = idx.docs.find(d => d.id === id)
+      if (!meta) return null
+      if (meta.source === 'ls') deleteLSPayload(id)
+      meta.source = 'fs'
+      meta.filePath = res.filePath
+      meta.name = defaultNameFromPath(res.filePath)
+      meta.lastModified = Date.now()
+      writeIndex(idx)
+      notify()
+      return meta
+    }
+
+    // ── Web fallback: there is no FS to bind to, so we trigger a browser
+    //    download of the JSON. The doc stays LS-backed but adopts the
+    //    chosen filename as its display name. Without this branch the
+    //    "Save as file…" action was a silent no-op in the deployed web
+    //    build.
     const idx = readIndex()
     const meta = idx.docs.find(d => d.id === id)
     if (!meta) return null
-    // Convert the doc into FS-backed and drop its LS payload.
-    if (meta.source === 'ls') deleteLSPayload(id)
-    meta.source = 'fs'
-    meta.filePath = res.filePath
-    meta.name = defaultNameFromPath(res.filePath)
+    const suggested = (meta.name || 'diagram').replace(/[\\/]/g, '_') + '.c4.json'
+    const downloader = downloadOverride ?? defaultWebDownloader
+    const usedName = await downloader(suggested, json)
+    if (!usedName) return null
+    // Mirror Electron-path behaviour: persist the new payload + name.
+    writeLSPayload(id, data)
+    meta.name = defaultNameFromPath(usedName)
     meta.lastModified = Date.now()
     writeIndex(idx)
     notify()
