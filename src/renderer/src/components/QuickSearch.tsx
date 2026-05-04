@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import { useOutsideClick } from '../hooks/useOutsideClick'
+import { runAIPrompt } from '../ai/runner'
+import { loadAISettings } from '../ai/settings'
+import { getAdapter, listAdapters } from '../ai/registry'
+import { openAISettings } from './AISettingsModal'
+import type { AISettings, ChatMessage } from '../ai/types'
+import type { ApplyReport } from '../ai/applyPatch'
 
 /**
  * Cmd/Ctrl+P quick-search palette.
@@ -28,8 +34,105 @@ export function QuickSearch(): React.ReactElement | null {
   const [q, setQ] = useState('')
   const [hover, setHover] = useState(0)
   const [focused, setFocused] = useState(false)
+  const [aiMode, setAiMode] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  // ── AI agent state ──────────────────────────────────────────────────────
+  const [aiSettings, setAiSettings] = useState<AISettings>(() => loadAISettings())
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiHistory, setAiHistory] = useState<ChatMessage[]>([])
+  const [aiLast, setAiLast] = useState<{ text: string; report?: ApplyReport; error?: string; retries?: number } | null>(null)
+  const aiAbortRef = useRef<AbortController | null>(null)
+
+  // Keep AI settings fresh when the user updates them in the modal.
+  useEffect(() => {
+    const refresh = (): void => setAiSettings(loadAISettings())
+    window.addEventListener('storage', refresh)
+    window.addEventListener('radical:ai-settings-changed', refresh as EventListener)
+    return () => {
+      window.removeEventListener('storage', refresh)
+      window.removeEventListener('radical:ai-settings-changed', refresh as EventListener)
+    }
+  }, [])
+
+  // Diagram facade — read fresh from the store on every call so the AI sees
+  // the latest state even mid-session.
+  const aiDiagram = useMemo(() => ({
+    getNodes: () => useDiagramStore.getState().c4Nodes,
+    getRelations: () => useDiagramStore.getState().c4Relations,
+    getMetamodel: () => useDiagramStore.getState().metamodel,
+    getActiveView: () => {
+      const s = useDiagramStore.getState()
+      if (!s.activeViewId) return null
+      const v = s.views[s.activeViewId]
+      if (!v) return null
+      return { id: v.id, name: v.name, nodeIds: v.nodeIds }
+    },
+    addNode: (n: Parameters<ReturnType<typeof useDiagramStore.getState>['addNode']>[0]) =>
+      useDiagramStore.getState().addNode(n),
+    updateNode: (id: string, u: Parameters<ReturnType<typeof useDiagramStore.getState>['updateNode']>[1]) =>
+      useDiagramStore.getState().updateNode(id, u),
+    removeNode: (id: string) => useDiagramStore.getState().removeNode(id),
+    addRelation: (r: Parameters<ReturnType<typeof useDiagramStore.getState>['addRelation']>[0]) =>
+      useDiagramStore.getState().addRelation(r),
+    updateRelation: (id: string, u: Parameters<ReturnType<typeof useDiagramStore.getState>['updateRelation']>[1]) =>
+      useDiagramStore.getState().updateRelation(id, u),
+    removeRelation: (id: string) => useDiagramStore.getState().removeRelation(id),
+  }), [])
+
+  const aiAdapterCfg = aiSettings.providers[aiSettings.active]
+  const aiAdapter = getAdapter(aiSettings.active)
+  const aiNeedsKey = aiSettings.active !== 'ollama' && !aiAdapterCfg.apiKey
+  // The AI agent is only "available" when the active provider has the
+  // credentials it needs (Ollama: always; cloud providers: API key set).
+  // When unavailable we hide every AI-related affordance from the search
+  // bar — configuration lives in the logo menu (“AI providers…”).
+  const aiConfigured = !aiNeedsKey
+  const aiProviderLabel = listAdapters().find((a) => a.id === aiSettings.active)?.label ?? aiSettings.active
+  const aiModelLabel = aiAdapterCfg.model || aiAdapter.defaultModel
+
+  // If the user clears the API key while in AI mode, snap back to search.
+  useEffect(() => {
+    if (!aiConfigured && aiMode) setAiMode(false)
+  }, [aiConfigured, aiMode])
+
+  const runAI = useCallback(async (text: string): Promise<void> => {
+    const prompt = text.trim()
+    if (!prompt || aiBusy) return
+    if (aiNeedsKey) {
+      setAiLast({ text: '', error: `Set an API key for ${aiProviderLabel} first (“Configure…” in the ✨ menu).` })
+      return
+    }
+    setAiBusy(true)
+    setAiLast(null)
+    const ctl = new AbortController()
+    aiAbortRef.current = ctl
+    const userTurn: ChatMessage = { role: 'user', content: prompt }
+    try {
+      const result = await runAIPrompt({
+        prompt,
+        settings: aiSettings,
+        diagram: aiDiagram,
+        history: aiHistory,
+        signal: ctl.signal,
+      })
+      setAiHistory((h) => [...h, userTurn, { role: 'assistant', content: result.summary || 'Done.' }])
+      setAiLast({ text: result.summary || 'Done.', report: result.report, retries: result.retries })
+      // Clear the input after a successful run so the next prompt starts fresh.
+      setQ('')
+    } catch (err) {
+      const msg = (err as Error).message || String(err)
+      setAiLast({ text: '', error: msg })
+    } finally {
+      aiAbortRef.current = null
+      setAiBusy(false)
+    }
+  }, [aiBusy, aiNeedsKey, aiProviderLabel, aiSettings, aiDiagram, aiHistory])
+
+  const cancelAI = useCallback((): void => {
+    aiAbortRef.current?.abort()
+  }, [])
 
   // Cmd/Ctrl+P focuses the always-visible search input. Esc clears it and
   // blurs back to the canvas. Disabled during a live presentation — the
@@ -68,14 +171,21 @@ export function QuickSearch(): React.ReactElement | null {
 
   // Close the dropdown when clicking outside the search bar — but stay
   // mounted so the input remains visible. Also blur the native input so
-  // the focus ring goes away (the dropdown was the only "open" UI).
+  // the focus ring goes away (the dropdown was the only "open" UI). Also
+  // exits AI mode and dismisses any lingering AI banner so the next click
+  // outside fully resets the palette.
   const closeDropdown = useCallback(() => {
     setFocused(false)
+    setAiMode(false)
+    setAiLast(null)
     if (inputRef.current && document.activeElement === inputRef.current) {
       inputRef.current.blur()
     }
   }, [])
-  useOutsideClick([wrapRef], focused, closeDropdown)
+  // Hook needs to fire whenever any "open" state is true — otherwise an
+  // outside click in AI mode (where focused may already be false) won't be
+  // detected and the dropdown stays open.
+  useOutsideClick([wrapRef], focused || aiMode || !!aiLast, closeDropdown)
 
   const pathOf = (id: string): string => {
     const segs: string[] = []
@@ -321,42 +431,187 @@ export function QuickSearch(): React.ReactElement | null {
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setHover((h) => Math.max(0, h - 1))
+    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      // Cmd/Ctrl+Enter → always send to AI agent (when configured).
+      e.preventDefault()
+      if (aiConfigured) void runAI(q)
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      // In AI mode plain Enter asks the AI; otherwise it picks the highlighted
+      // search result (and falls back to AI when there are no search hits).
+      if (aiMode) {
+        if (q.trim()) void runAI(q)
+        return
+      }
       const r = results[hover]
       if (r) pickResult(r, e.shiftKey ? null : undefined)
+      else if (q.trim() && aiConfigured) void runAI(q)
+    } else if (e.key === 'Tab' && !e.shiftKey && q.trim() === '' && aiConfigured) {
+      // Quick-toggle into AI mode when the input is empty.
+      e.preventDefault()
+      setAiMode((v) => !v)
     }
   }
 
-  const showDropdown = focused
+  const aiExamples = useMemo(() => [
+    'Add a Postgres database used by the Web App',
+    'Create a payment system with API gateway and worker',
+    'Rename "User" to "Customer" everywhere',
+    'Summarize what this diagram does',
+  ], [])
+
+  const showDropdown = focused || aiBusy || !!aiLast || aiMode
 
   return (
-    <div className="quick-search-bar" ref={wrapRef} role="search" aria-label="Quick search">
+    <div
+      className={`quick-search-bar${aiMode ? ' ai-mode' : ''}`}
+      ref={wrapRef}
+      role="search"
+      aria-label="Quick search & AI"
+    >
       <div className="quick-search-inputrow">
-        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
-          <circle cx="7" cy="7" r="4.5" />
-          <path d="M11 11l3.5 3.5" />
-        </svg>
+        {aiMode ? (
+          <span style={{ flexShrink: 0, fontSize: 14, color: 'var(--accent)' }} aria-hidden>✨</span>
+        ) : (
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6, flexShrink: 0 }}>
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M11 11l3.5 3.5" />
+          </svg>
+        )}
         <input
           ref={inputRef}
           value={q}
           onChange={(e) => { setQ(e.target.value); setFocused(true) }}
           onFocus={() => setFocused(true)}
           onKeyDown={onInputKey}
-          placeholder={`Search ${Object.keys(c4Nodes).length} nodes / ${Object.keys(c4Relations).length} relations / ${Object.keys(views).length} views…`}
+          placeholder={
+            aiMode
+              ? `Ask ${aiProviderLabel} to change the diagram… (↵ to send)`
+              : aiConfigured
+                ? `Search ${Object.keys(c4Nodes).length} nodes · ${Object.keys(c4Relations).length} relations  —  ⌘/Ctrl+↵ to ask AI`
+                : `Search ${Object.keys(c4Nodes).length} nodes · ${Object.keys(c4Relations).length} relations`
+          }
           spellCheck={false}
           autoComplete="off"
         />
-        <kbd className="quick-search-kbd" title="Focus search (⌘P / Ctrl+P)">⌘P</kbd>
+        <button
+          type="button"
+          className={`qs-mode-toggle${aiMode ? ' active' : ''}`}
+          title={aiMode ? 'Switch to search mode' : 'Switch to AI mode (Tab on empty input)'}
+          aria-pressed={aiMode}
+          aria-label="Toggle AI mode"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => { setAiMode((v) => !v); inputRef.current?.focus() }}
+          style={{ display: aiConfigured ? undefined : 'none' }}
+        >
+          ✨
+        </button>
+        {aiBusy && (
+          <button
+            type="button"
+            className="quick-search-kbd"
+            title="Cancel AI request"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={cancelAI}
+            style={{ cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+        )}
+        {!aiBusy && (
+          <kbd className="quick-search-kbd" title="Focus search (⌘P / Ctrl+P)">⌘P</kbd>
+        )}
       </div>
       {showDropdown && (
         <div className="quick-search-dropdown">
+          {/* AI status / last result banner — visible whenever AI is in play */}
+          {(aiBusy || aiLast || aiMode) && (
+            <div className="qs-ai-banner">
+              <div className="qs-ai-banner-row">
+                <span className="qs-ai-spark" aria-hidden>✨</span>
+                <span className="qs-ai-name">{aiProviderLabel}</span>
+                <span className="qs-ai-model">· {aiModelLabel}</span>
+                {aiNeedsKey && (
+                  <span className="qs-ai-error" style={{ marginLeft: 6 }}>· no API key</span>
+                )}
+                <span className="qs-ai-spacer" />
+                <button
+                  className="qs-ai-mini-btn"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => openAISettings()}
+                  title="AI providers"
+                >
+                  Configure
+                </button>
+                {(aiLast || aiHistory.length > 0) && !aiBusy && (
+                  <button
+                    className="qs-ai-mini-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { setAiLast(null); setAiHistory([]) }}
+                    title="Clear AI conversation"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              {aiBusy && (
+                <div className="qs-ai-status"><span className="qs-ai-dot" /> Thinking…</div>
+              )}
+              {aiLast?.error && (
+                <div className="qs-ai-error">Error: {aiLast.error}</div>
+              )}
+              {aiLast && !aiLast.error && (
+                <div className="qs-ai-text">
+                  {aiLast.text}
+                  {aiLast.report && <AIReportLine report={aiLast.report} />}
+                  {(aiLast.retries || aiHistory.length > 0) && (
+                    <div className="qs-ai-meta">
+                      {aiLast.retries ? (
+                        <span className="qs-ai-meta-pill">
+                          ↻ {aiLast.retries} corrective round{aiLast.retries === 1 ? '' : 's'}
+                        </span>
+                      ) : null}
+                      {aiHistory.length > 0 && (
+                        <span className="qs-ai-meta-pill">
+                          {aiHistory.length / 2} turn{aiHistory.length / 2 === 1 ? '' : 's'} in context
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Examples shown when entering AI mode with empty input */}
+          {aiMode && q.trim() === '' && !aiBusy && !aiLast && (
+            <div className="qs-ai-examples">
+              {aiExamples.map((ex) => (
+                <button
+                  key={ex}
+                  className="qs-ai-example"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setQ(ex); inputRef.current?.focus() }}
+                  type="button"
+                >
+                  <span className="qs-ai-example-icon" aria-hidden>›</span>{ex}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="quick-search-results">
-            {q.trim() === '' && (
-              <div className="quick-search-hint">Type to search. <kbd>↑</kbd> <kbd>↓</kbd> to navigate, <kbd>↵</kbd> to jump in best view, <kbd>⇧</kbd>+<kbd>↵</kbd> to jump in <em>all nodes</em>. Click a view chip to open in that view.</div>
+            {!aiMode && q.trim() === '' && !aiBusy && !aiLast && (
+              <div className="quick-search-hint">
+                Type to search. <kbd>↑</kbd> <kbd>↓</kbd> navigate, <kbd>↵</kbd> jump, <kbd>⇧</kbd>+<kbd>↵</kbd> in <em>all nodes</em>
+                {aiConfigured && (<>, <kbd>⌘</kbd>+<kbd>↵</kbd> ask AI, <kbd>Tab</kbd> AI mode</>)}.
+              </div>
             )}
-            {q.trim() !== '' && results.length === 0 && (
-              <div className="quick-search-hint">No matches.</div>
+            {!aiMode && q.trim() !== '' && results.length === 0 && !aiBusy && (
+              <div className="quick-search-hint">
+                No matches.
+                {aiConfigured ? (<> Press <kbd>⌘</kbd>+<kbd>↵</kbd> (or click below) to ask AI.</>) : null}
+              </div>
             )}
             {results.map((r, i) => (
               <div
@@ -412,7 +667,48 @@ export function QuickSearch(): React.ReactElement | null {
                 )}
               </div>
             ))}
+
+            {/* Ask AI action — visible while typing in search mode (only when configured) */}
+            {!aiMode && aiConfigured && q.trim() !== '' && !aiBusy && (
+              <div
+                className="quick-search-item"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => void runAI(q)}
+                role="button"
+                tabIndex={-1}
+                style={{ borderTop: results.length > 0 ? '1px solid var(--border-subtle)' : undefined }}
+                title={aiNeedsKey ? `Set an API key for ${aiProviderLabel} first` : `Ask ${aiProviderLabel} (${aiModelLabel})`}
+              >
+                <span className="quick-search-kind quick-search-kind-ai">AI</span>
+                <span className="quick-search-item-main">
+                  <span className="quick-search-item-label">✨ Ask AI: “{q.trim()}”</span>
+                  <span className="quick-search-item-sub">
+                    {aiNeedsKey ? `Configure → ${aiProviderLabel} (no API key)` : `${aiProviderLabel} · ${aiModelLabel}`}
+                  </span>
+                </span>
+                <kbd className="quick-search-kbd" style={{ marginLeft: 6 }}>⌘↵</kbd>
+              </div>
+            )}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AIReportLine({ report }: { report: ApplyReport }): React.ReactElement {
+  const parts: string[] = []
+  if (report.added.nodes) parts.push(`+${report.added.nodes} node${report.added.nodes === 1 ? '' : 's'}`)
+  if (report.added.relations) parts.push(`+${report.added.relations} relation${report.added.relations === 1 ? '' : 's'}`)
+  if (report.updated.nodes) parts.push(`~${report.updated.nodes} updated`)
+  if (report.deleted.nodes) parts.push(`−${report.deleted.nodes} node${report.deleted.nodes === 1 ? '' : 's'}`)
+  if (report.deleted.relations) parts.push(`−${report.deleted.relations} relation${report.deleted.relations === 1 ? '' : 's'}`)
+  return (
+    <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
+      {parts.length ? parts.join(' · ') : 'No changes'}
+      {report.errors.length > 0 && (
+        <div style={{ color: '#ff8888', marginTop: 2 }}>
+          {report.errors.map((e, i) => <div key={i}>⚠ {e}</div>)}
         </div>
       )}
     </div>

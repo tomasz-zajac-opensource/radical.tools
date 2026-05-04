@@ -72,12 +72,76 @@ describe('runAIPrompt — end-to-end with mocked Ollama', () => {
     expect(Object.values(facade._nodes)[0].label).toBe('User')
   })
 
-  it('surfaces parse errors from invalid model output', async () => {
+  it('surfaces parse errors from invalid model output via the report', async () => {
     fakeOllamaFetch('not json at all')
-    await expect(runAIPrompt({
+    const result = await runAIPrompt({
       prompt: 'x',
       settings: defaultAISettings(),
       diagram: makeFacade(),
-    })).rejects.toThrow(/No JSON object/)
+    })
+    expect(result.report.errors.join('\n')).toMatch(/Patch parse failed/)
+    expect(result.report.added.nodes).toBe(0)
+  })
+
+  it('feedback loop: re-asks the model when an op was rejected, and merges the result', async () => {
+    // First round: tries to add a "database" with no parent → store rejects it
+    // (database needs allowedParents=['system']). The relation referencing the
+    // failed tempId then also fails.
+    // Second round: model adds the system first, then the database with parentId.
+    const responses = [
+      JSON.stringify({
+        summary: 'attempt 1',
+        operations: [
+          { op: 'add_node', tempId: 't1', type: 'database', label: 'DB' },
+          { op: 'add_relation', sourceId: 't1', targetId: 't1', label: 'self' },
+        ],
+      }),
+      JSON.stringify({
+        summary: 'attempt 2',
+        operations: [
+          { op: 'add_node', tempId: 's1', type: 'system', label: 'Sys' },
+          { op: 'add_node', tempId: 'd1', type: 'database', label: 'DB', parentId: 's1' },
+        ],
+      }),
+    ]
+    let call = 0
+    ;(globalThis as any).fetch = vi.fn(async () => {
+      const content = responses[call++] ?? '{"operations":[]}'
+      return new Response(JSON.stringify({ message: { content }, model: 'llama3.1' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+
+    // Facade that mimics the real store's metamodel rejection: addNode for
+    // 'database' without a parent returns '' (rejected), and metamodel info
+    // is exposed so the AI can see the rule.
+    const base = makeFacade()
+    const facade: DiagramFacade = {
+      ...base,
+      getMetamodel: () => ({
+        id: 'c4', name: 'C4',
+        nodeTypes: {
+          system: { id: 'system', label: 'System', color: '', fg: '', iconPath: '', width: 0, height: 0, allowedAtRoot: true },
+          database: { id: 'database', label: 'DB', color: '', fg: '', iconPath: '', width: 0, height: 0, allowedParents: ['system'] },
+        },
+        relationTypes: {},
+      }) as any,
+      addNode: (n) => {
+        if (n.type === 'database' && !n.parentId) return '' // rejected by metamodel
+        return base.addNode(n)
+      },
+    }
+
+    const result = await runAIPrompt({
+      prompt: 'add a database',
+      settings: defaultAISettings(),
+      diagram: facade,
+      maxRetries: 2,
+    })
+
+    expect(result.retries).toBe(1)
+    expect(result.report.added.nodes).toBe(2) // system + database from round 2
+    expect(result.report.errors).toEqual([])
   })
 })

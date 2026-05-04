@@ -23,10 +23,9 @@ describe('AI_SYSTEM_PROMPT contract', () => {
     }
   })
 
-  it('lists all valid C4 element types', () => {
-    for (const t of ['person', 'system', 'container', 'component', 'database', 'webapp', 'queue']) {
-      expect(AI_SYSTEM_PROMPT).toContain(`"${t}"`)
-    }
+  it('instructs the model to follow metamodel rules', () => {
+    expect(AI_SYSTEM_PROMPT).toMatch(/metamodel/i)
+    expect(AI_SYSTEM_PROMPT).toMatch(/allowedParents/)
   })
 })
 
@@ -45,7 +44,7 @@ describe('buildContextMessage', () => {
 })
 
 describe('buildMessages', () => {
-  it('puts system prompt first, context second, history then user prompt', () => {
+  it('puts system prompt first, metamodel + context next, history then user prompt', () => {
     const msgs = buildMessages(
       'Add a system called Foo',
       {},
@@ -55,9 +54,11 @@ describe('buildMessages', () => {
     expect(msgs[0].role).toBe('system')
     expect(msgs[0].content).toBe(AI_SYSTEM_PROMPT)
     expect(msgs[1].role).toBe('system')
-    expect(msgs[1].content).toMatch(/Current diagram state/)
-    expect(msgs[2]).toEqual({ role: 'assistant', content: 'previous' })
-    expect(msgs[3]).toEqual({ role: 'user', content: 'Add a system called Foo' })
+    expect(msgs[1].content).toMatch(/Metamodel/i)
+    expect(msgs[2].role).toBe('system')
+    expect(msgs[2].content).toMatch(/Current diagram state/)
+    expect(msgs[3]).toEqual({ role: 'assistant', content: 'previous' })
+    expect(msgs[4]).toEqual({ role: 'user', content: 'Add a system called Foo' })
   })
 })
 

@@ -4,9 +4,10 @@
 // mechanically; jsonMode is also requested per-provider where supported.
 
 import type { C4Node, C4Relation } from '../types/c4'
+import type { Metamodel } from '../types/metamodel'
 import type { ChatMessage } from './types'
 
-const SUPPORTED_TYPES = [
+const FALLBACK_TYPES = [
   'person', 'system', 'container', 'component', 'database', 'webapp', 'queue',
 ] as const
 
@@ -37,22 +38,63 @@ Each <op> must be one of:
   { "op": "delete_node",     "id": "<existing-node-id>" }
   { "op": "delete_relation", "id": "<existing-relation-id>" }
 
-Rules:
-- Allowed node \`type\` values: ${SUPPORTED_TYPES.map(t => `"${t}"`).join(', ')}.
+General rules:
 - For new nodes, invent a stable \`tempId\` ("t1", "t2", ...) so other ops in
   the same patch can reference it via \`parentId\`, \`sourceId\` or \`targetId\`.
 - Reference existing elements by their real id from the context block below.
-- C4 nesting: a "container" usually has \`parentId\` pointing at a "system";
-  a "component" usually has \`parentId\` pointing at a "container".
-  Persons and top-level systems have no parent.
 - Keep labels short (1–4 words). Put detail in \`description\`.
 - Do NOT fabricate ids that are not present in the context block.
-- If the request cannot be done, return { "summary": "<reason>", "operations": [] }.
+- STRICTLY follow the metamodel rules in the context block: an add_node that
+  violates allowedParents/allowedAtRoot/cardinality WILL BE REJECTED, breaking
+  any later op that references its tempId. When you need a child of a type
+  that requires a specific parent, EITHER reuse an existing parent id from
+  the context, OR add the parent first in the same patch and reference its
+  tempId via \`parentId\`.
+- If the request cannot be done within the metamodel, return
+  { "summary": "<reason>", "operations": [] }.
 `.trim()
+
+/** Build a compact, machine-readable summary of the metamodel rules. */
+export function buildMetamodelMessage(mm: Metamodel | undefined): string {
+  if (!mm) {
+    return [
+      'Metamodel: (none loaded — falling back to default C4 types)',
+      'Allowed node types: ' + FALLBACK_TYPES.map(t => `"${t}"`).join(', '),
+    ].join('\n')
+  }
+  const types = Object.values(mm.nodeTypes).map((t) => {
+    // Mirror the same defaulting that diagramStore uses: when allowedParents is
+    // empty/undefined the type is allowed at the root unless explicitly false.
+    const allowedParents = t.allowedParents && t.allowedParents.length > 0 ? t.allowedParents : []
+    const rootDefault = allowedParents.length === 0
+    const atRoot = t.allowedAtRoot ?? rootDefault
+    return {
+      id: t.id,
+      label: t.label,
+      allowedParents,
+      allowedAtRoot: atRoot,
+      cardinality: t.cardinality,
+    }
+  })
+  const relations = Object.values(mm.relationTypes).map((r) => ({
+    id: r.id,
+    label: r.label,
+    allowedPairs: r.allowedPairs,
+  }))
+  return [
+    `Metamodel "${mm.name}". Use ONLY the node types listed below; respect`,
+    '`allowedParents` (empty ⇒ requires `allowedAtRoot: true` to be a root node)',
+    'and `cardinality.max` (skip the op if the limit is already reached).',
+    '```json',
+    JSON.stringify({ nodeTypes: types, relationTypes: relations }, null, 2),
+    '```',
+  ].join('\n')
+}
 
 export function buildContextMessage(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
+  activeView?: { id: string; name: string; nodeIds: string[] } | null,
 ): string {
   const ns = Object.values(nodes).map((n) => ({
     id: n.id,
@@ -70,12 +112,21 @@ export function buildContextMessage(
     label: r.label || undefined,
     technology: r.technology || undefined,
   }))
-  return [
+  const lines = [
     'Current diagram state (use these ids when referring to existing elements):',
     '```json',
     JSON.stringify({ nodes: ns, relations: rs }, null, 2),
     '```',
-  ].join('\n')
+  ]
+  if (activeView) {
+    lines.push(
+      `Active view: "${activeView.name}" (id=${activeView.id}). New nodes will`,
+      'be auto-added to this view.',
+    )
+  } else {
+    lines.push('Active view: (none) — new nodes will live in the model only.')
+  }
+  return lines.join('\n')
 }
 
 export function buildMessages(
@@ -83,10 +134,13 @@ export function buildMessages(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
   history: ChatMessage[] = [],
+  metamodel?: Metamodel,
+  activeView?: { id: string; name: string; nodeIds: string[] } | null,
 ): ChatMessage[] {
   return [
     { role: 'system', content: AI_SYSTEM_PROMPT },
-    { role: 'system', content: buildContextMessage(nodes, relations) },
+    { role: 'system', content: buildMetamodelMessage(metamodel) },
+    { role: 'system', content: buildContextMessage(nodes, relations, activeView) },
     ...history,
     { role: 'user', content: userPrompt },
   ]

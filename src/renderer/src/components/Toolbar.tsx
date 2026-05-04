@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import { useDocumentsStore } from '../store/documentStore'
 import { DocumentManagerModal } from './DocumentManager'
+import { AISettingsModal } from './AISettingsModal'
 import { useOutsideClick } from '../hooks/useOutsideClick'
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
@@ -172,6 +173,14 @@ const IconMetamodel = () => (
   </svg>
 )
 
+const IconAI = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 2.5l.7 1.6L7.3 4.8l-1.6.7L5 7.1l-.7-1.6L2.7 4.8l1.6-.7z" fill="currentColor" stroke="none" />
+    <path d="M11.5 7l.6 1.4 1.4.6-1.4.6L11.5 11l-.6-1.4L9.5 9l1.4-.6z" fill="currentColor" stroke="none" />
+    <path d="M8 9.5L8.6 11l1.4.5-1.4.5L8 13.5l-.6-1.5L6 11.5l1.4-.5z" fill="currentColor" stroke="none" />
+  </svg>
+)
+
 // ── App menu (hamburger popover) ─────────────────────────────────────────────
 
 type ConnectionMod = 'alt' | 'shift' | 'ctrl' | 'meta'
@@ -182,6 +191,7 @@ function AppMenu({
   theme, onToggleTheme,
   smartFitActive, onToggleSmartFit,
   metamodelActive, onToggleMetamodel,
+  onOpenAISettings,
 }: {
   onManage: () => void
   activeDocLabel: string | null
@@ -194,6 +204,7 @@ function AppMenu({
   onToggleSmartFit: () => void
   metamodelActive: boolean
   onToggleMetamodel: () => void
+  onOpenAISettings: () => void
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -296,6 +307,15 @@ function AppMenu({
               <span className="app-menu-icon"><IconSmartFit /></span>
               <span className="app-menu-text">Smart fit {smartFitActive ? '(on)' : '(off)'}</span>
             </button>
+            <button
+              className="app-menu-item"
+              role="menuitem"
+              onClick={run(onOpenAISettings)}
+              title="Configure AI providers (Ollama, OpenAI, Claude, Gemini)"
+            >
+              <span className="app-menu-icon"><IconAI /></span>
+              <span className="app-menu-text">AI providers…</span>
+            </button>
           </div>
         </div>
       )}
@@ -366,8 +386,20 @@ export function Toolbar(): React.ReactElement {
 
   const handleManage = useCallback(() => { setManagerOpen(true) }, [])
 
+  const [aiSettingsOpen, setAISettingsOpen] = useState(false)
+  const handleOpenAISettings = useCallback(() => { setAISettingsOpen(true) }, [])
+  const handleCloseAISettings = useCallback(() => { setAISettingsOpen(false) }, [])
+
+  // Allow other components (e.g. AIPanel) to open the modal via a window event.
+  useEffect(() => {
+    const onOpen = () => setAISettingsOpen(true)
+    window.addEventListener('radical:open-ai-settings', onOpen as EventListener)
+    return () => window.removeEventListener('radical:open-ai-settings', onOpen as EventListener)
+  }, [])
+
   return (
     <div className="toolbar">
+      <AISettingsModal open={aiSettingsOpen} onClose={handleCloseAISettings} />
       <AppMenu
         onManage={handleManage}
         activeDocLabel={activeDoc?.name ?? null}
@@ -380,6 +412,7 @@ export function Toolbar(): React.ReactElement {
         onToggleSmartFit={toggleAutoFit}
         metamodelActive={appMode === 'metamodel'}
         onToggleMetamodel={() => setAppMode(appMode === 'metamodel' ? 'designer' : 'metamodel')}
+        onOpenAISettings={handleOpenAISettings}
       />
       <div className="toolbar-sep" />
 

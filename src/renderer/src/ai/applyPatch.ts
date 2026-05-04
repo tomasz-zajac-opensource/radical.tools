@@ -4,6 +4,7 @@
 // surface what actually happened.
 
 import { NODE_SIZES, type C4ElementType, type C4Node, type C4Relation } from '../types/c4'
+import type { Metamodel } from '../types/metamodel'
 import type { AIPatch, AIPatchOp } from './types'
 
 const VALID_TYPES: ReadonlySet<string> = new Set([
@@ -20,6 +21,10 @@ export interface ApplyReport {
 export interface DiagramFacade {
   getNodes(): Record<string, C4Node>
   getRelations(): Record<string, C4Relation>
+  /** Optional — used to inject metamodel rules into the AI system prompt. */
+  getMetamodel?(): Metamodel | undefined
+  /** Optional — active view info, used to tell the AI where new nodes land. */
+  getActiveView?(): { id: string; name: string; nodeIds: string[] } | null
   addNode(node: Omit<C4Node, 'id'>): string
   updateNode(id: string, updates: Partial<Omit<C4Node, 'id'>>): void
   removeNode(id: string): void
