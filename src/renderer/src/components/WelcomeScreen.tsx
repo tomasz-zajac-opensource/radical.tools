@@ -9,6 +9,7 @@ interface Props {
 export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
   const existingDocs = documents.listDocuments()
   const hasExisting  = existingDocs.length > 0
+  const lastDoc      = hasExisting ? existingDocs[0] : null
 
   function handleNew(): void {
     documents.createLSDocument('Untitled model', { nodes: [], relations: [] })
@@ -61,7 +62,25 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
           </p>
 
           <div className="welcome-cta-group">
-            <button className="welcome-btn welcome-btn-primary" onClick={handleNew}>
+            {lastDoc && (
+              <button
+                className="welcome-btn welcome-btn-primary"
+                onClick={() => handleOpen(lastDoc.id)}
+                title={`Last edited ${new Date(lastDoc.lastModified).toLocaleString()}`}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M7 1.5a5.5 5.5 0 1 1-3.89 9.39" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+                  <polyline points="3.5,7.5 1.5,11 5,11.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  <line x1="7" y1="4" x2="7" y2="7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                  <line x1="7" y1="7.5" x2="9.5" y2="9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+                </svg>
+                Open last — {lastDoc.name}
+              </button>
+            )}
+            <button
+              className={lastDoc ? 'welcome-btn welcome-btn-ghost' : 'welcome-btn welcome-btn-primary'}
+              onClick={handleNew}
+            >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                 <line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -76,15 +95,11 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
               </svg>
               Open file…
             </button>
-            <button className="welcome-btn welcome-btn-sample" onClick={handleSample}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="4" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-                <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-                <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.3"/>
-                <line x1="6" y1="6.5" x2="8" y2="3.5" stroke="currentColor" strokeWidth="1.2"/>
-                <line x1="6" y1="6.5" x2="8" y2="10.5" stroke="currentColor" strokeWidth="1.2"/>
-              </svg>
-              Open sample model
+          </div>
+
+          <div className="welcome-sample-link">
+            <button type="button" className="welcome-link" onClick={handleSample}>
+              or open a sample model
             </button>
           </div>
         </div>
