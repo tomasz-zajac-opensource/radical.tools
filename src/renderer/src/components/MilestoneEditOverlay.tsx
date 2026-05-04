@@ -116,9 +116,12 @@ export function MilestoneEditOverlay(): React.ReactElement | null {
   // Banner is editor-only — viewer/presenter are read-only by design.
   if (appMode !== 'designer') return null
 
+  // For v1 (oldest milestone, idx === 0) there is no "before" — it *is*
+  // the baseline. Show it as comparing against itself so the panel reads
+  // consistently ("vs v1 → +0 ~0 −0") instead of dangling "Live HEAD".
   const baseLabel = diffBaseSnapshotId
     ? (snapshots.find(s => s.id === diffBaseSnapshotId)?.name ?? '?')
-    : (idx > 0 ? `${snapshots[idx - 1].name} (auto)` : 'Live HEAD')
+    : (idx > 0 ? `${snapshots[idx - 1].name} (auto)` : `${active.name} (baseline)`)
 
   return (
     <>
@@ -151,7 +154,7 @@ export function MilestoneEditOverlay(): React.ReactElement | null {
               value={diffBaseSnapshotId ?? ''}
               onChange={(e) => setDiffBase(e.target.value || null)}
             >
-              <option value="">{idx > 0 ? `Previous (${snapshots[idx - 1].name})` : 'Live HEAD'}</option>
+              <option value="">{idx > 0 ? `Previous (${snapshots[idx - 1].name})` : `${active.name} (baseline)`}</option>
               {baseOptions.map(s => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}

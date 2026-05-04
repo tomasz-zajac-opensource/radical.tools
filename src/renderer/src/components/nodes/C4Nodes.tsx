@@ -135,7 +135,7 @@ PersonNode.displayName = 'PersonNode'
 
 export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
   const toggleCollapse = useDiagramStore((s) => s.toggleCollapse)
-  const canEdit = useDiagramStore((s) => s.appMode === 'designer')
+  const canEdit = useDiagramStore((s) => s.appMode !== 'metamodel' && !s.presentationActive)
   const onToggle = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -169,7 +169,7 @@ export const SystemNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
       {/* Header bar */}
       <div className="c4-node-header" style={{ background: isExpanded ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
         <span style={isExpanded ? { color: solidBg } : undefined}>{data.external ? 'External System' : 'Software System'}</span>
-        {data.hasChildren && (
+        {data.hasChildren && canEdit && (
           <button className="c4-node-collapse-btn" onClick={onToggle} title={data.collapsed ? 'Expand' : 'Collapse'}>
             {data.collapsed ? '+' : '−'}
           </button>
@@ -195,7 +195,7 @@ SystemNode.displayName = 'SystemNode'
 
 export const ContainerNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
   const toggleCollapse = useDiagramStore((s) => s.toggleCollapse)
-  const canEdit = useDiagramStore((s) => s.appMode === 'designer')
+  const canEdit = useDiagramStore((s) => s.appMode !== 'metamodel' && !s.presentationActive)
   const onToggle = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()

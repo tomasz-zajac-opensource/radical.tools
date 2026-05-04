@@ -155,16 +155,6 @@ const IconPresentation = () => (
   </svg>
 )
 
-const IconPresenter = () => (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-    <rect x="1" y="2" width="14" height="9" rx="1.5" />
-    <path d="M3 4h6M3 6h4M3 8h5" strokeLinecap="round" />
-    <circle cx="12" cy="6" r="1.4" />
-    <path d="M10.5 10c0-1.2 0.7-2 1.5-2s1.5 0.8 1.5 2" strokeLinecap="round" />
-    <path d="M5 14h6M8 11v3" strokeLinecap="round" />
-  </svg>
-)
-
 const IconView = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
     <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" strokeLinejoin="round" />
@@ -190,6 +180,7 @@ function AppMenu({
   connectionModifier, setConnectionModifier,
   theme, onToggleTheme,
   smartFitActive, onToggleSmartFit,
+  metamodelActive, onToggleMetamodel,
 }: {
   onManage: () => void
   activeDocLabel: string | null
@@ -200,6 +191,8 @@ function AppMenu({
   onToggleTheme: () => void
   smartFitActive: boolean
   onToggleSmartFit: () => void
+  metamodelActive: boolean
+  onToggleMetamodel: () => void
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -256,6 +249,18 @@ function AppMenu({
                     <span className="app-menu-current-doc-name">{activeDocLabel}</span>
                   </span>
                 )}
+              </span>
+            </button>
+            <button
+              className={`app-menu-item${metamodelActive ? ' active' : ''}`}
+              role="menuitemcheckbox"
+              aria-checked={metamodelActive}
+              onClick={run(onToggleMetamodel)}
+              title="Define object types, relations and constraints"
+            >
+              <span className="app-menu-icon"><IconMetamodel /></span>
+              <span className="app-menu-text">
+                {metamodelActive ? 'Close metamodel editor' : 'Metamodel editor…'}
               </span>
             </button>
           </div>
@@ -372,6 +377,8 @@ export function Toolbar(): React.ReactElement {
         onToggleTheme={toggleTheme}
         smartFitActive={autoFitActive}
         onToggleSmartFit={toggleAutoFit}
+        metamodelActive={appMode === 'metamodel'}
+        onToggleMetamodel={() => setAppMode(appMode === 'metamodel' ? 'designer' : 'metamodel')}
       />
       <div className="toolbar-sep" />
 
@@ -386,7 +393,7 @@ export function Toolbar(): React.ReactElement {
       <button
         className="toolbar-btn toolbar-btn-accent"
         onClick={() => { void runSmartLayout() }}
-        disabled={isLayoutRunning || appMode !== 'designer'}
+        disabled={isLayoutRunning || appMode === 'metamodel'}
         title="Smart Layout — ensemble of layered + semantic algorithms with edge-crossing minimisation, picks the cleanest result."
       >
         <IconSmartLayout /> Smart Layout
@@ -422,25 +429,11 @@ export function Toolbar(): React.ReactElement {
           <IconModelling /> Designer
         </button>
         <button
-          className={`toolbar-mode-btn${appMode === 'presenter' ? ' active' : ''}`}
-          onClick={() => setAppMode('presenter')}
-          title="Presenter perspective — build slides on a read-only model"
-        >
-          <IconPresenter /> Presenter
-        </button>
-        <button
           className={`toolbar-mode-btn${appMode === 'viewer' ? ' active' : ''}`}
           onClick={() => setAppMode('viewer')}
-          title="Viewer perspective — read-only browse"
+          title="Viewer perspective — explore the model and build/play presentations"
         >
           <IconPresentation /> Viewer
-        </button>
-        <button
-          className={`toolbar-mode-btn${appMode === 'metamodel' ? ' active' : ''}`}
-          onClick={() => setAppMode('metamodel')}
-          title="Metamodel perspective — define object types, relations and constraints"
-        >
-          <IconMetamodel /> Metamodel
         </button>
       </div>
 

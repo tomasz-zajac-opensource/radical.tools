@@ -95,6 +95,7 @@ export function Canvas(): React.ReactElement {
   // positions/sizes are part of the document and should not drift just
   // because someone is browsing or presenting it.
   const isViewMode = appMode !== 'designer'
+  const presentationActive = useDiagramStore((s) => s.presentationActive)
   const autoFitActive = useDiagramStore((s) => s.autoFitActive)
 
   const rfNodes = useDiagramStore((s) => s.rfNodes)
@@ -744,18 +745,18 @@ export function Canvas(): React.ReactElement {
         edges={rfEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onNodeClick={isViewMode ? undefined : onNodeClick}
-        onNodeDragStart={isViewMode ? undefined : onNodeDragStart}
-        onNodeDrag={isViewMode ? undefined : onNodeDrag}
-        onNodeDragStop={isViewMode ? undefined : onNodeDragStop}
-        onEdgeClick={isViewMode ? undefined : onEdgeClick as any}
+        onNodeClick={onNodeClick}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
+        onEdgeClick={onEdgeClick as any}
         onPaneClick={onPaneClick}
         onInit={onInit}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        nodesDraggable={!isViewMode}
-        nodesConnectable={!isViewMode}
-        elementsSelectable={!isViewMode}
+        nodesDraggable={!presentationActive}
+        nodesConnectable={!isViewMode && !presentationActive}
+        elementsSelectable
         connectOnClick={false}
         isValidConnection={isValidConnection}
         minZoom={0.05}

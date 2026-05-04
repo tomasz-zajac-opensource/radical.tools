@@ -21,7 +21,7 @@ function fintechLike() {
     N('person',   'person',  'Customer',     120, 70),
     N('extPay',   'system',  'PaymentNet',   140, 70, { external: true }),
     N('extKyc',   'system',  'KYC Provider', 140, 70, { external: true }),
-    N('sys',      'system',  'FinCore',      900, 600),
+    N('sys',      'system',  'Fintech',      900, 600),
     N('subAccess','system',  'Access',       260, 200, { parentId: 'sys' }),
     N('ctnGw',    'container','API Gateway', 200, 80,  { parentId: 'subAccess' }),
     N('ctnAuth',  'container','Auth',        200, 80,  { parentId: 'subAccess' }),

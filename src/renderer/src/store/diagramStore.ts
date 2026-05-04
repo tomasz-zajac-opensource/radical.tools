@@ -909,8 +909,8 @@ interface DiagramStore {
   diffGhostRelations: Record<string, C4Relation>
 
   // ── app mode ──
-  appMode: 'designer' | 'presenter' | 'viewer' | 'metamodel'
-  setAppMode: (mode: 'designer' | 'presenter' | 'viewer' | 'metamodel') => void
+  appMode: 'designer' | 'viewer' | 'metamodel'
+  setAppMode: (mode: 'designer' | 'viewer' | 'metamodel') => void
 
   // ── metamodel (per document) ──
   metamodel: Metamodel
@@ -1117,7 +1117,13 @@ export const useDiagramStore = create<DiagramStore>()(
           const filter = computeViewNodeSet(view as DiagramView | undefined, mergedNodes)
           const vcs = computeViewCollapsedSet(filter, mergedNodes)
           const ghostIdSet = hasGhosts ? new Set(Object.keys(ghostNodes)) : undefined
-          const locked = state.appMode !== 'designer'
+          // "locked" disables drag + selection. Metamodel mode is the only
+          // truly read-only mode; designer is always editable; viewer and
+          // presenter are "explore" modes (drag + collapse allowed,
+          // mutations sandboxed by the setAppMode snapshot/restore).
+          // While a presentation is active we also lock — slides are
+          // static and must not drift from accidental drags.
+          const locked = state.appMode === 'metamodel' || state.presentationActive
           state.rfNodes = deriveRFNodes(mergedNodes, filter, vcs, ghostIdSet, locked) as any
           const hiddenRels = view?.hiddenRelationIds && view.hiddenRelationIds.length
             ? new Set(view.hiddenRelationIds)
@@ -1262,10 +1268,17 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       toggleCollapse(id) {
-        // Layout is read-only in viewer/presenter — collapse/expand mutates
-        // positions and parent sizes, so it stays designer-only.
-        if (get().appMode !== 'designer') return
-        get()._pushUndo()
+        // Blocked while a presentation is active — slides are static and
+        // their layout (positions + collapsed state) must not drift.
+        if (get().presentationActive) return
+        // Allowed in every mode. In viewer/presenter ("explore" mode), the
+        // resulting mutations to c4Nodes / view positions are sandboxed:
+        // the snapshot taken in setAppMode() on the way out of designer is
+        // restored when the user returns to designer, and the auto-persist
+        // subscriber is gated on appMode === 'designer' so nothing reaches
+        // disk. We therefore only push to undo history while editing.
+        const inDesigner = get().appMode === 'designer'
+        if (inDesigner) get()._pushUndo()
         const prevCollapsed = get().c4Nodes[id]?.collapsed === true
         set((state) => {
           const node = state.c4Nodes[id]
@@ -1857,8 +1870,23 @@ export const useDiagramStore = create<DiagramStore>()(
         })
       },
       setActiveView(newId) {
-        const { activeViewId, c4Nodes } = get()
+        const { activeViewId, c4Nodes, appMode } = get()
         if (newId === activeViewId) return
+
+        // In viewer (explore mode) we deliberately keep the user's current
+        // node positions when the active view changes — they may have
+        // dragged things around to inspect a relationship and shouldn't
+        // lose that arrangement just because they flipped to another view.
+        // Only the *visibility* (view filter) changes; positions are NOT
+        // saved into the outgoing view (would dirty the in-memory map for
+        // the explore session) and NOT loaded from the incoming view.
+        // The pre-mode snapshot in setAppMode restores everything cleanly
+        // when the user returns to designer.
+        if (appMode !== 'designer') {
+          set((state) => { state.activeViewId = newId })
+          get()._sync()
+          return
+        }
 
         // 1. Snapshot current positions from c4Nodes
         const currentPos = snapshotPositions(c4Nodes)
@@ -2345,7 +2373,10 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       async runSmartLayout() {
-        if (get().appMode !== 'designer') return
+        // Allowed in designer and viewer (viewer = explore: positions are
+        // reverted on exit by the __preModeLayout snapshot in setAppMode).
+        // Disallowed in metamodel where the canvas isn't shown.
+        if (get().appMode === 'metamodel') return
         set((state) => { state.isLayoutRunning = true })
         try {
           const state = get()
@@ -2651,31 +2682,57 @@ export const useDiagramStore = create<DiagramStore>()(
         const backup = activeSnapshotId
           ? get().liveBackup
           : { nodes: JSON.parse(JSON.stringify(c4Nodes)), relations: JSON.parse(JSON.stringify(c4Relations)) }
-        // Compute diff vs previous milestone (or vs live HEAD if it's the first one)
-        // so the user can see what changed at this point in time.
+
+        // In viewer (explore mode) keep the user's currently-arranged
+        // positions for any node that still exists in the new milestone
+        // snapshot. Only nodes that didn't exist before take their
+        // position from the snapshot. The pre-mode snapshot in setAppMode
+        // restores everything cleanly when the user returns to designer.
+        const preserveLayout = get().appMode !== 'designer'
+        const livePosByLabel = new Map<string, { x: number; y: number; width: number; height: number; collapsed?: boolean }>()
+        if (preserveLayout) {
+          for (const n of Object.values(c4Nodes)) {
+            livePosByLabel.set(n.id, { x: n.x, y: n.y, width: n.width, height: n.height, collapsed: n.collapsed })
+          }
+        }
+        // Compute diff vs previous milestone so the user can see what
+        // changed at this point in time. The very first/oldest milestone
+        // (idx === 0) is the baseline itself — there is no "before", so we
+        // skip the diff overlay entirely (otherwise it would highlight
+        // everything that diverged from the live HEAD, which is confusing
+        // because v1 is supposed to be the original state).
         const idx = snapshots.findIndex(s => s.id === id)
         const prev = idx > 0 ? snapshots[idx - 1] : null
-        const baseNodes = prev
-          ? (prev.nodes as Record<string, C4Node>)
-          : (backup!.nodes as Record<string, C4Node>)
-        const baseRels = prev
-          ? (prev.relations as Record<string, C4Relation>)
-          : (backup!.relations as Record<string, C4Relation>)
-        const diff = computeSnapDiff(
-          baseNodes,
-          snap.nodes as Record<string, C4Node>,
-          baseRels,
-          snap.relations as Record<string, C4Relation>,
-        )
-        const ghosts = computeDiffGhosts(
-          baseNodes,
-          snap.nodes as Record<string, C4Node>,
-          baseRels,
-          snap.relations as Record<string, C4Relation>,
-        )
+        const diff = prev
+          ? computeSnapDiff(
+              prev.nodes as Record<string, C4Node>,
+              snap.nodes as Record<string, C4Node>,
+              prev.relations as Record<string, C4Relation>,
+              snap.relations as Record<string, C4Relation>,
+            )
+          : {}
+        const ghosts = prev
+          ? computeDiffGhosts(
+              prev.nodes as Record<string, C4Node>,
+              snap.nodes as Record<string, C4Node>,
+              prev.relations as Record<string, C4Relation>,
+              snap.relations as Record<string, C4Relation>,
+            )
+          : { nodes: {}, relations: {} }
         _pushUndo(get())
         set((state) => {
-          state.c4Nodes = JSON.parse(JSON.stringify(snap.nodes)) as any
+          const nextNodes = JSON.parse(JSON.stringify(snap.nodes)) as Record<string, C4Node>
+          if (preserveLayout) {
+            for (const [nid, n] of Object.entries(nextNodes)) {
+              const live = livePosByLabel.get(nid)
+              if (live) {
+                n.x = live.x; n.y = live.y
+                n.width = live.width; n.height = live.height
+                if (live.collapsed !== undefined) n.collapsed = live.collapsed
+              }
+            }
+          }
+          state.c4Nodes = nextNodes as any
           state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
           state.activeSnapshotId = id
           state.liveBackup = backup as any
@@ -2856,7 +2913,11 @@ export const useDiagramStore = create<DiagramStore>()(
         if (!activeSnapshotId) return
         const idx = snapshots.findIndex(s => s.id === activeSnapshotId)
         if (idx < 0) return
-        // Resolve effective base: explicit id > previous > liveBackup HEAD.
+        // Resolve effective base: explicit id > previous milestone.
+        // For the very first/oldest milestone (idx === 0) there is no
+        // previous one — it is itself the baseline, so we clear the diff
+        // overlay instead of diffing against the live HEAD (which would
+        // misleadingly highlight everything that has been edited since).
         let baseNodes: Record<string, C4Node>
         let baseRels: Record<string, C4Relation>
         let resolvedBaseId: string | null = null
@@ -2871,12 +2932,8 @@ export const useDiagramStore = create<DiagramStore>()(
           baseNodes = prev.nodes as Record<string, C4Node>
           baseRels = prev.relations as Record<string, C4Relation>
           resolvedBaseId = prev.id
-        } else if (liveBackup) {
-          baseNodes = liveBackup.nodes as Record<string, C4Node>
-          baseRels = liveBackup.relations as Record<string, C4Relation>
-          resolvedBaseId = null
         } else {
-          // No base available — nothing to diff against; clear overlays.
+          // First milestone (or no base available) — clear overlays.
           set((state) => {
             state.diffHighlight = {} as any
             state.diffBaseSnapshotId = null
@@ -2886,6 +2943,7 @@ export const useDiagramStore = create<DiagramStore>()(
           get()._sync()
           return
         }
+        void liveBackup
         const diff = computeSnapDiff(baseNodes, c4Nodes as Record<string, C4Node>, baseRels, c4Relations as Record<string, C4Relation>)
         const ghosts = computeDiffGhosts(baseNodes, c4Nodes as Record<string, C4Node>, baseRels, c4Relations as Record<string, C4Relation>)
         set((state) => {
@@ -2915,6 +2973,10 @@ export const useDiagramStore = create<DiagramStore>()(
 
       // ── App mode ─────────────────────────────────────────────────────
       setAppMode(mode) {
+        // Back-compat: the old 'presenter' mode was merged into 'viewer'.
+        // Coerce any stray callers (or restored state) so we never end up
+        // in the dropped mode.
+        if ((mode as string) === 'presenter') mode = 'viewer'
         // Skip if mode hasn't actually changed — avoids needless physics
         // restarts that visibly fight an active auto-fit loop.
         const prevMode = get().appMode
@@ -2962,20 +3024,21 @@ export const useDiagramStore = create<DiagramStore>()(
             state.activeViewId = pre.activeViewId
           })
           W.__preModeLayout = undefined
-          // NOTE: do NOT call _liveLayout.reset() here. Cola's internal
-          // colaNodes/prevPos cache mirrors the very c4Nodes coordinates we
-          // just restored (cola was stopped in read-only mode, so neither
-          // c4Nodes nor cola moved). Wiping the cache would force the next
-          // rebuild to re-seed from c4Nodes via toAbsoluteTopLeft and lose
-          // cola's settled centres — visibly re-equilibrating the layout,
-          // which is exactly the "rozsypanie" the user reports inside
-          // custom views.
+          // Physics kept running during viewer (explore mode), so cola's
+          // internal cache reflects the explored positions — *not* the
+          // snapshot we just restored. reset() drops that cache so the
+          // next start() rebuilds against the restored c4Nodes.
+          _liveLayout?.reset()
         }
-        if (mode === 'designer') {
-          // Restart physics when going back to designer (other modes are read-only)
-          get().startLiveLayout()
-        } else {
+        // Physics runs in *both* designer and viewer. In viewer the user
+        // can drag/collapse to explore — mutations are sandboxed by the
+        // snapshot above (restored on return) and by the auto-persist
+        // subscriber gating writes on appMode === 'designer'. We stop it
+        // only in metamodel mode where the canvas isn't shown.
+        if (mode === 'metamodel') {
           get().stopLiveLayout()
+        } else {
+          get().startLiveLayout()
         }
         set((state) => { state.appMode = mode as any })
         // Rebuild rfNodes so per-node draggable/selectable flags reflect
@@ -3069,12 +3132,19 @@ export const useDiagramStore = create<DiagramStore>()(
           : (_getViewportFn()?.() ?? { x: 0, y: 0, zoom: 1 })
         const { presentationSlides, activeSnapshotId, activeViewId } = get()
         const canvasState = captureCanvasState(get().c4Nodes as Record<string, C4Node>)
+        // Inline full model snapshot — guarantees the slide replays exactly
+        // what was on screen at creation time, even if the user later edits
+        // nodes/relations or switches the active milestone.
+        const modelSnapshot = {
+          nodes: JSON.parse(JSON.stringify(get().c4Nodes)) as Record<string, C4Node>,
+          relations: JSON.parse(JSON.stringify(get().c4Relations)) as Record<string, C4Relation>,
+        }
         const id = uid()
         const slideName = name ?? `Slide ${presentationSlides.length + 1}`
         set((state) => {
           const pres = state.presentations.find(p => p.id === state.activePresentationId)
           if (!pres) return
-          pres.slides.push({ id, name: slideName, snapshotId: activeSnapshotId, viewId: activeViewId, viewport, canvasState } as any)
+          pres.slides.push({ id, name: slideName, snapshotId: activeSnapshotId, viewId: activeViewId, viewport, canvasState, modelSnapshot } as any)
           state.presentationSlides = pres.slides
         })
       },
@@ -3124,6 +3194,11 @@ export const useDiagramStore = create<DiagramStore>()(
           activeViewId: get().activeViewId,
         }
         set((state) => { state.presentationActive = true; state.presentationSlideIndex = 0 })
+        // Re-derive rfNodes immediately so the per-node `draggable` flag
+        // flips off before the user can grab anything (rfNodes carry
+        // draggable per-node, which would otherwise override the
+        // ReactFlow nodesDraggable prop until the next _sync).
+        get()._sync()
         setTimeout(() => get().goToSlide(0), 50)
       },
 
@@ -3142,9 +3217,10 @@ export const useDiagramStore = create<DiagramStore>()(
           ;(window as any).__prePresState = undefined
         }
         get()._sync()
-        // Resume live layout in designer (gentle rebuild — no bulk re-arrange
-        // because the LiveColaLayout instance is kept across stop/start).
-        if (get().appMode === 'designer') {
+        // Resume live layout when returning to any non-metamodel mode
+        // (designer or viewer). Reset the cola cache so it picks up the
+        // restored c4Nodes positions instead of the slide-shown ones.
+        if (get().appMode !== 'metamodel') {
           _liveLayout?.reset()
           get().startLiveLayout()
         }
@@ -3161,8 +3237,18 @@ export const useDiagramStore = create<DiagramStore>()(
         // Disable physics while presenting
         get().stopLiveLayout()
 
-        // Restore snapshot (nodes + relations) if slide has one
-        if (slide.snapshotId) {
+        // Restore inline model snapshot first (preferred — captured at
+        // slide-creation time so it always reflects what was on screen).
+        // Fall back to the linked milestone snapshot for legacy slides.
+        const inline = (slide as any).modelSnapshot as
+          | { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> }
+          | undefined
+        if (inline) {
+          set((state) => {
+            state.c4Nodes = JSON.parse(JSON.stringify(inline.nodes)) as any
+            state.c4Relations = JSON.parse(JSON.stringify(inline.relations)) as any
+          })
+        } else if (slide.snapshotId) {
           const snap = get().snapshots.find(s => s.id === slide.snapshotId)
           if (snap) {
             set((state) => {
@@ -3194,21 +3280,48 @@ export const useDiagramStore = create<DiagramStore>()(
         // Re-derive rfNodes / rfEdges (always needed: view filter or canvas state may have changed)
         get()._sync()
 
-        // Compute diff highlight between previous and current slide snapshots
+        // Compute diff highlight between previous and current slide snapshots.
+        // Prefer the inline modelSnapshot (always present on new slides);
+        // fall back to the legacy linked milestone snapshot.
         {
           const prevSlide = i > 0 ? presentationSlides[i - 1] : null
-          const currSnap = slide.snapshotId ? get().snapshots.find(s => s.id === slide.snapshotId) : null
-          const prevSnap = prevSlide?.snapshotId ? get().snapshots.find(s => s.id === prevSlide.snapshotId) : null
-          if (currSnap && prevSnap) {
-            get().setDiffHighlight(computeSnapDiff(prevSnap.nodes as Record<string, C4Node>, currSnap.nodes as Record<string, C4Node>, prevSnap.relations as Record<string, C4Relation>, currSnap.relations as Record<string, C4Relation>))
+          const slideModel = (s: typeof slide | null | undefined) => {
+            if (!s) return null
+            const inline = (s as any).modelSnapshot as
+              | { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> }
+              | undefined
+            if (inline) return inline
+            if (s.snapshotId) {
+              const snap = get().snapshots.find(x => x.id === s.snapshotId)
+              if (snap) return { nodes: snap.nodes as Record<string, C4Node>, relations: snap.relations as Record<string, C4Relation> }
+            }
+            return null
+          }
+          const currModel = slideModel(slide)
+          const prevModel = slideModel(prevSlide as any)
+          if (currModel && prevModel) {
+            get().setDiffHighlight(computeSnapDiff(prevModel.nodes, currModel.nodes, prevModel.relations, currModel.relations))
           } else {
             get().setDiffHighlight({})
           }
         }
 
-        // Animate viewport transition — defer to next frame so React re-render finishes first
-        const vp = { x: slide.viewport.x, y: slide.viewport.y, zoom: slide.viewport.zoom }
-        requestAnimationFrame(() => _setViewportFn()?.(vp, { duration: 600 }))
+        // Animate viewport transition — defer to next frame so React re-render
+        // finishes first. We replay the per-slide captured {x,y,zoom} so the
+        // user has full control over framing (capture viewport on the slide
+        // sets it; "Capture viewport" button updates it). If a slide has no
+        // captured viewport at all (legacy data), fall back to fitView.
+        const vp = slide.viewport
+        if (vp && (vp.zoom || vp.x || vp.y)) {
+          requestAnimationFrame(() => _setViewportFn()?.(
+            { x: vp.x, y: vp.y, zoom: vp.zoom },
+            { duration: 600 },
+          ))
+        } else {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => _getFitViewFn()?.())
+          })
+        }
       },
 
       setViewportFns(getVP, setVP) {
@@ -3224,6 +3337,12 @@ export const useDiagramStore = create<DiagramStore>()(
         if (!vp) return
         const canvasState = captureCanvasState(get().c4Nodes as Record<string, C4Node>)
         const currentViewId = get().activeViewId
+        // Re-capture the full inline model snapshot too — "Capture viewport"
+        // semantically means "this slide should look like the screen does now".
+        const modelSnapshot = {
+          nodes: JSON.parse(JSON.stringify(get().c4Nodes)) as Record<string, C4Node>,
+          relations: JSON.parse(JSON.stringify(get().c4Relations)) as Record<string, C4Relation>,
+        }
         set((state) => {
           const pres = state.presentations.find(p => p.id === state.activePresentationId)
           if (!pres) return
@@ -3232,6 +3351,7 @@ export const useDiagramStore = create<DiagramStore>()(
             slide.viewport = vp
             ;(slide as any).canvasState = canvasState
             ;(slide as any).viewId = currentViewId
+            ;(slide as any).modelSnapshot = modelSnapshot
           }
           state.presentationSlides = pres.slides
         })
@@ -3497,15 +3617,23 @@ if (typeof window !== 'undefined') {
 
   let prev = useDiagramStore.getState()
   useDiagramStore.subscribe((s) => {
+    // In viewer/presenter ("explore" mode), drags / collapses mutate the
+    // model temporarily but must NEVER reach disk. The setAppMode snapshot
+    // restores everything on the way back to designer, so by simply not
+    // scheduling a persist while we're outside designer, the explore
+    // session stays fully ephemeral.
+    const isExploreMode = s.appMode !== 'designer' && s.appMode !== 'metamodel'
     if (
-      s.c4Nodes !== prev.c4Nodes ||
-      s.c4Relations !== prev.c4Relations ||
-      s.views !== prev.views ||
-      s.defaultPositions !== prev.defaultPositions ||
-      s.defaultViewport !== prev.defaultViewport ||
-      s.snapshots !== prev.snapshots ||
-      s.presentations !== prev.presentations ||
-      s.metamodel !== prev.metamodel
+      !isExploreMode && (
+        s.c4Nodes !== prev.c4Nodes ||
+        s.c4Relations !== prev.c4Relations ||
+        s.views !== prev.views ||
+        s.defaultPositions !== prev.defaultPositions ||
+        s.defaultViewport !== prev.defaultViewport ||
+        s.snapshots !== prev.snapshots ||
+        s.presentations !== prev.presentations ||
+        s.metamodel !== prev.metamodel
+      )
     ) {
       prev = s
       schedulePersist()

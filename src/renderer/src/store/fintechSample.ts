@@ -1,5 +1,5 @@
 /**
- * FinCore Banking Platform — a rich sample C4 model demonstrating:
+ * Fintech Banking Platform — a rich sample C4 model demonstrating:
  *  - A multi-container banking system (8 services + 3 infra nodes)
  *  - External actors and systems
  *  - 4 milestones tracking the platform evolution

@@ -26,7 +26,6 @@ function AppInner(): React.ReactElement {
 
   const isPresenting = presentationActive
   const isDesigner = appMode === 'designer'
-  const isPresenter = appMode === 'presenter'
   const isViewer = appMode === 'viewer'
   const isMetamodel = appMode === 'metamodel'
   const isReadOnlyMode = !isDesigner && !isMetamodel
@@ -79,13 +78,11 @@ function AppInner(): React.ReactElement {
     <div className={layoutClass}>
       {!isPresenting && <Toolbar />}
       {!isPresenting && isDesigner && <LeftPanel mode="designer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
-      {!isPresenting && isPresenter && <LeftPanel mode="presenter" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {!isPresenting && isViewer && <LeftPanel mode="viewer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {isMetamodel && !isPresenting ? <MetamodelEditor /> : <Canvas />}
       {!isPresenting && !isMetamodel && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
       {!isPresenting && !isMetamodel && !isDesigner && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
-      {!isPresenting && isPresenter && <PresenterDock />}
-      {/* TimeTravelBar (slide strip) intentionally hidden in viewer mode — viewer is meant for free model browsing, slides belong to presenter mode. */}
+      {!isPresenting && isViewer && <PresenterDock />}
       <PresentationBar />
       {!isPresenting && !isMetamodel && <SelectionActionBar />}
       {!isPresenting && !isMetamodel && <EdgeActionBar />}

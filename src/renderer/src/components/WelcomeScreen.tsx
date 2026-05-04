@@ -28,7 +28,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
 
   function handleSample(): void {
     const data = buildFintechSampleRaw()
-    const meta = documents.createLSDocument('FinCore Banking Platform', data)
+    const meta = documents.createLSDocument('Fintech Banking Platform', data)
     documents.setActiveId(meta.id)
     onDismiss()
   }

@@ -30,7 +30,7 @@ export function DevSampleToolbar({ onSampleLoaded }: Props): React.ReactElement 
 
   function handleLoad(): void {
     loadFintechSample().then((raw) => {
-      const meta = documents.createLSDocument('[DEV] FinCore Sample', raw)
+      const meta = documents.createLSDocument('[DEV] Fintech Sample', raw)
       documents.setActiveId(meta.id)
       onSampleLoaded?.()
     })

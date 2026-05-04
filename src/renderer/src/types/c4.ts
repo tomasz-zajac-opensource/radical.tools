@@ -83,6 +83,16 @@ export interface PresentationSlide {
   viewport: { x: number; y: number; zoom: number }
   /** Full node positions + collapsed flags at the time the slide was created/captured */
   canvasState?: SlideCanvasState
+  /**
+   * Inline snapshot of the full model (nodes + relations) at slide-creation time.
+   * Used as the source of truth on goToSlide — guarantees the slide shows
+   * exactly what was on screen when "Add slide" was pressed, regardless of
+   * later edits to the live model. Takes precedence over `snapshotId`.
+   */
+  modelSnapshot?: {
+    nodes: Record<string, C4Node>
+    relations: Record<string, C4Relation>
+  }
 }
 
 /** A named presentation — collection of slides */

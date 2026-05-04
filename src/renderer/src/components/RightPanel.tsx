@@ -554,7 +554,7 @@ function PanelToggle({ side, collapsed, onToggle }: {
 }
 
 export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = false, onToggleCollapsed }: {
-  mode?: 'designer' | 'presenter' | 'viewer'
+  mode?: 'designer' | 'viewer'
   readOnly?: boolean
   collapsed?: boolean
   onToggleCollapsed?: () => void
@@ -572,22 +572,6 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
       <div className={`left-panel${collapsed ? ' collapsed' : ''}`}>
         <div className="panel-content">
           <AccordionSection title="Views" count={viewsCount}>
-            <ViewList readOnly={true} />
-          </AccordionSection>
-          <AccordionSection title="Milestones" defaultOpen={false} count={snapshotsCount}>
-            <SnapshotList readOnly={true} />
-          </AccordionSection>
-        </div>
-        {toggle}
-      </div>
-    )
-  }
-
-  if (mode === 'presenter') {
-    return (
-      <div className={`left-panel${collapsed ? ' collapsed' : ''}`}>
-        <div className="panel-content">
-          <AccordionSection title="Views" count={viewsCount} defaultOpen={true}>
             <ViewList readOnly={true} />
           </AccordionSection>
           <AccordionSection title="Milestones" defaultOpen={false} count={snapshotsCount}>
