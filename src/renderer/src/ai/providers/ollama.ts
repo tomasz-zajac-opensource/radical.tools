@@ -19,12 +19,31 @@ async function ollamaChat(req: ChatRequest, cfg: ProviderConfig): Promise<ChatRe
       num_predict: req.maxTokens ?? 2048,
     },
   }
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: req.signal,
-  })
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: req.signal,
+    })
+  } catch (err) {
+    // Network-level failure. The most common case from a hosted page is a
+    // CORS-blocked preflight: Ollama needs OLLAMA_ORIGINS to whitelist the
+    // page's origin. We can't tell the difference between "server is down"
+    // and "CORS rejected" from JS — both surface as TypeError — so the
+    // message points at both possibilities and includes the exact env var
+    // string the user needs to set on their machine.
+    const origin = typeof window !== 'undefined' ? window.location.origin : '*'
+    throw new Error(
+      `Cannot reach Ollama at ${base}. ` +
+      `If Ollama is running, this is almost certainly a CORS/preflight block — ` +
+      `restart it with OLLAMA_ORIGINS allowing this page. macOS example:\n` +
+      `  launchctl setenv OLLAMA_ORIGINS "${origin}"\n` +
+      `  # then restart the Ollama app\n` +
+      `Underlying error: ${(err as Error).message}`,
+    )
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     throw new Error(`Ollama HTTP ${res.status}: ${text || res.statusText}`)

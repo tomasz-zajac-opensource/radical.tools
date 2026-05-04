@@ -3696,4 +3696,43 @@ if (typeof window !== 'undefined') {
 
   // Expose hooks for other modules / future use.
   ;(window as any).__radicalFlushPersist = flushPersist
+
+  // ── Synchronous flush on tab close / reload / hide ───────────────────────
+  // LocalStorage writes are synchronous, so we can safely persist pending
+  // changes during pagehide / visibilitychange. This prevents a quick
+  // reload (within the 400 ms debounce) from losing the most recent edit
+  // (e.g. a freshly-applied smart layout).
+  const flushSync = (): void => {
+    if (_suspended) return
+    if (_persistTimer === null) return // nothing pending
+    clearTimeout(_persistTimer)
+    _persistTimer = null
+    const activeId = documents.getActiveId()
+    if (!activeId) return
+    const meta = documents.listDocuments().find(d => d.id === activeId)
+    // FS writes go through async electronAPI and won't reliably complete
+    // on pagehide; LS writes are synchronous and always make it to disk.
+    if (meta?.source !== 'ls') {
+      // Best effort — fire-and-forget. Pending FS save may still complete
+      // if the unload races slowly enough; if not, the user will see the
+      // pre-edit state next time.
+      void flushPersist()
+      return
+    }
+    try {
+      const data = useDiagramStore.getState().saveDiagram()
+      void documents.saveDocument(activeId, data)
+    } catch (e) {
+      console.warn('[diagramStore] sync flush failed:', e)
+    }
+  }
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('pagehide', flushSync)
+    window.addEventListener('beforeunload', flushSync)
+  }
+  if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushSync()
+    })
+  }
 }

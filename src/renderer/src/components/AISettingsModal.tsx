@@ -242,9 +242,16 @@ export function AISettingsModal({ open, onClose }: Props): React.ReactElement | 
 
           {editing === 'ollama' && (
             <div className="ai-settings-help">
-              For browser use, start Ollama with <code>OLLAMA_ORIGINS=*</code> so it
-              accepts cross-origin requests:
-              <pre>OLLAMA_ORIGINS=&apos;*&apos; ollama serve</pre>
+              The browser must be allowed to call Ollama cross-origin. Set
+              <code>OLLAMA_ORIGINS</code> to include this page&apos;s origin
+              (<code>{typeof window !== 'undefined' ? window.location.origin : '*'}</code>),
+              then restart Ollama.
+              <pre>{`# macOS (Ollama desktop app):
+launchctl setenv OLLAMA_ORIGINS "${typeof window !== 'undefined' ? window.location.origin : '*'}"
+# then quit & relaunch Ollama.app
+
+# OR if you run \`ollama serve\` manually:
+OLLAMA_ORIGINS='${typeof window !== 'undefined' ? window.location.origin : '*'}' ollama serve`}</pre>
               Then pull a model, e.g. <code>ollama pull llama3.1</code>.
             </div>
           )}
