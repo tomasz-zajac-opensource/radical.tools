@@ -16,8 +16,8 @@ function fmtTime(ts: number): string {
 }
 
 const TABS: ReadonlyArray<{ key: TabKey; label: string; hint: string }> = [
-  { key: 'ls', label: 'Local storage', hint: 'Diagrams saved inside the app (browser localStorage).' },
-  { key: 'fs', label: 'Files',         hint: 'Diagrams backed by a JSON file on disk.' },
+  { key: 'ls', label: 'Local storage', hint: 'Models saved inside the app (browser localStorage).' },
+  { key: 'fs', label: 'Files',         hint: 'Models backed by a JSON file on disk.' },
 ]
 
 export function DocumentManagerModal({ open, onClose }: Props): React.ReactElement | null {
@@ -129,7 +129,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
               autoFocus
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Diagram name"
+              placeholder="Model name"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleNewLSCommit()
                 else if (e.key === 'Escape') handleNewLSCancel()
@@ -142,7 +142,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
       }
       return (
         <div className="docmgr-toolbar">
-          <button className="docmgr-btn primary" onClick={handleNewLSStart}>+ New local diagram</button>
+          <button className="docmgr-btn primary" onClick={handleNewLSStart}>+ New local model</button>
           <span className="docmgr-toolbar-hint">Stored in your browser only — no file on disk.</span>
         </div>
       )
@@ -150,7 +150,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
     return (
       <div className="docmgr-toolbar">
         <button className="docmgr-btn primary" onClick={handleImportFile}>Open file…</button>
-        <span className="docmgr-toolbar-hint">Pick a <code>.json</code> diagram on disk to add to the library.</span>
+        <span className="docmgr-toolbar-hint">Pick a <code>.json</code> model on disk to add to the library.</span>
       </div>
     )
   }
@@ -159,14 +159,14 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
     if (tab === 'ls') {
       return (
         <div className="docmgr-empty">
-          <p style={{ margin: '0 0 12px' }}>No local diagrams yet.</p>
+          <p style={{ margin: '0 0 12px' }}>No local models yet.</p>
           <button className="docmgr-btn primary" onClick={handleNewLSStart}>Create one</button>
         </div>
       )
     }
     return (
       <div className="docmgr-empty">
-        <p style={{ margin: '0 0 12px' }}>No file-backed diagrams yet.</p>
+        <p style={{ margin: '0 0 12px' }}>No file-backed models yet.</p>
         <button className="docmgr-btn primary" onClick={handleImportFile}>Open a file…</button>
       </div>
     )
@@ -178,11 +178,31 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   // descendants to the toolbar instead of the viewport — the modal would
   // otherwise appear glued to the top bar instead of centred on screen).
   return createPortal(
-    <div className="docmgr-backdrop" onClick={onClose}>
-      <div className="docmgr-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="docmgr-backdrop"
+      onMouseDown={(e) => {
+        // Backdrop closes only when the mouse gesture both starts and ends
+        // on the backdrop. Without this, selecting text inside the modal
+        // and releasing outside it would close the dialog.
+        if (e.target !== e.currentTarget) return
+        const start = e.currentTarget
+        const onUp = (ev: MouseEvent): void => {
+          window.removeEventListener('mouseup', onUp, true)
+          if (ev.target === start) onClose()
+        }
+        window.addEventListener('mouseup', onUp, true)
+      }}
+    >
+      <div
+        className="docmgr-modal"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Models"
+      >
         <div className="docmgr-header">
-          <h2>Diagrams</h2>
-          <button className="docmgr-close" onClick={onClose} aria-label="Close">×</button>
+          <h2>Models</h2>
+          <button className="docmgr-close" onClick={onClose} aria-label="Close" title="Close (Esc)">✕</button>
         </div>
 
         <div className="docmgr-tabs" role="tablist">
@@ -245,7 +265,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
                       <>
                         <button className="docmgr-btn small" onClick={() => handleRenameStart(d)} title="Rename">Rename</button>
                         {d.source === 'ls' && (
-                          <button className="docmgr-btn small" onClick={() => handleSaveAs(d)} title="Save current diagram as a file (converts this entry to file-backed)">Save as file…</button>
+                          <button className="docmgr-btn small" onClick={() => handleSaveAs(d)} title="Save current model as a file (converts this entry to file-backed)">Save as file…</button>
                         )}
                         <button className="docmgr-btn small danger" onClick={() => handleDelete(d)} title={d.source === 'fs' ? 'Remove from library (file kept)' : 'Delete from local storage'}>Delete</button>
                       </>

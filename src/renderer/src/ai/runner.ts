@@ -49,9 +49,12 @@ Errors from the previous attempt:
 function mergeReports(into: ApplyReport, more: ApplyReport): void {
   into.added.nodes += more.added.nodes
   into.added.relations += more.added.relations
+  into.added.views += more.added.views
   into.updated.nodes += more.updated.nodes
+  into.updated.views += more.updated.views
   into.deleted.nodes += more.deleted.nodes
   into.deleted.relations += more.deleted.relations
+  into.deleted.views += more.deleted.views
   // Errors are scoped to "still failing after retries"; replace each round
   // so the UI doesn't show the same problem multiple times.
   into.errors = more.errors.slice()
@@ -70,9 +73,9 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
   const turns: ChatMessage[] = []
 
   const combined: ApplyReport = {
-    added: { nodes: 0, relations: 0 },
-    updated: { nodes: 0 },
-    deleted: { nodes: 0, relations: 0 },
+    added: { nodes: 0, relations: 0, views: 0 },
+    updated: { nodes: 0, views: 0 },
+    deleted: { nodes: 0, relations: 0, views: 0 },
     errors: [],
   }
 
@@ -92,6 +95,7 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
       [...history, ...turns],
       diagram.getMetamodel?.(),
       diagram.getActiveView?.() ?? null,
+      diagram.getViews?.(),
     )
 
     const res = await adapter.chat(
@@ -107,12 +111,25 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
 
     let patch
     try {
-      patch = validatePatch(extractJsonObject(res.content))
+      const mm = diagram.getMetamodel?.()
+      const knownTypes = mm ? new Set(Object.keys(mm.nodeTypes)) : undefined
+      patch = validatePatch(extractJsonObject(res.content), { knownTypes })
     } catch (err) {
-      // Parse/validate failure — surface and stop. We don't try to retry
-      // malformed JSON; jsonMode + the system prompt already do the lifting.
-      combined.errors.push(`Patch parse failed: ${(err as Error).message}`)
-      break
+      // Parse/validate failure. Instead of giving up, feed the error back
+      // to the model so it can correct the malformed op (most often: an
+      // unknown node type because the user has a custom metamodel).
+      const msg = (err as Error).message
+      if (round === maxRetries) {
+        combined.errors.push(`Patch parse failed: ${msg}`)
+        break
+      }
+      retries++
+      nextUserPrompt =
+        `Your previous response could not be parsed as a valid patch. The\n` +
+        `error was:\n  ${msg}\n\nReturn ONLY the JSON patch object, with all\n` +
+        `operations using node types listed in the metamodel above. No prose,\n` +
+        `no Markdown fences.`
+      continue
     }
 
     if (patch.summary) lastSummary = patch.summary

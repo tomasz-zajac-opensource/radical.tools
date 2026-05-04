@@ -29,24 +29,44 @@ export function useOutsideClick(
     if (typeof document === 'undefined' && typeof window === 'undefined') return
 
     const handler = (e: Event): void => {
-      const target = e.target as Node | null
+      const target = e.target as (Node & { closest?: (sel: string) => Element | null }) | null
       if (!target) return
       for (const r of refs) {
         const el = r.current
         if (el && el.contains(target)) return
       }
+      // Ignore clicks that landed inside a portaled dialog (e.g. the AI
+      // settings modal opened from this very popup). Otherwise typing in
+      // the modal would close the popup that owns its trigger button, and
+      // any focus/keystroke handling inside the modal would race with the
+      // popup's own teardown.
+      if (typeof target.closest === 'function' && target.closest('[role="dialog"]')) return
       onOutside()
     }
 
-    // pointerdown fires for mouse, touch and pen; mousedown is a fallback
-    // for environments without Pointer Events.
+    // Defer attaching the listeners by one frame so the same click that
+    // opened the popup (and bubbled up to document on capture) doesn't
+    // immediately fire `onOutside` and close it again.
+    let raf = 0
+    let attached = false
     const opts: AddEventListenerOptions = { capture: true }
     const root: EventTarget = (typeof document !== 'undefined' ? document : window)
-    root.addEventListener('pointerdown', handler, opts)
-    root.addEventListener('mousedown', handler, opts)
+    const attach = (): void => {
+      attached = true
+      root.addEventListener('pointerdown', handler, opts)
+      root.addEventListener('mousedown', handler, opts)
+    }
+    if (typeof requestAnimationFrame === 'function') {
+      raf = requestAnimationFrame(attach)
+    } else {
+      attach()
+    }
     return () => {
-      root.removeEventListener('pointerdown', handler, opts)
-      root.removeEventListener('mousedown', handler, opts)
+      if (raf) cancelAnimationFrame(raf)
+      if (attached) {
+        root.removeEventListener('pointerdown', handler, opts)
+        root.removeEventListener('mousedown', handler, opts)
+      }
     }
   }, [active, onOutside, ...refs])
 }

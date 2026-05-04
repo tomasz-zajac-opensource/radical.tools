@@ -79,16 +79,24 @@ export function QuickSearch(): React.ReactElement | null {
     updateRelation: (id: string, u: Parameters<ReturnType<typeof useDiagramStore.getState>['updateRelation']>[1]) =>
       useDiagramStore.getState().updateRelation(id, u),
     removeRelation: (id: string) => useDiagramStore.getState().removeRelation(id),
+    // ── views ──
+    getViews: () => useDiagramStore.getState().views,
+    addView: (name: string) => useDiagramStore.getState().addView(name),
+    setViewNodes: (viewId: string, nodeIds: string[]) =>
+      useDiagramStore.getState().setViewNodes(viewId, nodeIds),
+    removeView: (id: string) => useDiagramStore.getState().removeView(id),
+    setActiveView: (id: string | null) => useDiagramStore.getState().setActiveView(id),
   }), [])
 
   const aiAdapterCfg = aiSettings.providers[aiSettings.active]
   const aiAdapter = getAdapter(aiSettings.active)
   const aiNeedsKey = aiSettings.active !== 'ollama' && !aiAdapterCfg.apiKey
-  // The AI agent is only "available" when the active provider has the
-  // credentials it needs (Ollama: always; cloud providers: API key set).
-  // When unavailable we hide every AI-related affordance from the search
-  // bar — configuration lives in the logo menu (“AI providers…”).
-  const aiConfigured = !aiNeedsKey
+  // The AI agent is only "available" when the user has explicitly enabled
+  // the AI feature in settings AND the active provider has the credentials
+  // it needs (Ollama: always; cloud providers: API key set). When
+  // unavailable we hide every AI-related affordance from the search bar —
+  // configuration lives in the logo menu (“AI providers…”).
+  const aiConfigured = aiSettings.enabled && !aiNeedsKey
   const aiProviderLabel = listAdapters().find((a) => a.id === aiSettings.active)?.label ?? aiSettings.active
   const aiModelLabel = aiAdapterCfg.model || aiAdapter.defaultModel
 
@@ -457,7 +465,7 @@ export function QuickSearch(): React.ReactElement | null {
     'Add a Postgres database used by the Web App',
     'Create a payment system with API gateway and worker',
     'Rename "User" to "Customer" everywhere',
-    'Summarize what this diagram does',
+    'Summarize what this model does',
   ], [])
 
   const showDropdown = focused || aiBusy || !!aiLast || aiMode
@@ -486,7 +494,7 @@ export function QuickSearch(): React.ReactElement | null {
           onKeyDown={onInputKey}
           placeholder={
             aiMode
-              ? `Ask ${aiProviderLabel} to change the diagram… (↵ to send)`
+              ? `Ask ${aiProviderLabel} to change the model… (↵ to send)`
               : aiConfigured
                 ? `Search ${Object.keys(c4Nodes).length} nodes · ${Object.keys(c4Relations).length} relations  —  ⌘/Ctrl+↵ to ask AI`
                 : `Search ${Object.keys(c4Nodes).length} nodes · ${Object.keys(c4Relations).length} relations`
@@ -700,9 +708,12 @@ function AIReportLine({ report }: { report: ApplyReport }): React.ReactElement {
   const parts: string[] = []
   if (report.added.nodes) parts.push(`+${report.added.nodes} node${report.added.nodes === 1 ? '' : 's'}`)
   if (report.added.relations) parts.push(`+${report.added.relations} relation${report.added.relations === 1 ? '' : 's'}`)
+  if (report.added.views) parts.push(`+${report.added.views} view${report.added.views === 1 ? '' : 's'}`)
   if (report.updated.nodes) parts.push(`~${report.updated.nodes} updated`)
+  if (report.updated.views) parts.push(`~${report.updated.views} view${report.updated.views === 1 ? '' : 's'}`)
   if (report.deleted.nodes) parts.push(`−${report.deleted.nodes} node${report.deleted.nodes === 1 ? '' : 's'}`)
   if (report.deleted.relations) parts.push(`−${report.deleted.relations} relation${report.deleted.relations === 1 ? '' : 's'}`)
+  if (report.deleted.views) parts.push(`−${report.deleted.views} view${report.deleted.views === 1 ? '' : 's'}`)
   return (
     <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
       {parts.length ? parts.join(' · ') : 'No changes'}

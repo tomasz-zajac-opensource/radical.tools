@@ -27,10 +27,12 @@ describe('aiSettings', () => {
   it('returns defaults when nothing is persisted', () => {
     const s = loadAISettings(store)
     expect(s.active).toBe('openai')
-    expect(s.providers.ollama.baseUrl).toBe('http://localhost:11434')
-    expect(s.providers.openai.model).toMatch(/^gpt/)
-    expect(s.providers.anthropic.model).toMatch(/^claude/)
-    expect(s.providers.gemini.model).toMatch(/^gemini/)
+    // Provider configs start empty — the UI shows placeholders and the
+    // adapters fall back to their built-in defaults at request time.
+    expect(s.providers.ollama.baseUrl).toBe('')
+    expect(s.providers.openai.model).toBe('')
+    expect(s.providers.anthropic.model).toBe('')
+    expect(s.providers.gemini.model).toBe('')
   })
 
   it('round-trips via save/load', () => {
@@ -44,8 +46,8 @@ describe('aiSettings', () => {
     expect(loaded.active).toBe('openai')
     expect(loaded.providers.openai.apiKey).toBe('sk-test')
     expect(loaded.providers.openai.model).toBe('gpt-4o')
-    // Other providers keep their defaults
-    expect(loaded.providers.ollama.baseUrl).toBe('http://localhost:11434')
+    // Other providers keep their (empty) defaults
+    expect(loaded.providers.ollama.baseUrl).toBe('')
   })
 
   it('falls back to defaults on bogus active provider', () => {
@@ -53,14 +55,14 @@ describe('aiSettings', () => {
     expect(s.active).toBe('openai')
   })
 
-  it('falls back to defaults on bogus provider config fields', () => {
+  it('normalizes bogus provider config fields to empty strings', () => {
     const s = normalizeAISettings({
       active: 'openai',
       providers: { openai: { apiKey: 123, baseUrl: '', model: null } },
     })
     expect(s.providers.openai.apiKey).toBe('')
-    expect(s.providers.openai.baseUrl).toMatch(/^https:\/\//)
-    expect(s.providers.openai.model).toBe('gpt-4o-mini')
+    expect(s.providers.openai.baseUrl).toBe('')
+    expect(s.providers.openai.model).toBe('')
   })
 
   it('survives malformed JSON in storage', () => {
@@ -73,6 +75,7 @@ describe('aiSettings', () => {
     const s = defaultAISettings()
     saveAISettings(s, store)
     const parsed = JSON.parse(store.data[AI_SETTINGS_KEY])
-    expect(parsed.providers.gemini.baseUrl).toBe('https://generativelanguage.googleapis.com/v1beta')
+    expect(parsed.active).toBe('openai')
+    expect(parsed.providers.gemini.baseUrl).toBe('')
   })
 })

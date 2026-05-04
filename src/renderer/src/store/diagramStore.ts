@@ -823,6 +823,8 @@ interface DiagramStore {
   setActiveView: (id: string | null) => void
   addNodeToView: (viewId: string, nodeId: string) => void
   removeNodeFromView: (viewId: string, nodeId: string) => void
+  /** Replace the entire visible-nodes set of a view. Unknown ids are ignored. */
+  setViewNodes: (viewId: string, nodeIds: string[]) => void
   /** Hide a specific relation from the view, even if both endpoints are visible. */
   hideRelationFromView: (viewId: string, relationId: string) => void
   /** Reverse `hideRelationFromView`. */
@@ -1963,6 +1965,25 @@ export const useDiagramStore = create<DiagramStore>()(
           if (view) view.nodeIds = view.nodeIds.filter((id) => id !== nodeId)
         })
         get()._sync()
+      },
+      setViewNodes(viewId, nodeIds) {
+        const state0 = get()
+        if (!state0.views[viewId]) return
+        // Filter out unknown ids defensively — the AI may emit a stale id.
+        const valid = nodeIds.filter((id) => id in state0.c4Nodes)
+        // Dedupe while preserving order.
+        const seen = new Set<string>()
+        const ordered: string[] = []
+        for (const id of valid) {
+          if (!seen.has(id)) { seen.add(id); ordered.push(id) }
+        }
+        get()._pushUndo()
+        set((state) => {
+          const view = state.views[viewId]
+          if (view) view.nodeIds = ordered
+        })
+        get()._sync()
+        _liveLayout?.invalidate()
       },
       hideRelationFromView(viewId, relationId) {
         set((state) => {

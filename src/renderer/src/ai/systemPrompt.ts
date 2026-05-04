@@ -3,7 +3,7 @@
 // strongly toward emitting *only* a JSON object so we can parse it
 // mechanically; jsonMode is also requested per-provider where supported.
 
-import type { C4Node, C4Relation } from '../types/c4'
+import type { C4Node, C4Relation, DiagramView } from '../types/c4'
 import type { Metamodel } from '../types/metamodel'
 import type { ChatMessage } from './types'
 
@@ -38,12 +38,30 @@ Each <op> must be one of:
   { "op": "delete_node",     "id": "<existing-node-id>" }
   { "op": "delete_relation", "id": "<existing-relation-id>" }
 
+  { "op": "add_view",        "tempId": "v1", "name": "<view name>",
+    "nodeIds"?: string[], "active"?: boolean }
+
+  { "op": "set_view_nodes",  "id": "<view-id|tempId>", "nodeIds": string[] }
+
+  { "op": "delete_view",     "id": "<view-id|tempId>" }
+  { "op": "set_active_view", "id": "<view-id|tempId>|null" }
+
 General rules:
-- For new nodes, invent a stable \`tempId\` ("t1", "t2", ...) so other ops in
-  the same patch can reference it via \`parentId\`, \`sourceId\` or \`targetId\`.
+- For new nodes AND new views, invent a stable \`tempId\` ("t1", "v1", ...) so
+  other ops in the same patch can reference them via \`parentId\`,
+  \`sourceId\`, \`targetId\`, view \`id\` or view \`nodeIds\`. Tempids share one
+  namespace per patch — keep them globally unique.
 - Reference existing elements by their real id from the context block below.
 - Keep labels short (1–4 words). Put detail in \`description\`.
 - Do NOT fabricate ids that are not present in the context block.
+- Views are FILTERS over the model graph: a view only stores which nodes are
+  visible (its \`nodeIds\`). Relations whose both endpoints are visible in the
+  view are shown automatically. Use \`add_view\` + \`nodeIds\` (or
+  \`set_view_nodes\`) to build a focused view (e.g. "all direct neighbours of
+  the cache"). Set \`active\` to true on \`add_view\` to switch to it.
+- Cannot change the layout, themes, or the metamodel. If the user asks for
+  any of those, return
+  { "summary": "<polite explanation>", "operations": [] }.
 - STRICTLY follow the metamodel rules in the context block: an add_node that
   violates allowedParents/allowedAtRoot/cardinality WILL BE REJECTED, breaking
   any later op that references its tempId. When you need a child of a type
@@ -95,6 +113,7 @@ export function buildContextMessage(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
   activeView?: { id: string; name: string; nodeIds: string[] } | null,
+  views?: Record<string, DiagramView>,
 ): string {
   const ns = Object.values(nodes).map((n) => ({
     id: n.id,
@@ -112,10 +131,17 @@ export function buildContextMessage(
     label: r.label || undefined,
     technology: r.technology || undefined,
   }))
+  const vs = views
+    ? Object.values(views).map((v) => ({
+        id: v.id,
+        name: v.name,
+        nodeIds: v.nodeIds,
+      }))
+    : []
   const lines = [
     'Current diagram state (use these ids when referring to existing elements):',
     '```json',
-    JSON.stringify({ nodes: ns, relations: rs }, null, 2),
+    JSON.stringify({ nodes: ns, relations: rs, views: vs }, null, 2),
     '```',
   ]
   if (activeView) {
@@ -136,11 +162,12 @@ export function buildMessages(
   history: ChatMessage[] = [],
   metamodel?: Metamodel,
   activeView?: { id: string; name: string; nodeIds: string[] } | null,
+  views?: Record<string, DiagramView>,
 ): ChatMessage[] {
   return [
     { role: 'system', content: AI_SYSTEM_PROMPT },
     { role: 'system', content: buildMetamodelMessage(metamodel) },
-    { role: 'system', content: buildContextMessage(nodes, relations, activeView) },
+    { role: 'system', content: buildContextMessage(nodes, relations, activeView, views) },
     ...history,
     { role: 'user', content: userPrompt },
   ]

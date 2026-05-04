@@ -11,7 +11,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
   const hasExisting  = existingDocs.length > 0
 
   function handleNew(): void {
-    documents.createLSDocument('Untitled diagram', { nodes: [], relations: [] })
+    documents.createLSDocument('Untitled model', { nodes: [], relations: [] })
     onDismiss()
   }
 
@@ -52,7 +52,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
           </div>
 
           <h1 className="welcome-heading">
-            {hasExisting ? <>Your recent<br/>diagrams</> : <>Architecture<br/>modelling</>}
+            {hasExisting ? <>Your recent<br/>models</> : <>Architecture<br/>modelling</>}
           </h1>
           <p className="welcome-lead">
             {hasExisting
@@ -66,7 +66,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
                 <line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
                 <line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
               </svg>
-              New diagram
+              New model
             </button>
             <button className="welcome-btn welcome-btn-ghost" onClick={handleImport}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

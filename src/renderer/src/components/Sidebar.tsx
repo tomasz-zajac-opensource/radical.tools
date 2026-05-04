@@ -145,7 +145,7 @@ export function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => voi
           {/* Diagram tree */}
           <div className="diagram-tree">
             <div className="sidebar-section">
-              <div className="sidebar-section-title">Diagram</div>
+              <div className="sidebar-section-title">Model</div>
             </div>
             {rootNodes.map((n) => (
               <TreeNodeItem key={n.id} nodeId={n.id} depth={0} />

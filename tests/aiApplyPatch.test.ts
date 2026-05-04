@@ -165,4 +165,86 @@ describe('applyPatch', () => {
     expect(r.added.nodes).toBe(0)
     expect(r.errors[0]).toMatch(/rejected by the metamodel/)
   })
+
+  it('tolerates a patch with no operations field (empty patch)', () => {
+    const p = validatePatch({ summary: 'nothing to do' })
+    expect(p.operations).toEqual([])
+    expect(p.summary).toBe('nothing to do')
+  })
+})
+
+describe('applyPatch — view ops', () => {
+  function makeViewFacade() {
+    const base = makeFacade()
+    type View = { id: string; name: string; nodeIds: string[] }
+    const views: Record<string, View> = {}
+    let activeViewId: string | null = null
+    return {
+      ...base,
+      _views: views,
+      get _activeViewId() { return activeViewId },
+      getViews: () => views,
+      addView: (name: string) => {
+        const id = `v${Object.keys(views).length + 1}`
+        views[id] = { id, name, nodeIds: [] }
+        return id
+      },
+      setViewNodes: (id: string, nodeIds: string[]) => {
+        if (views[id]) views[id].nodeIds = nodeIds.filter((n) => n in base._nodes)
+      },
+      removeView: (id: string) => {
+        delete views[id]
+        if (activeViewId === id) activeViewId = null
+      },
+      setActiveView: (id: string | null) => { activeViewId = id },
+    }
+  }
+
+  it('add_view + nodeIds resolves node tempIds in the same patch', () => {
+    const f = makeViewFacade()
+    const r = applyPatch(
+      validatePatch({
+        operations: [
+          { op: 'add_node', tempId: 't1', type: 'system', label: 'API' },
+          { op: 'add_node', tempId: 't2', type: 'database', label: 'PG' },
+          { op: 'add_view', tempId: 'v1', name: 'API + DB', nodeIds: ['t1', 't2'], active: true },
+        ],
+      }),
+      f,
+    )
+    expect(r.errors).toEqual([])
+    expect(r.added.nodes).toBe(2)
+    expect(r.added.views).toBe(1)
+    const view = Object.values(f._views)[0]
+    expect(view.nodeIds).toHaveLength(2)
+    expect(view.nodeIds.every((id) => id in f._nodes)).toBe(true)
+    expect(f._activeViewId).toBe(view.id)
+  })
+
+  it('set_view_nodes replaces the visible-node set', () => {
+    const f = makeViewFacade()
+    applyPatch(
+      validatePatch({
+        operations: [
+          { op: 'add_node', tempId: 'a', type: 'system', label: 'A' },
+          { op: 'add_node', tempId: 'b', type: 'system', label: 'B' },
+          { op: 'add_view', tempId: 'v', name: 'V', nodeIds: ['a'] },
+          { op: 'set_view_nodes', id: 'v', nodeIds: ['a', 'b'] },
+        ],
+      }),
+      f,
+    )
+    const v = Object.values(f._views)[0]
+    expect(v.nodeIds).toHaveLength(2)
+  })
+
+  it('reports an error when the facade has no view support', () => {
+    const f = makeFacade() // no view methods
+    const r = applyPatch(
+      validatePatch({ operations: [{ op: 'add_view', tempId: 'v', name: 'X' }] }),
+      f,
+    )
+    expect(r.added.views).toBe(0)
+    expect(r.errors[0]).toMatch(/views are not editable/)
+  })
 })

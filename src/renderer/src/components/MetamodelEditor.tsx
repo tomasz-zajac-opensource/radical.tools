@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useDiagramStore } from '../store/diagramStore'
 import { builtInC4Metamodel, validateModel } from '../types/metamodel'
 import type {
@@ -493,9 +494,48 @@ export function MetamodelEditor(): React.ReactElement {
     upsertRelationType({ id, label: `New relation ${i}`, allowedPairs: [], builtin: false })
   }
 
-  return (
-    <div className="mm-editor">
-      <div className="mm-editor-main">
+  const setAppMode = useDiagramStore((s) => s.setAppMode)
+  const close = (): void => setAppMode('designer')
+
+  // Esc closes the editor.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return createPortal(
+    <div
+      className="milestone-modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        const start = e.currentTarget
+        const onUp = (ev: MouseEvent): void => {
+          window.removeEventListener('mouseup', onUp, true)
+          if (ev.target === start) close()
+        }
+        window.addEventListener('mouseup', onUp, true)
+      }}
+    >
+      <div
+        className="milestone-modal mm-editor-modal"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Metamodel editor"
+      >
+        <button
+          type="button"
+          className="mm-editor-modal-close"
+          aria-label="Close metamodel editor"
+          title="Close (Esc)"
+          onClick={close}
+        >
+          ✕
+        </button>
+        <div className="mm-editor">
+          <div className="mm-editor-main">
         <div className="mm-editor-header">
           <div>
             <input
@@ -570,6 +610,9 @@ export function MetamodelEditor(): React.ReactElement {
       <aside className="mm-editor-side">
         <IssuesPanel />
       </aside>
-    </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

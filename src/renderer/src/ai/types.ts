@@ -41,6 +41,10 @@ export interface ProviderConfig {
 }
 
 export interface AISettings {
+  /** Master enable/disable switch for the whole AI feature. When false,
+   *  the AI UI (Quick Search ✨ toggle, Ask-AI shortcuts, etc.) stays
+   *  hidden even if a provider is fully configured. */
+  enabled: boolean
   /** Currently active provider. */
   active: AIProviderId
   providers: Record<AIProviderId, ProviderConfig>
@@ -107,12 +111,49 @@ export interface AIDeleteRelationOp {
   id: string
 }
 
+// ─── Views ────────────────────────────────────────────────────────────────
+
+/** Create a new view. `tempId` lets later ops (set_active_view, set_view_nodes)
+ *  reference it before a real id is assigned. nodeIds may include node tempIds
+ *  produced by `add_node` ops earlier in the same patch. */
+export interface AIAddViewOp {
+  op: 'add_view'
+  tempId: string
+  name: string
+  nodeIds?: string[]
+  /** Switch to this view immediately after creation. */
+  active?: boolean
+}
+
+/** Replace the entire visible-node set of an existing view. */
+export interface AISetViewNodesOp {
+  op: 'set_view_nodes'
+  /** Real id or tempId from an `add_view` earlier in the same patch. */
+  id: string
+  nodeIds: string[]
+}
+
+export interface AIDeleteViewOp {
+  op: 'delete_view'
+  id: string
+}
+
+export interface AISetActiveViewOp {
+  op: 'set_active_view'
+  /** Real id, tempId from same patch, or null to clear the active view. */
+  id: string | null
+}
+
 export type AIPatchOp =
   | AIAddNodeOp
   | AIAddRelationOp
   | AIUpdateNodeOp
   | AIDeleteNodeOp
   | AIDeleteRelationOp
+  | AIAddViewOp
+  | AISetViewNodesOp
+  | AIDeleteViewOp
+  | AISetActiveViewOp
 
 export interface AIPatch {
   operations: AIPatchOp[]

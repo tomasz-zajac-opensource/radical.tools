@@ -407,7 +407,7 @@ export const documents: DocumentsAPI = {
     const idx = readIndex()
     const meta = idx.docs.find(d => d.id === id)
     if (!meta) return null
-    const suggested = (meta.name || 'diagram').replace(/[\\/]/g, '_') + '.c4.json'
+    const suggested = (meta.name || 'model').replace(/[\\/]/g, '_') + '.c4.json'
     const downloader = downloadOverride ?? defaultWebDownloader
     const usedName = await downloader(suggested, json)
     if (!usedName) return null

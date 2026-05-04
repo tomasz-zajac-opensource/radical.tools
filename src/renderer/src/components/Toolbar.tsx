@@ -248,11 +248,11 @@ function AppMenu({
       {open && (
         <div className="app-menu-popover" role="menu">
           <div className="app-menu-section">
-            <div className="app-menu-label">Diagrams</div>
+            <div className="app-menu-label">Models</div>
             <button className="app-menu-item" role="menuitem" onClick={run(onManage)}>
               <span className="app-menu-icon"><IconLoad /></span>
               <span className="app-menu-text">
-                Manage diagrams…
+                Manage models…
                 {activeDocLabel && (
                   <span className="app-menu-current-doc-inline">
                     <span className={`toolbar-doc-badge ${activeDocSource}`}>
@@ -263,6 +263,12 @@ function AppMenu({
                 )}
               </span>
             </button>
+          </div>
+
+          <div className="app-menu-divider" />
+
+          <div className="app-menu-section">
+            <div className="app-menu-label">Schema</div>
             <button
               className={`app-menu-item${metamodelActive ? ' active' : ''}`}
               role="menuitemcheckbox"
@@ -280,20 +286,7 @@ function AppMenu({
           <div className="app-menu-divider" />
 
           <div className="app-menu-section">
-            <div className="app-menu-label">Settings</div>
-            <div className="app-menu-row">
-              <span className="app-menu-row-label">Connect key</span>
-              <select
-                className="app-menu-select"
-                value={connectionModifier}
-                onChange={(e) => setConnectionModifier(e.target.value as ConnectionMod)}
-              >
-                <option value="alt">{isMac ? '⌥ Option' : 'Alt'}</option>
-                <option value="shift">⇧ Shift</option>
-                <option value="ctrl">Ctrl</option>
-                <option value="meta">{isMac ? '⌘ Cmd' : '⊞ Win'}</option>
-              </select>
-            </div>
+            <div className="app-menu-label">View</div>
             <button className="app-menu-item" role="menuitem" onClick={run(onToggleTheme)}>
               <span className="app-menu-icon">{theme === 'dark' ? <IconSun /> : <IconMoon />}</span>
               <span className="app-menu-text">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
@@ -307,6 +300,31 @@ function AppMenu({
               <span className="app-menu-icon"><IconSmartFit /></span>
               <span className="app-menu-text">Smart fit {smartFitActive ? '(on)' : '(off)'}</span>
             </button>
+          </div>
+
+          <div className="app-menu-divider" />
+
+          <div className="app-menu-section">
+            <div className="app-menu-label">Editing</div>
+            <div className="app-menu-row">
+              <span className="app-menu-row-label">Connect key</span>
+              <select
+                className="app-menu-select"
+                value={connectionModifier}
+                onChange={(e) => setConnectionModifier(e.target.value as ConnectionMod)}
+              >
+                <option value="alt">{isMac ? '⌥ Option' : 'Alt'}</option>
+                <option value="shift">⇧ Shift</option>
+                <option value="ctrl">Ctrl</option>
+                <option value="meta">{isMac ? '⌘ Cmd' : '⊞ Win'}</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="app-menu-divider" />
+
+          <div className="app-menu-section">
+            <div className="app-menu-label">AI</div>
             <button
               className="app-menu-item"
               role="menuitem"

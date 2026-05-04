@@ -106,18 +106,62 @@ export function AISettingsModal({ open, onClose }: Props): React.ReactElement | 
   const canTest = !needsKey || !!cfg.apiKey
 
   return createPortal(
-    <div className="milestone-modal-backdrop" onClick={onClose}>
+    <div
+      className="milestone-modal-backdrop"
+      onMouseDown={(e) => {
+        // Only treat this as a backdrop click when the gesture both started
+        // AND ended on the backdrop itself. Without this, selecting text
+        // inside an input and releasing the mouse outside the modal box
+        // (or any drag that crosses the boundary) would close the dialog.
+        if (e.target !== e.currentTarget) return
+        const start = e.currentTarget
+        const onUp = (ev: MouseEvent): void => {
+          window.removeEventListener('mouseup', onUp, true)
+          if (ev.target === start) onClose()
+        }
+        window.addEventListener('mouseup', onUp, true)
+      }}
+    >
       <div
         className="milestone-modal ai-settings-modal"
+        onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="AI provider settings"
       >
+        <button
+          type="button"
+          className="ai-settings-close"
+          onClick={onClose}
+          aria-label="Close"
+          title="Close (Esc)"
+        >
+          ✕
+        </button>
         <h3 className="milestone-modal-title">AI providers</h3>
         <p className="milestone-modal-text" style={{ marginBottom: 4 }}>
           Configure connections to AI providers. Settings are stored in this browser&apos;s
           localStorage — do not use shared machines for sensitive keys.
         </p>
+
+        <div className="ai-enable-row">
+          <label className="ai-enable-toggle" title="Show or hide all AI features in the UI">
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              onChange={(e) => persist({ ...settings, enabled: e.target.checked })}
+            />
+            <span className="ai-enable-switch" aria-hidden />
+            <span className="ai-enable-label">
+              {settings.enabled ? 'AI features enabled' : 'AI features disabled'}
+            </span>
+          </label>
+          <span className="ai-enable-hint">
+            {settings.enabled
+              ? 'Quick Search shows the ✨ AI mode and ⌘+↵ shortcut.'
+              : 'Turn on to surface AI in Quick Search and elsewhere.'}
+          </span>
+        </div>
 
         <div className="ai-settings-tabs" role="tablist">
           {listAdapters().map((a) => {

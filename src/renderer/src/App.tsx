@@ -68,7 +68,6 @@ function AppInner(): React.ReactElement {
   const layoutClass = [
     'app-layout',
     isPresenting ? 'mode-presenting' : '',
-    !isPresenting && isMetamodel ? 'mode-metamodel' : '',
     !isPresenting && isReadOnlyMode ? 'mode-presentation' : '',
     !isPresenting && leftCollapsed ? 'lp-collapsed' : '',
     !isPresenting && rightCollapsed ? 'rp-collapsed' : '',
@@ -79,15 +78,16 @@ function AppInner(): React.ReactElement {
       {!isPresenting && <Toolbar />}
       {!isPresenting && isDesigner && <LeftPanel mode="designer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {!isPresenting && isViewer && <LeftPanel mode="viewer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
-      {isMetamodel && !isPresenting ? <MetamodelEditor /> : <Canvas />}
-      {!isPresenting && !isMetamodel && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
-      {!isPresenting && !isMetamodel && !isDesigner && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
+      <Canvas />
+      {!isPresenting && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
+      {!isPresenting && !isDesigner && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
       {!isPresenting && isViewer && <PresenterDock />}
       <PresentationBar />
-      {!isPresenting && !isMetamodel && <SelectionActionBar />}
-      {!isPresenting && !isMetamodel && <EdgeActionBar />}
+      {!isPresenting && <SelectionActionBar />}
+      {!isPresenting && <EdgeActionBar />}
       <QuickSearch />
       <NotificationHost />
+      {isMetamodel && !isPresenting && <MetamodelEditor />}
       {showWelcome && <WelcomeScreen onDismiss={() => setShowWelcome(false)} />}
       {DevSampleToolbar && (
         <React.Suspense fallback={null}>

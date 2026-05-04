@@ -23,11 +23,15 @@ const DEFAULT_BASE_URLS: Record<AIProviderId, string> = {
   gemini: 'https://generativelanguage.googleapis.com/v1beta',
 }
 
-export function defaultProviderConfig(id: AIProviderId): ProviderConfig {
+export function defaultProviderConfig(_id: AIProviderId): ProviderConfig {
+  // Leave fields empty so the modal shows only placeholders. The runtime
+  // (adapters) falls back to the per-provider defaults from AI_DEFAULTS
+  // when the user hasn't overridden them. This keeps the localStorage
+  // payload tiny and the UI honest about what is actually user-set.
   return {
     apiKey: '',
-    baseUrl: DEFAULT_BASE_URLS[id],
-    model: DEFAULT_MODELS[id],
+    baseUrl: '',
+    model: '',
   }
 }
 
@@ -38,7 +42,9 @@ export function defaultAISettings(): AISettings {
   // the box. This keeps the AI agent hidden until the user explicitly
   // configures something (so we don't silently assume Ollama is running on
   // localhost). The user can switch to Ollama from the providers modal.
-  return { active: 'openai', providers }
+  // `enabled` defaults to false so the AI UI stays out of the way until the
+  // user opts in via the explicit toggle.
+  return { enabled: false, active: 'openai', providers }
 }
 
 export function normalizeAISettings(raw: unknown): AISettings {
@@ -54,12 +60,12 @@ export function normalizeAISettings(raw: unknown): AISettings {
     if (p && typeof p === 'object') {
       providers[id] = {
         apiKey: typeof p.apiKey === 'string' ? p.apiKey : '',
-        baseUrl: typeof p.baseUrl === 'string' && p.baseUrl ? p.baseUrl : DEFAULT_BASE_URLS[id],
-        model: typeof p.model === 'string' && p.model ? p.model : DEFAULT_MODELS[id],
+        baseUrl: typeof p.baseUrl === 'string' ? p.baseUrl : '',
+        model: typeof p.model === 'string' ? p.model : '',
       }
     }
   }
-  return { active, providers }
+  return { enabled: typeof r.enabled === 'boolean' ? r.enabled : base.enabled, active, providers }
 }
 
 interface MinimalStorage {

@@ -47,7 +47,7 @@ export function DeleteConfirmDialog(): React.ReactElement | null {
           <button className="milestone-option" onClick={() => resolve('model')}>
             <div className="milestone-option-title">Remove from model</div>
             <div className="milestone-option-desc">
-              Permanently delete from the diagram (and from every view that
+              Permanently delete from the model (and from every view that
               references it). Children of nodes are removed as well.
             </div>
           </button>
