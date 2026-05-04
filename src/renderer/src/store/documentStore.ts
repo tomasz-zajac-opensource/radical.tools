@@ -94,6 +94,44 @@ function defaultNameFromPath(filePath: string): string {
   return base.replace(/\.c4\.json$/i, '').replace(/\.json$/i, '') || base
 }
 
+/** Browser-only file picker used when running outside Electron. Resolves with
+ *  `{ name, content }` for the chosen file, or `null` if the user cancels.
+ *  Implemented via a transient <input type="file"> that we click(). */
+function defaultWebFilePicker(): Promise<{ name: string; content: string } | null> {
+  if (typeof document === 'undefined') return Promise.resolve(null)
+  return new Promise((resolve) => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.style.display = 'none'
+    let settled = false
+    const finish = (v: { name: string; content: string } | null): void => {
+      if (settled) return
+      settled = true
+      try { document.body.removeChild(input) } catch { /* already gone */ }
+      resolve(v)
+    }
+    input.addEventListener('change', () => {
+      const f = input.files?.[0]
+      if (!f) { finish(null); return }
+      const reader = new FileReader()
+      reader.onload = () => finish({ name: f.name, content: String(reader.result ?? '') })
+      reader.onerror = () => finish(null)
+      reader.readAsText(f)
+    })
+    // Most browsers fire neither change nor cancel when the dialog is
+    //  dismissed, so we also listen for window focus as a best-effort
+    //  cancel signal (only resolves null if no file ended up selected).
+    const onFocus = (): void => {
+      window.removeEventListener('focus', onFocus)
+      setTimeout(() => { if (!input.files || input.files.length === 0) finish(null) }, 300)
+    }
+    window.addEventListener('focus', onFocus)
+    document.body.appendChild(input)
+    input.click()
+  })
+}
+
 /** One-shot migration: if the user has data under the legacy single-slot key
  *  but the new index is empty, import it as the first LS document. */
 function migrateLegacyIfNeeded(index: DocumentsIndex): DocumentsIndex {
@@ -144,8 +182,15 @@ export interface DocumentsAPI {
   /** Remove the doc from the index. Optionally delete its LS payload. */
   deleteDocument(id: string, opts?: { wipePayload?: boolean }): void
 
-  /** Native open dialog -> register as FS doc. Returns the new meta or null. */
-  importFromFile(): Promise<DocumentMeta | null>
+  /** Open dialog (Electron) or HTML file picker (web) -> register as a doc.
+   *  Electron path adds an FS-backed doc bound to the chosen path.
+   *  Web path adds an LS-backed doc seeded with the parsed JSON content.
+   *  Returns the new (or re-activated) meta, or null if the user cancelled
+   *  / the file was unparsable. The optional `pickerOverride` is an injection
+   *  seam for tests — production callers pass nothing. */
+  importFromFile(
+    pickerOverride?: () => Promise<{ name: string; content: string } | null>,
+  ): Promise<DocumentMeta | null>
 
   /** Native save dialog for an existing doc -> turn it into an FS doc bound
    *  to the chosen path (and write the current payload there). */
@@ -241,32 +286,56 @@ export const documents: DocumentsAPI = {
     notify()
   },
 
-  async importFromFile() {
-    if (!window.electronAPI?.openDiagram) return null
-    const res = await window.electronAPI.openDiagram()
-    if (!res.success || !res.filePath) return null
-    const idx = readIndex()
-    // De-dupe by path: if we already track this file, just activate it.
-    const existing = idx.docs.find(d => d.source === 'fs' && d.filePath === res.filePath)
-    if (existing) {
-      existing.lastModified = Date.now()
-      idx.activeId = existing.id
+  async importFromFile(pickerOverride) {
+    // ── Electron path: native open dialog returns an absolute filePath we
+    //    can read/write through preload IPC. We register an FS-backed doc.
+    if (typeof window !== 'undefined' && window.electronAPI?.openDiagram) {
+      const res = await window.electronAPI.openDiagram()
+      if (!res.success || !res.filePath) return null
+      const idx = readIndex()
+      // De-dupe by path: if we already track this file, just activate it.
+      const existing = idx.docs.find(d => d.source === 'fs' && d.filePath === res.filePath)
+      if (existing) {
+        existing.lastModified = Date.now()
+        idx.activeId = existing.id
+        writeIndex(idx)
+        notify()
+        return existing
+      }
+      const meta: DocumentMeta = {
+        id: uid(),
+        name: defaultNameFromPath(res.filePath),
+        source: 'fs',
+        filePath: res.filePath,
+        lastModified: Date.now(),
+      }
+      idx.docs.push(meta)
+      idx.activeId = meta.id
       writeIndex(idx)
       notify()
-      return existing
+      return meta
     }
-    const meta: DocumentMeta = {
-      id: uid(),
-      name: defaultNameFromPath(res.filePath),
-      source: 'fs',
-      filePath: res.filePath,
-      lastModified: Date.now(),
+
+    // ── Web fallback: there is no filesystem path the browser can write
+    //    back to, so we read the picked file's JSON and create an LS doc
+    //    seeded with it. Without this branch the "Open file…" button is a
+    //    silent no-op in the deployed web build.
+    const picker = pickerOverride ?? defaultWebFilePicker
+    const picked = await picker()
+    if (!picked) return null
+    let parsed: DiagramData | null = null
+    try {
+      parsed = JSON.parse(picked.content) as DiagramData
+    } catch (e) {
+      console.warn('[documentStore] importFromFile: invalid JSON', e)
+      return null
     }
-    idx.docs.push(meta)
-    idx.activeId = meta.id
-    writeIndex(idx)
-    notify()
-    return meta
+    if (!parsed || !Array.isArray(parsed.nodes) || !Array.isArray(parsed.relations)) {
+      console.warn('[documentStore] importFromFile: not a DiagramData payload')
+      return null
+    }
+    const name = picked.name.replace(/\.c4\.json$/i, '').replace(/\.json$/i, '') || picked.name
+    return this.createLSDocument(name, parsed)
   },
 
   async saveAsFile(id, data) {
