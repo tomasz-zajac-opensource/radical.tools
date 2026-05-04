@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
+import { useOutsideClick } from '../hooks/useOutsideClick'
 
 /**
  * Cmd/Ctrl+P quick-search palette.
@@ -66,16 +67,15 @@ export function QuickSearch(): React.ReactElement | null {
   }, [presentationActive])
 
   // Close the dropdown when clicking outside the search bar — but stay
-  // mounted so the input remains visible.
-  useEffect(() => {
-    if (!focused) return
-    const onDown = (e: MouseEvent): void => {
-      if (!wrapRef.current) return
-      if (!wrapRef.current.contains(e.target as Node)) setFocused(false)
+  // mounted so the input remains visible. Also blur the native input so
+  // the focus ring goes away (the dropdown was the only "open" UI).
+  const closeDropdown = useCallback(() => {
+    setFocused(false)
+    if (inputRef.current && document.activeElement === inputRef.current) {
+      inputRef.current.blur()
     }
-    window.addEventListener('mousedown', onDown)
-    return () => window.removeEventListener('mousedown', onDown)
-  }, [focused])
+  }, [])
+  useOutsideClick([wrapRef], focused, closeDropdown)
 
   const pathOf = (id: string): string => {
     const segs: string[] = []

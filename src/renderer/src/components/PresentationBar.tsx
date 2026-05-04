@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import type { DiagramView, PresentationSlide } from '../types/c4'
+import { useOutsideClick } from '../hooks/useOutsideClick'
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
 
@@ -67,14 +68,7 @@ function SnapPicker({ currentId, onPick, onClose }: {
 }) {
   const snapshots = useDiagramStore(s => s.snapshots)
   const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
+  useOutsideClick([ref], true, onClose)
 
   return (
     <div ref={ref} className="pres-snap-picker">
@@ -107,14 +101,7 @@ function ViewPicker({ currentId, views, onPick, onClose }: {
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const viewList = Object.values(views)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
+  useOutsideClick([ref], true, onClose)
 
   return (
     <div ref={ref} className="pres-snap-picker">

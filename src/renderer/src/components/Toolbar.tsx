@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect, useRef } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import { useDocumentsStore } from '../store/documentStore'
 import { DocumentManagerModal } from './DocumentManager'
+import { useOutsideClick } from '../hooks/useOutsideClick'
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
 
@@ -198,15 +199,15 @@ function AppMenu({
   const wrapRef = useRef<HTMLDivElement>(null)
   const isMac = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac')
 
+  // Close on outside-click (covers pointerdown + mousedown, capture phase
+  // so descendants that call stopPropagation can't keep the menu open).
+  useOutsideClick([wrapRef], open, useCallback(() => setOpen(false), []))
+
   useEffect(() => {
     if (!open) return
-    const onDoc = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
-    }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
-    window.addEventListener('mousedown', onDoc)
     window.addEventListener('keydown', onKey)
-    return () => { window.removeEventListener('mousedown', onDoc); window.removeEventListener('keydown', onKey) }
+    return () => { window.removeEventListener('keydown', onKey) }
   }, [open])
 
   const run = (fn: () => void) => () => { setOpen(false); fn() }
