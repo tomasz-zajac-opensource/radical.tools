@@ -34,7 +34,11 @@ export function defaultProviderConfig(id: AIProviderId): ProviderConfig {
 export function defaultAISettings(): AISettings {
   const providers = {} as Record<AIProviderId, ProviderConfig>
   for (const id of PROVIDER_IDS) providers[id] = defaultProviderConfig(id)
-  return { active: 'ollama', providers }
+  // Default active provider is OpenAI — a cloud provider with no key out of
+  // the box. This keeps the AI agent hidden until the user explicitly
+  // configures something (so we don't silently assume Ollama is running on
+  // localhost). The user can switch to Ollama from the providers modal.
+  return { active: 'openai', providers }
 }
 
 export function normalizeAISettings(raw: unknown): AISettings {

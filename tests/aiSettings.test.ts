@@ -26,7 +26,7 @@ describe('aiSettings', () => {
 
   it('returns defaults when nothing is persisted', () => {
     const s = loadAISettings(store)
-    expect(s.active).toBe('ollama')
+    expect(s.active).toBe('openai')
     expect(s.providers.ollama.baseUrl).toBe('http://localhost:11434')
     expect(s.providers.openai.model).toMatch(/^gpt/)
     expect(s.providers.anthropic.model).toMatch(/^claude/)
@@ -50,7 +50,7 @@ describe('aiSettings', () => {
 
   it('falls back to defaults on bogus active provider', () => {
     const s = normalizeAISettings({ active: 'nope', providers: {} })
-    expect(s.active).toBe('ollama')
+    expect(s.active).toBe('openai')
   })
 
   it('falls back to defaults on bogus provider config fields', () => {
@@ -66,7 +66,7 @@ describe('aiSettings', () => {
   it('survives malformed JSON in storage', () => {
     store.data[AI_SETTINGS_KEY] = '{not json'
     const s = loadAISettings(store)
-    expect(s.active).toBe('ollama')
+    expect(s.active).toBe('openai')
   })
 
   it('writes valid JSON that re-parses', () => {

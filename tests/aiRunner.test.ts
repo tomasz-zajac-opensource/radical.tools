@@ -35,6 +35,15 @@ function fakeOllamaFetch(content: string) {
   )
 }
 
+// All runner tests target the Ollama adapter (no API key required), so we
+// override the default-active provider (which is intentionally OpenAI in
+// production so that the AI agent stays hidden until the user sets a key).
+function ollamaSettings() {
+  const s = defaultAISettings()
+  s.active = 'ollama'
+  return s
+}
+
 describe('runAIPrompt — end-to-end with mocked Ollama', () => {
   beforeEach(() => { delete (globalThis as any).fetch })
 
@@ -48,7 +57,7 @@ describe('runAIPrompt — end-to-end with mocked Ollama', () => {
       ],
     }))
     const facade = makeFacade()
-    const settings = defaultAISettings()
+    const settings = ollamaSettings()
     const result = await runAIPrompt({
       prompt: 'Make a web app and a DB it reads from',
       settings,
@@ -65,7 +74,7 @@ describe('runAIPrompt — end-to-end with mocked Ollama', () => {
     const facade = makeFacade()
     const result = await runAIPrompt({
       prompt: 'add a user',
-      settings: defaultAISettings(),
+      settings: ollamaSettings(),
       diagram: facade,
     })
     expect(result.report.added.nodes).toBe(1)
@@ -76,7 +85,7 @@ describe('runAIPrompt — end-to-end with mocked Ollama', () => {
     fakeOllamaFetch('not json at all')
     const result = await runAIPrompt({
       prompt: 'x',
-      settings: defaultAISettings(),
+      settings: ollamaSettings(),
       diagram: makeFacade(),
     })
     expect(result.report.errors.join('\n')).toMatch(/Patch parse failed/)
@@ -135,7 +144,7 @@ describe('runAIPrompt — end-to-end with mocked Ollama', () => {
 
     const result = await runAIPrompt({
       prompt: 'add a database',
-      settings: defaultAISettings(),
+      settings: ollamaSettings(),
       diagram: facade,
       maxRetries: 2,
     })
