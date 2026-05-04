@@ -1,0 +1,97 @@
+// ─── AI settings persistence ────────────────────────────────────────────────
+// Settings live in localStorage under a single key. Per the user's choice,
+// API keys are stored client-side in plain text. This is an explicit trade-off
+// in favour of the web build: no server, no Electron requirement.
+
+import type { AIProviderId, AISettings, ProviderConfig } from './types'
+
+export const AI_SETTINGS_KEY = 'radical-ai-settings'
+
+const PROVIDER_IDS: AIProviderId[] = ['ollama', 'openai', 'anthropic', 'gemini']
+
+const DEFAULT_MODELS: Record<AIProviderId, string> = {
+  ollama: 'llama3.1',
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-3-5-sonnet-20241022',
+  gemini: 'gemini-1.5-flash',
+}
+
+const DEFAULT_BASE_URLS: Record<AIProviderId, string> = {
+  ollama: 'http://localhost:11434',
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+  gemini: 'https://generativelanguage.googleapis.com/v1beta',
+}
+
+export function defaultProviderConfig(id: AIProviderId): ProviderConfig {
+  return {
+    apiKey: '',
+    baseUrl: DEFAULT_BASE_URLS[id],
+    model: DEFAULT_MODELS[id],
+  }
+}
+
+export function defaultAISettings(): AISettings {
+  const providers = {} as Record<AIProviderId, ProviderConfig>
+  for (const id of PROVIDER_IDS) providers[id] = defaultProviderConfig(id)
+  return { active: 'ollama', providers }
+}
+
+export function normalizeAISettings(raw: unknown): AISettings {
+  const base = defaultAISettings()
+  if (!raw || typeof raw !== 'object') return base
+  const r = raw as Partial<AISettings> & { providers?: Partial<Record<AIProviderId, ProviderConfig>> }
+  const active = (PROVIDER_IDS as string[]).includes(r.active as string)
+    ? (r.active as AIProviderId)
+    : base.active
+  const providers = { ...base.providers }
+  for (const id of PROVIDER_IDS) {
+    const p = r.providers?.[id]
+    if (p && typeof p === 'object') {
+      providers[id] = {
+        apiKey: typeof p.apiKey === 'string' ? p.apiKey : '',
+        baseUrl: typeof p.baseUrl === 'string' && p.baseUrl ? p.baseUrl : DEFAULT_BASE_URLS[id],
+        model: typeof p.model === 'string' && p.model ? p.model : DEFAULT_MODELS[id],
+      }
+    }
+  }
+  return { active, providers }
+}
+
+interface MinimalStorage {
+  getItem(key: string): string | null
+  setItem(key: string, value: string): void
+}
+
+function getStorage(): MinimalStorage | null {
+  try {
+    const ls = (globalThis as { localStorage?: MinimalStorage }).localStorage
+    return ls ?? null
+  } catch {
+    return null
+  }
+}
+
+export function loadAISettings(storage?: MinimalStorage | null): AISettings {
+  const ls = storage === undefined ? getStorage() : storage
+  if (!ls) return defaultAISettings()
+  try {
+    const raw = ls.getItem(AI_SETTINGS_KEY)
+    if (!raw) return defaultAISettings()
+    return normalizeAISettings(JSON.parse(raw))
+  } catch {
+    return defaultAISettings()
+  }
+}
+
+export function saveAISettings(settings: AISettings, storage?: MinimalStorage | null): void {
+  const ls = storage === undefined ? getStorage() : storage
+  if (!ls) return
+  try {
+    ls.setItem(AI_SETTINGS_KEY, JSON.stringify(settings))
+  } catch {
+    /* quota or similar — silently ignore */
+  }
+}
+
+export const AI_DEFAULTS = { models: DEFAULT_MODELS, baseUrls: DEFAULT_BASE_URLS, providerIds: PROVIDER_IDS }

@@ -1,6 +1,7 @@
 import React, { ChangeEvent, useState, useMemo } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS, NODE_FG } from '../types/c4'
+import { AIPanel } from './AIPanel'
 // SlidesColumn was used here; now lives in the bottom PresenterDock
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -594,6 +595,11 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, padding: '0 4px' }}>
               Drag to canvas · Double-click canvas to add System
             </div>
+          </AccordionSection>
+        )}
+        {mode === 'designer' && !isReadOnly && (
+          <AccordionSection title="AI Assistant" defaultOpen={false}>
+            <AIPanel />
           </AccordionSection>
         )}
         <AccordionSection title="Views" count={viewsCount}>
