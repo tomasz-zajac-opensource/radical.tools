@@ -122,7 +122,16 @@ export class LiveColaLayout {
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
-  start(): void {
+  /**
+   * Start the live layout.
+   * @param skipBulk When true, the cola model is initialised from the
+   *   current c4Nodes positions WITHOUT running bulk synchronous
+   *   iterations (i.e. `rebuild(false)`). Use this when the diagram was
+   *   loaded from disk and already has correct positions — running the
+   *   110-iteration bulk pass would rearrange everything and overwrite
+   *   the persisted layout.
+   */
+  start(skipBulk = false): void {
     if (this._running) return
     this._running = true
     if (this._bulkDone && this.cola) {
@@ -134,8 +143,10 @@ export class LiveColaLayout {
       // + resume in webcola).
       // No-op otherwise — cola sits idle and positions stay put.
     } else {
-      // First start of this instance: bulk-arrange to settle the diagram.
-      this.rebuild(true)
+      // First start: bulk-arrange only when we don't have saved positions.
+      // When skipBulk=true (loaded from disk), we seed from c4Nodes and
+      // run 0 initial iterations so cola accepts the stored positions as-is.
+      this.rebuild(!skipBulk)
       this._bulkDone = true
     }
   }

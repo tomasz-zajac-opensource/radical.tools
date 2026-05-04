@@ -843,7 +843,7 @@ interface DiagramStore {
   runReferenceLayout: () => void
   runSmartLayout: () => Promise<void>
   setLayoutMode: (mode: 'elk' | 'cola' | 'radical') => void
-  startLiveLayout: () => void
+  startLiveLayout: (opts?: { skipBulk?: boolean }) => void
   stopLiveLayout: () => void
   liveGrab: (nodeId: string, x: number, y: number) => void
   liveDrag: (nodeId: string, x: number, y: number) => void
@@ -973,6 +973,12 @@ interface DiagramStore {
 
 let _liveLayout: LiveColaLayout | null = null
 
+// Set to true during store init when an existing document was loaded from
+// localStorage. Used by the boot startLiveLayout() call to skip the
+// 110-iteration cola bulk phase (which would immediately overwrite the
+// persisted positions).
+let _initLoadedFromDisk = false
+
 // Use window to survive HMR module reloads — otherwise after a hot-reload the
 // module-local references become null and the auto-fit interval keeps ticking
 // against a dead closure.
@@ -1051,6 +1057,9 @@ export const useDiagramStore = create<DiagramStore>()(
       initMetamodel = (persisted.metamodel && persisted.metamodel.id !== 'c4-builtin')
         ? persisted.metamodel
         : builtInC4Metamodel()
+      // Signal the boot startLiveLayout() call to skip cola's bulk phase
+      // so the persisted positions aren't immediately overwritten.
+      _initLoadedFromDisk = true
     } else {
       const sample = buildSampleDiagram()
       initNodes = sample.nodes
@@ -2504,14 +2513,15 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => { state.layoutMode = mode })
       },
 
-      startLiveLayout() {
+      startLiveLayout(opts?: { skipBulk?: boolean }) {
+        const skipBulk = opts?.skipBulk ?? false
         if (_liveLayout?.running) return
         // Reuse existing instance if present so its _bulkDone flag persists
         // across pause/resume cycles (mode switches, presentation exit).
         // Re-creating would always do a full bulk re-arrange and visibly
         // shift the diagram.
         if (_liveLayout) {
-          _liveLayout.start()
+          _liveLayout.start(skipBulk)
           set((state) => { state.liveLayoutActive = true })
           return
         }
@@ -2565,7 +2575,7 @@ export const useDiagramStore = create<DiagramStore>()(
             })
           },
         })
-        _liveLayout.start()
+        _liveLayout.start(skipBulk)
         set((state) => { state.liveLayoutActive = true })
       },
 
@@ -3454,7 +3464,9 @@ export const useDiagramStore = create<DiagramStore>()(
             : builtInC4Metamodel()) as any
         })
         get()._sync()
-        get().startLiveLayout()
+        // skipBulk=true: loaded positions are already correct; the 110-iteration
+        // cola bulk phase would immediately rearrange and overwrite them.
+        get().startLiveLayout({ skipBulk: true })
         // Apply restored camera (loaded as activeViewId=null → default view).
         if (defaultVP) {
           requestAnimationFrame(() => {
@@ -3621,7 +3633,10 @@ export const useDiagramStore = create<DiagramStore>()(
 
 // Auto-start live cola layout (skip in test/SSR environments)
 if (typeof requestAnimationFrame !== 'undefined') {
-  useDiagramStore.getState().startLiveLayout()
+  // Pass skipBulk=true when the store was initialised from localStorage so
+  // cola's 110-iteration synchronous bulk phase doesn't immediately
+  // overwrite the persisted positions.
+  useDiagramStore.getState().startLiveLayout({ skipBulk: _initLoadedFromDisk })
 }
 
 // ─── Auto-persist to the active document ────────────────────────────────────
