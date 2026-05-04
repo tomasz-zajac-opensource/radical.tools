@@ -2445,6 +2445,19 @@ export const useDiagramStore = create<DiagramStore>()(
           // their pre-smart positions on the next rebuild.
           _liveLayout?.reset()
 
+          // Persist immediately. The default auto-persist is debounced
+          // 400 ms — but the live cola layout starts ticking right now
+          // (via reset() above) and its gradient descent will drift the
+          // nodes back toward its prior equilibrium within that window,
+          // so a delayed save would capture the drifted positions instead
+          // of smart layout's output. Calling the flush hook here saves
+          // smart layout's exact result before cola has a chance to move
+          // anything.
+          if (typeof window !== 'undefined') {
+            const flush = (window as any).__radicalFlushPersist as (() => Promise<void>) | undefined
+            void flush?.()
+          }
+
           // Friendly summary so the user sees what happened.
           const before = result.baseline
           const after = result.winner.metrics
