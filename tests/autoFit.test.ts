@@ -147,12 +147,14 @@ describe('Auto-fit toggle', () => {
     expect(instant).toHaveBeenCalled()
   })
 
-  it('fitAll calls the instant fit fn', () => {
+  it('fitAll calls the animated fit fn', () => {
     const fit = vi.fn()
     const instant = vi.fn()
     useDiagramStore.getState().setFitViewFn(fit, instant)
+    fit.mockClear()
     instant.mockClear()
     useDiagramStore.getState().fitAll()
-    expect(instant).toHaveBeenCalledTimes(1)
+    expect(fit).toHaveBeenCalledTimes(1)
+    expect(instant).not.toHaveBeenCalled()
   })
 })
