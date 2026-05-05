@@ -29,6 +29,10 @@ function makeFacade(): DiagramFacade & { _nodes: Record<string, C4Node>; _rels: 
       if (rels[id]) Object.assign(rels[id], u)
     },
     removeRelation: (id) => { delete rels[id] },
+    clearDiagram: () => {
+      for (const id of Object.keys(nodes)) delete nodes[id]
+      for (const id of Object.keys(rels)) delete rels[id]
+    },
   }
 }
 
@@ -170,6 +174,30 @@ describe('applyPatch', () => {
     const p = validatePatch({ summary: 'nothing to do' })
     expect(p.operations).toEqual([])
     expect(p.summary).toBe('nothing to do')
+  })
+
+  it('reset_diagram clears prior graph and focus_node resolves tempIds', () => {
+    const f = makeFacade()
+    f._nodes['legacy'] = {
+      id: 'legacy', type: 'system', label: 'Legacy', collapsed: false,
+      x: 0, y: 0, width: 100, height: 100,
+    } as C4Node
+
+    const r = applyPatch(
+      validatePatch({
+        operations: [
+          { op: 'reset_diagram' },
+          { op: 'add_node', tempId: 't1', type: 'system', label: 'Fresh' },
+          { op: 'focus_node', id: 't1' },
+        ],
+      }),
+      f,
+    )
+
+    expect(r.errors).toEqual([])
+    expect(Object.keys(f._nodes)).toHaveLength(1)
+    expect(Object.values(f._nodes)[0].label).toBe('Fresh')
+    expect(r.focusNodeId).toBe(Object.values(f._nodes)[0].id)
   })
 })
 

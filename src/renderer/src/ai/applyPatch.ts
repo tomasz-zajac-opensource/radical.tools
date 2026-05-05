@@ -24,6 +24,8 @@ export interface ApplyReport {
   updated: { nodes: number; views: number }
   deleted: { nodes: number; relations: number; views: number }
   errors: string[]
+  /** Node id to pan/zoom to after applying the patch, if the AI issued focus_node. */
+  focusNodeId?: string
 }
 
 export interface DiagramFacade {
@@ -46,6 +48,10 @@ export interface DiagramFacade {
   setViewNodes?(viewId: string, nodeIds: string[]): void
   removeView?(id: string): void
   setActiveView?(id: string | null): void
+  /** Optional — clears the entire diagram (nodes, relations, views) so the
+   *  AI can build a fresh model from scratch. Omitting it means reset_diagram
+   *  ops will fail with a descriptive error. */
+  clearDiagram?(): void
 }
 
 /**
@@ -159,6 +165,22 @@ export function validatePatch(raw: unknown, opts: ValidatePatchOptions = {}): AI
         if (op.id !== null && (typeof op.id !== 'string' || !op.id))
           throw new Error(`Op #${i} set_active_view: id must be a string or null`)
         ops.push({ op: 'set_active_view', id: (op.id as string | null) })
+        break
+      }
+      case 'focus_node': {
+        if (typeof op.id !== 'string' || !op.id) throw new Error(`Op #${i} focus_node: id required`)
+        ops.push({ op: 'focus_node', id: op.id })
+        break
+      }
+      case 'reset_diagram': {
+        ops.push({ op: 'reset_diagram' })
+        break
+      }
+      case 'query_model': {
+        if (typeof op.query !== 'string' || !op.query.trim()) {
+          throw new Error(`Op #${i} query_model: query required`)
+        }
+        ops.push({ op: 'query_model', query: op.query.trim() })
         break
       }
       default:
@@ -308,6 +330,23 @@ export function applyPatch(patch: AIPatch, diagram: DiagramFacade): ApplyReport 
           }
           diagram.setActiveView(vId)
         }
+      } else if (op.op === 'focus_node') {
+        const nId = resolveId(op.id)
+        if (!(nId in diagram.getNodes())) {
+          throw new Error(`focus_node: unknown node id "${op.id}"`)
+        }
+        // Record for the caller to execute after the patch is fully applied.
+        report.focusNodeId = nId
+      } else if (op.op === 'reset_diagram') {
+        if (!diagram.clearDiagram) {
+          throw new Error('reset_diagram: clearDiagram is not wired in this context')
+        }
+        diagram.clearDiagram()
+        // After a reset all previous tempIds are invalid — clear the map so
+        // subsequent add_node / add_view ops start with a fresh namespace.
+        tempToReal.clear()
+      } else if (op.op === 'query_model') {
+        throw new Error('query_model must be handled by the AI runner before applyPatch')
       }
     } catch (err) {
       report.errors.push(`Op #${i} (${op.op}): ${(err as Error).message}`)

@@ -144,6 +144,33 @@ export interface AISetActiveViewOp {
   id: string | null
 }
 
+/** Pan + zoom the canvas to a specific node after all other ops are applied. */
+export interface AIFocusNodeOp {
+  op: 'focus_node'
+  /** Real node id or tempId from an earlier add_node in the same patch. */
+  id: string
+}
+
+/**
+ * Clear the entire diagram (all nodes, relations and views) before the
+ * remaining ops in this patch run. Use when creating a model from scratch
+ * so old content does not bleed into the new architecture.
+ * This op MUST appear first in the operations array.
+ */
+export interface AIResetDiagramOp {
+  op: 'reset_diagram'
+}
+
+/**
+ * Ask the built-in local query engine to inspect the CURRENT model structure.
+ * The runner executes these ops before any mutation ops and feeds the results
+ * back to the model in a follow-up round.
+ */
+export interface AIQueryModelOp {
+  op: 'query_model'
+  query: string
+}
+
 export type AIPatchOp =
   | AIAddNodeOp
   | AIAddRelationOp
@@ -154,6 +181,9 @@ export type AIPatchOp =
   | AISetViewNodesOp
   | AIDeleteViewOp
   | AISetActiveViewOp
+  | AIFocusNodeOp
+  | AIResetDiagramOp
+  | AIQueryModelOp
 
 export interface AIPatch {
   operations: AIPatchOp[]

@@ -18,9 +18,15 @@ describe('AI_SYSTEM_PROMPT contract', () => {
   })
 
   it('mentions every supported op kind', () => {
-    for (const k of ['add_node', 'add_relation', 'update_node', 'delete_node', 'delete_relation']) {
+    for (const k of ['add_node', 'add_relation', 'update_node', 'delete_node', 'delete_relation', 'query_model']) {
       expect(AI_SYSTEM_PROMPT).toContain(k)
     }
+  })
+
+  it('documents the built-in query language', () => {
+    expect(AI_SYSTEM_PROMPT).toMatch(/BUILT-IN MODEL QUERY LANGUAGE/)
+    expect(AI_SYSTEM_PROMPT).toMatch(/LIST NODES/)
+    expect(AI_SYSTEM_PROMPT).toMatch(/LIST TECHNOLOGIES/)
   })
 
   it('instructs the model to follow metamodel rules', () => {

@@ -153,4 +153,70 @@ describe('runAIPrompt — end-to-end with mocked Ollama', () => {
     expect(result.report.added.nodes).toBe(2) // system + database from round 2
     expect(result.report.errors).toEqual([])
   })
+
+  it('preserves focus_node in the aggregated report', async () => {
+    fakeOllamaFetch(JSON.stringify({
+      summary: 'Focused API',
+      operations: [
+        { op: 'add_node', tempId: 't1', type: 'system', label: 'API' },
+        { op: 'focus_node', id: 't1' },
+      ],
+    }))
+
+    const result = await runAIPrompt({
+      prompt: 'show me the API',
+      settings: ollamaSettings(),
+      diagram: makeFacade(),
+    })
+
+    expect(result.report.errors).toEqual([])
+    expect(result.report.focusNodeId).toBeDefined()
+    expect(result.report.focusNodeId).toMatch(/^n\d+$/)
+  })
+
+  it('executes query_model locally and continues with the next AI round', async () => {
+    const responses = [
+      JSON.stringify({
+        operations: [
+          { op: 'query_model', query: 'LIST TECHNOLOGIES' },
+        ],
+      }),
+      JSON.stringify({
+        summary: 'Technologies in use:\n- React\n- HTTPS',
+        operations: [],
+      }),
+    ]
+    let call = 0
+    ;(globalThis as any).fetch = vi.fn(async () => {
+      const content = responses[call++] ?? '{"operations":[]}'
+      return new Response(JSON.stringify({ message: { content }, model: 'llama3.1' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    })
+
+    const facade = makeFacade()
+    facade.addNode({
+      type: 'system',
+      label: 'Web App',
+      technology: 'React',
+      collapsed: false,
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    })
+    facade.addRelation({ sourceId: 'n1', targetId: 'n1', technology: 'HTTPS' })
+
+    const result = await runAIPrompt({
+      prompt: 'List all technologies in the model',
+      settings: ollamaSettings(),
+      diagram: facade,
+    })
+
+    expect(result.report.errors).toEqual([])
+    expect(result.summary).toMatch(/React/)
+    expect(result.summary).toMatch(/HTTPS/)
+    expect((globalThis as any).fetch).toHaveBeenCalledTimes(2)
+  })
 })

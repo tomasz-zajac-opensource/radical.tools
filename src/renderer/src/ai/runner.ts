@@ -8,9 +8,10 @@
 // can build on what already worked.
 
 import { applyPatch, validatePatch, type ApplyReport, type DiagramFacade } from './applyPatch'
+import { formatModelQueryResults, runModelQuery } from './queryLanguage'
 import { getAdapter } from './registry'
 import { buildMessages, extractJsonObject } from './systemPrompt'
-import type { AISettings, ChatMessage } from './types'
+import type { AIQueryModelOp, AISettings, ChatMessage } from './types'
 
 export interface RunAIResult {
   summary?: string
@@ -30,6 +31,8 @@ export interface RunAIOptions {
   signal?: AbortSignal
   /** Maximum corrective rounds after the initial attempt. Default: 2. */
   maxRetries?: number
+  /** Maximum local query rounds before forcing a final answer. Default: 3. */
+  maxQueryRounds?: number
 }
 
 const RETRY_PROMPT_PREFIX = `Your previous patch was applied PARTIALLY. Some operations were rejected
@@ -46,6 +49,24 @@ that:
 Errors from the previous attempt:
 `
 
+const QUERY_RESULTS_PROMPT_PREFIX = `You asked the built-in local model query engine to inspect the CURRENT diagram.
+The results are below. Continue solving the ORIGINAL user request.
+
+Rules:
+  - If you now have enough information, return the final JSON object.
+  - If you still need more exact data, you may return ONLY query_model ops again.
+  - Do NOT mix query_model ops with mutation ops in the same response.
+
+Query results:
+`
+
+const QUERY_ERROR_PROMPT_PREFIX = `Your previous query_model request could not be executed.
+Return ONLY valid query_model ops, or the final JSON object if you no longer
+need the query.
+
+Errors:
+`
+
 function mergeReports(into: ApplyReport, more: ApplyReport): void {
   into.added.nodes += more.added.nodes
   into.added.relations += more.added.relations
@@ -55,6 +76,7 @@ function mergeReports(into: ApplyReport, more: ApplyReport): void {
   into.deleted.nodes += more.deleted.nodes
   into.deleted.relations += more.deleted.relations
   into.deleted.views += more.deleted.views
+  if (more.focusNodeId !== undefined) into.focusNodeId = more.focusNodeId
   // Errors are scoped to "still failing after retries"; replace each round
   // so the UI doesn't show the same problem multiple times.
   into.errors = more.errors.slice()
@@ -63,6 +85,7 @@ function mergeReports(into: ApplyReport, more: ApplyReport): void {
 export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
   const { settings, prompt, diagram, history = [], signal } = opts
   const maxRetries = opts.maxRetries ?? 2
+  const maxQueryRounds = opts.maxQueryRounds ?? 3
   const cfg = settings.providers[settings.active]
   const adapter = getAdapter(settings.active)
   const model = cfg.model || adapter.defaultModel
@@ -82,9 +105,10 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
   let lastSummary: string | undefined
   let lastRaw = ''
   let retries = 0
+  let queryRounds = 0
   let nextUserPrompt = prompt
 
-  for (let round = 0; round <= maxRetries; round++) {
+  while (true) {
     if (signal?.aborted) throw new Error('Aborted')
 
     const messages = buildMessages(
@@ -119,7 +143,7 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
       // to the model so it can correct the malformed op (most often: an
       // unknown node type because the user has a custom metamodel).
       const msg = (err as Error).message
-      if (round === maxRetries) {
+      if (retries >= maxRetries) {
         combined.errors.push(`Patch parse failed: ${msg}`)
         break
       }
@@ -129,6 +153,46 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
         `error was:\n  ${msg}\n\nReturn ONLY the JSON patch object, with all\n` +
         `operations using node types listed in the metamodel above. No prose,\n` +
         `no Markdown fences.`
+      continue
+    }
+
+    const queryOps = patch.operations.filter((op): op is AIQueryModelOp => op.op === 'query_model')
+    if (queryOps.length > 0) {
+      if (queryOps.length !== patch.operations.length) {
+        if (queryRounds >= maxQueryRounds) {
+          combined.errors.push('query_model cannot be mixed with mutation ops, and the query round limit was exceeded')
+          break
+        }
+        queryRounds++
+        nextUserPrompt =
+          'Your previous response mixed query_model with non-query operations. ' +
+          'Return ONLY query_model ops to inspect the model first, OR return the final JSON object.'
+        continue
+      }
+
+      if (queryRounds >= maxQueryRounds) {
+        combined.errors.push('Maximum query_model rounds exceeded before reaching a final answer')
+        break
+      }
+
+      const queryErrors: string[] = []
+      const queryResults = queryOps.flatMap((op, index) => {
+        try {
+          return [runModelQuery(op.query, {
+            nodes: diagram.getNodes(),
+            relations: diagram.getRelations(),
+            views: diagram.getViews?.(),
+          })]
+        } catch (err) {
+          queryErrors.push(`Query #${index + 1} (${op.query}): ${(err as Error).message}`)
+          return []
+        }
+      })
+
+      queryRounds++
+      nextUserPrompt = queryErrors.length > 0
+        ? QUERY_ERROR_PROMPT_PREFIX + queryErrors.map((e) => `  - ${e}`).join('\n')
+        : QUERY_RESULTS_PROMPT_PREFIX + '```json\n' + formatModelQueryResults(queryResults) + '\n```'
       continue
     }
 
@@ -142,7 +206,7 @@ export async function runAIPrompt(opts: RunAIOptions): Promise<RunAIResult> {
       break
     }
 
-    if (round === maxRetries) {
+    if (retries >= maxRetries) {
       // Out of retries; return whatever we have plus the remaining errors.
       break
     }

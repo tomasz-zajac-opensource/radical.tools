@@ -86,6 +86,20 @@ export function QuickSearch(): React.ReactElement | null {
       useDiagramStore.getState().setViewNodes(viewId, nodeIds),
     removeView: (id: string) => useDiagramStore.getState().removeView(id),
     setActiveView: (id: string | null) => useDiagramStore.getState().setActiveView(id),
+    // ── diagram-level ──
+    clearDiagram: () => {
+      const s = useDiagramStore.getState()
+      s.loadDiagram({
+        nodes: [],
+        relations: [],
+        views: [],
+        defaultPositions: {},
+        defaultViewport: null,
+        snapshots: [],
+        presentations: [],
+        metamodel: s.metamodel,
+      })
+    },
   }), [])
 
   const aiAdapterCfg = aiSettings.providers[aiSettings.active]
@@ -129,6 +143,15 @@ export function QuickSearch(): React.ReactElement | null {
       setAiLast({ text: result.summary || 'Done.', report: result.report, retries: result.retries })
       // Clear the input after a successful run so the next prompt starts fresh.
       setQ('')
+      // If the AI issued a focus_node op, animate the camera to that node.
+      const focusId = result.report.focusNodeId
+      if (focusId) {
+        // Slight delay so the canvas has re-rendered after any view / node changes.
+        setTimeout(() => {
+          const focus = (window as unknown as { __rfFocusNode?: (id: string, opts?: { zoom?: number; duration?: number }) => void }).__rfFocusNode
+          focus?.(focusId, { zoom: 1.2, duration: 600 })
+        }, 120)
+      }
     } catch (err) {
       const msg = (err as Error).message || String(err)
       setAiLast({ text: '', error: msg })
@@ -464,8 +487,11 @@ export function QuickSearch(): React.ReactElement | null {
   const aiExamples = useMemo(() => [
     'Add a Postgres database used by the Web App',
     'Create a payment system with API gateway and worker',
-    'Rename "User" to "Customer" everywhere',
-    'Summarize what this model does',
+    'Create a view showing only the payment-related nodes',
+    'Show me the Auth Service node',
+    'List all technologies used in this model',
+    'Summarize the architecture',
+    'Create a complete 3-tier web app from scratch',
   ], [])
 
   const showDropdown = focused || aiBusy || !!aiLast || aiMode
@@ -570,7 +596,7 @@ export function QuickSearch(): React.ReactElement | null {
               )}
               {aiLast && !aiLast.error && (
                 <div className="qs-ai-text">
-                  {aiLast.text}
+                  <span style={{ whiteSpace: 'pre-line' }}>{aiLast.text}</span>
                   {aiLast.report && <AIReportLine report={aiLast.report} />}
                   {(aiLast.retries || aiHistory.length > 0) && (
                     <div className="qs-ai-meta">
