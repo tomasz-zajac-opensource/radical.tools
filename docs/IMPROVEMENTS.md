@@ -131,3 +131,80 @@ Two layers of suggestions: **functional** (what the user sees / can do) and **te
 5. Replace `window.__rf*` with typed canvas-API slice.
 6. Modularise CSS.
 7. Strict TS + store tests.
+
+---
+
+## Appendix - Dynamic views (current usage)
+
+Current status:
+
+- The dynamic-view work is currently a domain/test foundation, not a finished editor feature.
+- There is no dedicated UI, store CRUD, or renderer for sequence views yet.
+- Today you use it by constructing `DiagramData` with `contexts` and `dynamicViews`, then calling the helper functions from [src/renderer/src/dynamicViews.ts](src/renderer/src/dynamicViews.ts).
+
+Data model:
+
+- Add business/journey/scenario definitions in `contexts`.
+- Tag participating nodes and relations with `contextIds`.
+- Define a `dynamicViews` entry with:
+   - `contextId` - the business context anchoring the sequence
+   - `viewId` - optional structural view scope
+   - `lifelineOrder` - explicit participant order
+   - `steps` - ordered interactions between existing nodes
+
+Core types live in [src/renderer/src/types/c4.ts](src/renderer/src/types/c4.ts).
+
+Minimal shape:
+
+      {
+         "contexts": [
+            { "id": "checkout", "name": "Checkout Journey", "kind": "journey" }
+         ],
+         "nodes": [
+            { "id": "user", "label": "User", "type": "person", "collapsed": false, "x": 0, "y": 0, "width": 100, "height": 100, "contextIds": ["checkout"] },
+            { "id": "api", "label": "API", "type": "container", "collapsed": false, "x": 0, "y": 0, "width": 100, "height": 100, "contextIds": ["checkout"] }
+         ],
+         "relations": [
+            { "id": "r1", "sourceId": "user", "targetId": "api", "label": "starts checkout", "contextIds": ["checkout"] }
+         ],
+         "dynamicViews": [
+            {
+               "id": "dv-checkout",
+               "name": "Checkout Payment",
+               "contextId": "checkout",
+               "lifelineOrder": ["user", "api"],
+               "steps": [
+                  {
+                     "id": "s1",
+                     "seq": "1",
+                     "fromId": "user",
+                     "toId": "api",
+                     "relationId": "r1",
+                     "label": "Start checkout",
+                     "kind": "sync"
+                  }
+               ]
+            }
+         ]
+      }
+
+Helper flow:
+
+1. `normalizeDynamicViewCollections(data)`
+    Use this first to normalize optional fields, remove duplicate tags/lifelines, and fill nullable values.
+2. `getContextualElements({ nodes, relations }, contextId)`
+    Use this to fetch only the model slice relevant to a given business context.
+3. `validateDynamicView(view, { contexts, nodes, relations, views })`
+    Use this to validate a sequence against the live structural model.
+
+Validation rules currently check:
+
+- the context exists
+- the scoped structural view exists, when provided
+- lifeline nodes exist and are unique
+- every step source/target exists and is present in `lifelineOrder`
+- optional `relationId` exists and matches the step endpoints
+- warnings when lifelines or relations are outside the selected context
+- warnings when lifelines are outside the scoped structural view
+
+Best working example: [tests/dynamicViews.test.ts](tests/dynamicViews.test.ts).

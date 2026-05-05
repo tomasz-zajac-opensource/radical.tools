@@ -87,7 +87,7 @@ function ConnectionPreviewLine({
   )
 }
 
-export function Canvas(): React.ReactElement {
+function StructuralCanvas(): React.ReactElement {
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null)
 
   const appMode = useDiagramStore((s) => s.appMode)
@@ -113,6 +113,11 @@ export function Canvas(): React.ReactElement {
   const connectSource = useDiagramStore((s) => s.connectSource)
   const connectionModifier = useDiagramStore((s) => s.connectionModifier)
   const cancelConnection = useDiagramStore((s) => s.cancelConnection)
+
+  // Sequence editing mode
+  const activeSequenceId = useDiagramStore((s) => s.activeSequenceId)
+  const activeSequenceName = useDiagramStore((s) => s.activeSequenceId ? s.sequences[s.activeSequenceId]?.name : undefined)
+  const setActiveSequence = useDiagramStore((s) => s.setActiveSequence)
 
   // Track whether the modifier key is currently held — use BOTH ref (sync)
   // and state (triggers re-render for visual feedback).
@@ -579,8 +584,13 @@ export function Canvas(): React.ReactElement {
   }, [])
 
   const onEdgeClick = useCallback(
-    (_e: React.MouseEvent, edge: { id: string }) => { 
+    (_e: React.MouseEvent, edge: { id: string }) => {
       selectEdge(edge.id)
+      // If a sequence is being edited, toggle this relation in it
+      const state = useDiagramStore.getState()
+      if (state.activeSequenceId && !edge.id.startsWith('virtual-')) {
+        state.toggleRelationInSequence(state.activeSequenceId, edge.id)
+      }
     },
     [selectEdge]
   )
@@ -738,6 +748,34 @@ export function Canvas(): React.ReactElement {
       onDragOver={isViewMode ? undefined : onDragOver}
       onDoubleClick={isViewMode ? undefined : onCanvasDoubleClick}
     >
+      {activeSequenceId && (
+        <div style={{
+          position: 'absolute',
+          top: 8,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 100,
+          background: 'var(--accent)',
+          color: '#fff',
+          fontSize: 11,
+          fontWeight: 600,
+          padding: '5px 12px',
+          borderRadius: 20,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          pointerEvents: 'all',
+          userSelect: 'none',
+        }}>
+          Editing: {activeSequenceName ?? activeSequenceId} — click relations to add/remove steps
+          <button
+            onClick={() => setActiveSequence(null)}
+            style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 2px', fontSize: 13, lineHeight: 1, opacity: 0.85 }}
+            title="Stop editing"
+          >✕</button>
+        </div>
+      )}
       <MilestoneEditOverlay />
       <DeleteConfirmDialog />
       <ReactFlow
@@ -816,4 +854,8 @@ export function Canvas(): React.ReactElement {
       )}
     </div>
   )
+}
+
+export function Canvas(): React.ReactElement {
+  return <StructuralCanvas />
 }

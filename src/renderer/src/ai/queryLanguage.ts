@@ -8,22 +8,28 @@ with mutation ops in the same response.
 
 Syntax:
 - LIST NODES
-- LIST NODES WHERE <field> <op> <value> [AND ...] [LIMIT n]
+- LIST NODES WHERE <expr> [LIMIT n]
 - LIST RELATIONS
-- LIST RELATIONS WHERE <field> <op> <value> [AND ...] [LIMIT n]
+- LIST RELATIONS WHERE <expr> [LIMIT n]
 - LIST VIEWS
-- LIST VIEWS WHERE <field> <op> <value> [AND ...] [LIMIT n]
+- LIST VIEWS WHERE <expr> [LIMIT n]
 - LIST TECHNOLOGIES
 - GET NODE <id>
 - GET VIEW <id>
 - GET CHILDREN OF <id>
-- GET NEIGHBORS OF <id>
+- GET NEIGHBORS OF <id> [DEPTH n]
+- GET DEPENDENCIES OF <id> [DEPTH n]
+- GET DEPENDENTS OF <id> [DEPTH n]
 - STATS MODEL
 
 Operators:
 - =   exact match
 - !=  exact non-match
 - ~   case-insensitive substring match
+
+Boolean logic in WHERE:
+- AND, OR, NOT
+- Parentheses are supported: ( ... )
 
 Supported node fields:
 - id, type, label, description, technology, parentId, external
@@ -37,8 +43,10 @@ Supported view fields:
 
 Examples:
 - { "op": "query_model", "query": "LIST TECHNOLOGIES" }
-- { "op": "query_model", "query": "LIST NODES WHERE label ~ \"auth\" LIMIT 5" }
-- { "op": "query_model", "query": "GET NEIGHBORS OF node-123" }`.trim()
+- { "op": "query_model", "query": "LIST NODES WHERE label ~ \"auth\" OR technology ~ \"oauth\" LIMIT 5" }
+- { "op": "query_model", "query": "LIST RELATIONS WHERE NOT technology = \"SQL\"" }
+- { "op": "query_model", "query": "GET NEIGHBORS OF node-123 DEPTH 2" }
+- { "op": "query_model", "query": "GET DEPENDENTS OF database-1 DEPTH 4" }`.trim()
 
 export interface ModelQueryContext {
   nodes: Record<string, C4Node>
@@ -60,6 +68,20 @@ interface Condition {
   value: string | boolean | null
 }
 
+type WhereExpr =
+  | { kind: 'condition'; condition: Condition }
+  | { kind: 'and'; left: WhereExpr; right: WhereExpr }
+  | { kind: 'or'; left: WhereExpr; right: WhereExpr }
+  | { kind: 'not'; expr: WhereExpr }
+
+type QueryToken =
+  | { kind: 'ident'; value: string }
+  | { kind: 'string'; value: string }
+  | { kind: 'op'; value: ConditionOp }
+  | { kind: 'lparen' }
+  | { kind: 'rparen' }
+  | { kind: 'logic'; value: 'AND' | 'OR' | 'NOT' }
+
 const stripQuotes = (raw: string): string => {
   const trimmed = raw.trim()
   if (
@@ -79,23 +101,6 @@ const parseValue = (raw: string): string | boolean | null => {
   return trimmed
 }
 
-function parseConditions(whereRaw: string | undefined): Condition[] {
-  if (!whereRaw) return []
-  return whereRaw
-    .split(/\s+AND\s+/i)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const m = part.match(/^([A-Za-z0-9_.]+)\s*(=|!=|~)\s*(.+)$/)
-      if (!m) throw new Error(`Invalid WHERE clause fragment: ${part}`)
-      return {
-        field: m[1],
-        op: m[2] as ConditionOp,
-        value: parseValue(m[3]),
-      }
-    })
-}
-
 function cmp(actual: unknown, cond: Condition): boolean {
   if (cond.op === '~') {
     if (actual === undefined || actual === null) return false
@@ -113,9 +118,171 @@ function cmp(actual: unknown, cond: Condition): boolean {
   return cond.op === '=' ? left === right : left !== right
 }
 
-function applyWhere<T>(rows: T[], conditions: Condition[], getter: (row: T, field: string) => unknown): T[] {
-  if (conditions.length === 0) return rows
-  return rows.filter((row) => conditions.every((cond) => cmp(getter(row, cond.field), cond)))
+function tokenizeWhere(whereRaw: string): QueryToken[] {
+  const tokens: QueryToken[] = []
+  let i = 0
+  while (i < whereRaw.length) {
+    const ch = whereRaw[i]
+    if (/\s/.test(ch)) {
+      i++
+      continue
+    }
+    if (ch === '(') {
+      tokens.push({ kind: 'lparen' })
+      i++
+      continue
+    }
+    if (ch === ')') {
+      tokens.push({ kind: 'rparen' })
+      i++
+      continue
+    }
+    if (ch === '!' && whereRaw[i + 1] === '=') {
+      tokens.push({ kind: 'op', value: '!=' })
+      i += 2
+      continue
+    }
+    if (ch === '=') {
+      tokens.push({ kind: 'op', value: '=' })
+      i++
+      continue
+    }
+    if (ch === '~') {
+      tokens.push({ kind: 'op', value: '~' })
+      i++
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      const quote = ch
+      i++
+      let value = ''
+      while (i < whereRaw.length && whereRaw[i] !== quote) {
+        if (whereRaw[i] === '\\' && i + 1 < whereRaw.length) {
+          value += whereRaw[i + 1]
+          i += 2
+          continue
+        }
+        value += whereRaw[i]
+        i++
+      }
+      if (i >= whereRaw.length) throw new Error('Unterminated string in WHERE clause')
+      i++
+      tokens.push({ kind: 'string', value })
+      continue
+    }
+    const identMatch = whereRaw.slice(i).match(/^[A-Za-z0-9_.-]+/)
+    if (identMatch) {
+      const value = identMatch[0]
+      const upper = value.toUpperCase()
+      if (upper === 'AND' || upper === 'OR' || upper === 'NOT') {
+        tokens.push({ kind: 'logic', value: upper })
+      } else {
+        tokens.push({ kind: 'ident', value })
+      }
+      i += value.length
+      continue
+    }
+    throw new Error(`Unexpected token in WHERE clause near: ${whereRaw.slice(i)}`)
+  }
+  return tokens
+}
+
+function parseWhereExpr(whereRaw: string | undefined): WhereExpr | null {
+  if (!whereRaw) return null
+  const tokens = tokenizeWhere(whereRaw)
+  let index = 0
+
+  const parseValueToken = (): string | boolean | null => {
+    const token = tokens[index]
+    if (!token) throw new Error('Expected value in WHERE clause')
+    if (token.kind === 'string' || token.kind === 'ident') {
+      index++
+      return parseValue(token.value)
+    }
+    throw new Error('Expected value in WHERE clause')
+  }
+
+  const parsePrimary = (): WhereExpr => {
+    const token = tokens[index]
+    if (!token) throw new Error('Unexpected end of WHERE clause')
+    if (token.kind === 'lparen') {
+      index++
+      const expr = parseOr()
+      if (!tokens[index] || tokens[index].kind !== 'rparen') {
+        throw new Error('Expected closing parenthesis in WHERE clause')
+      }
+      index++
+      return expr
+    }
+    if (token.kind !== 'ident') throw new Error('Expected field name in WHERE clause')
+    const field = token.value
+    index++
+    const op = tokens[index]
+    if (!op || op.kind !== 'op') throw new Error(`Expected operator after field ${field}`)
+    index++
+    return {
+      kind: 'condition',
+      condition: {
+        field,
+        op: op.value,
+        value: parseValueToken(),
+      },
+    }
+  }
+
+  const parseUnary = (): WhereExpr => {
+    const token = tokens[index]
+    if (token?.kind === 'logic' && token.value === 'NOT') {
+      index++
+      return { kind: 'not', expr: parseUnary() }
+    }
+    return parsePrimary()
+  }
+
+  const parseAnd = (): WhereExpr => {
+    let expr = parseUnary()
+    let token = tokens[index]
+    while (token?.kind === 'logic' && token.value === 'AND') {
+      index++
+      expr = { kind: 'and', left: expr, right: parseUnary() }
+      token = tokens[index]
+    }
+    return expr
+  }
+
+  const parseOr = (): WhereExpr => {
+    let expr = parseAnd()
+    let token = tokens[index]
+    while (token?.kind === 'logic' && token.value === 'OR') {
+      index++
+      expr = { kind: 'or', left: expr, right: parseAnd() }
+      token = tokens[index]
+    }
+    return expr
+  }
+
+  const expr = parseOr()
+  if (index !== tokens.length) throw new Error('Unexpected trailing tokens in WHERE clause')
+  return expr
+}
+
+function evalWhereExpr<T>(expr: WhereExpr | null, row: T, getter: (row: T, field: string) => unknown): boolean {
+  if (!expr) return true
+  switch (expr.kind) {
+    case 'condition':
+      return cmp(getter(row, expr.condition.field), expr.condition)
+    case 'and':
+      return evalWhereExpr(expr.left, row, getter) && evalWhereExpr(expr.right, row, getter)
+    case 'or':
+      return evalWhereExpr(expr.left, row, getter) || evalWhereExpr(expr.right, row, getter)
+    case 'not':
+      return !evalWhereExpr(expr.expr, row, getter)
+  }
+}
+
+function applyWhere<T>(rows: T[], expr: WhereExpr | null, getter: (row: T, field: string) => unknown): T[] {
+  if (!expr) return rows
+  return rows.filter((row) => evalWhereExpr(expr, row, getter))
 }
 
 function viewNodeSet(view: DiagramView, nodes: Record<string, C4Node>): Set<string> {
@@ -214,9 +381,80 @@ function getViewField(view: DiagramView, field: string): unknown {
 function parseListQuery(query: string, kind: 'NODES' | 'RELATIONS' | 'VIEWS') {
   const match = query.match(new RegExp(`^LIST\\s+${kind}(?:\\s+WHERE\\s+(.+?))?(?:\\s+LIMIT\\s+(\\d+))?$`, 'i'))
   if (!match) return null
+  const limit = match[2] ? Number(match[2]) : null
+  if (limit !== null && (!Number.isInteger(limit) || limit < 1)) {
+    throw new Error('LIMIT must be a positive integer')
+  }
   return {
-    conditions: parseConditions(match[1]),
-    limit: match[2] ? Number(match[2]) : null,
+    expr: parseWhereExpr(match[1]),
+    limit,
+  }
+}
+
+function parseDepthQuery(query: string, command: string) {
+  const match = query.match(new RegExp(`^${command}\\s+(.+?)(?:\\s+DEPTH\\s+(\\d+))?$`, 'i'))
+  if (!match) return null
+  const depth = match[2] ? Number(match[2]) : 1
+  if (!Number.isInteger(depth) || depth < 1) throw new Error('DEPTH must be a positive integer')
+  return {
+    id: stripQuotes(match[1]),
+    depth,
+  }
+}
+
+interface TraversalSummaryRow {
+  node: ReturnType<typeof summarizeNode>
+  depth: number
+}
+
+function traverseFrom(
+  startNodeId: string,
+  maxDepth: number,
+  neighborsOf: (id: string) => string[],
+): Map<string, number> {
+  const seen = new Set<string>([startNodeId])
+  const reached = new Map<string, number>()
+  const queue: Array<{ id: string; depth: number }> = [{ id: startNodeId, depth: 0 }]
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (current.depth >= maxDepth) continue
+    for (const nextId of neighborsOf(current.id)) {
+      if (seen.has(nextId)) continue
+      seen.add(nextId)
+      const depth = current.depth + 1
+      reached.set(nextId, depth)
+      queue.push({ id: nextId, depth })
+    }
+  }
+  return reached
+}
+
+function summarizeTraversalResults(
+  startNodeId: string,
+  reached: Map<string, number>,
+  nodes: Record<string, C4Node>,
+  relations: C4Relation[],
+) {
+  const rows: TraversalSummaryRow[] = [...reached.entries()]
+    .map(([id, depth]) => ({ id, depth, node: nodes[id] }))
+    .filter((item): item is { id: string; depth: number; node: C4Node } => !!item.node)
+    .sort((a, b) => a.depth - b.depth || a.node.label.localeCompare(b.node.label) || a.id.localeCompare(b.id))
+    .map(({ node, depth }) => ({ node: summarizeNode(node), depth }))
+  const reachedSet = new Set(reached.keys())
+  const relationRows = relations
+    .filter((rel) => (
+      (rel.sourceId === startNodeId && reachedSet.has(rel.targetId))
+      || (rel.targetId === startNodeId && reachedSet.has(rel.sourceId))
+      || (reachedSet.has(rel.sourceId) && reachedSet.has(rel.targetId))
+    ))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((rel) => summarizeRelation(rel, nodes))
+  return {
+    nodeId: startNodeId,
+    total: rows.length,
+    neighbors: rows.map((row) => row.node),
+    rows,
+    relations: relationRows,
   }
 }
 
@@ -224,12 +462,13 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
   const raw = query.trim()
   const upper = raw.toUpperCase()
   const views = ctx.views ?? {}
+  const relations = Object.values(ctx.relations)
 
   const listNodes = parseListQuery(raw, 'NODES')
   if (listNodes) {
     const rows = applyWhere(
       Object.values(ctx.nodes).sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id)),
-      listNodes.conditions,
+      listNodes.expr,
       getNodeField,
     )
     const limited = listNodes.limit ? rows.slice(0, listNodes.limit) : rows
@@ -243,8 +482,8 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
   const listRelations = parseListQuery(raw, 'RELATIONS')
   if (listRelations) {
     const rows = applyWhere(
-      Object.values(ctx.relations).sort((a, b) => a.id.localeCompare(b.id)),
-      listRelations.conditions,
+      relations.slice().sort((a, b) => a.id.localeCompare(b.id)),
+      listRelations.expr,
       (rel, field) => getRelationField(rel, field, ctx.nodes),
     )
     const limited = listRelations.limit ? rows.slice(0, listRelations.limit) : rows
@@ -259,7 +498,7 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
   if (listViews) {
     const rows = applyWhere(
       Object.values(views).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
-      listViews.conditions,
+      listViews.expr,
       getViewField,
     )
     const limited = listViews.limit ? rows.slice(0, listViews.limit) : rows
@@ -279,7 +518,7 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
       prev.nodeCount++
       stats.set(key, prev)
     }
-    for (const rel of Object.values(ctx.relations)) {
+    for (const rel of relations) {
       if (!rel.technology) continue
       const key = rel.technology
       const prev = stats.get(key) ?? { technology: key, nodeCount: 0, relationCount: 0 }
@@ -304,7 +543,7 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
       command: 'STATS MODEL',
       result: {
         nodeCount: Object.keys(ctx.nodes).length,
-        relationCount: Object.keys(ctx.relations).length,
+        relationCount: relations.length,
         viewCount: Object.keys(views).length,
         typeCounts,
       },
@@ -320,10 +559,10 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
       .filter((candidate) => candidate.parentId === nodeId)
       .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id))
       .map(summarizeNode)
-    const incoming = Object.values(ctx.relations)
+    const incoming = relations
       .filter((rel) => rel.targetId === nodeId)
       .map((rel) => summarizeRelation(rel, ctx.nodes))
-    const outgoing = Object.values(ctx.relations)
+    const outgoing = relations
       .filter((rel) => rel.sourceId === nodeId)
       .map((rel) => summarizeRelation(rel, ctx.nodes))
     const ancestors: ReturnType<typeof summarizeNode>[] = []
@@ -362,7 +601,7 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
       .filter((node): node is C4Node => !!node)
       .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id))
       .map(summarizeNode)
-    const relations = Object.values(ctx.relations)
+    const visibleRelations = relations
       .filter((rel) => set.has(rel.sourceId) && set.has(rel.targetId) && !hidden.has(rel.id))
       .map((rel) => summarizeRelation(rel, ctx.nodes))
     return {
@@ -371,7 +610,7 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
       result: {
         view: summarizeView(view, ctx.nodes, ctx.relations),
         nodes,
-        relations,
+        relations: visibleRelations,
       },
     }
   }
@@ -391,29 +630,47 @@ export function runModelQuery(query: string, ctx: ModelQueryContext): ModelQuery
     }
   }
 
-  const getNeighborsMatch = raw.match(/^GET\s+NEIGHBORS\s+OF\s+(.+)$/i)
-  if (getNeighborsMatch) {
-    const nodeId = stripQuotes(getNeighborsMatch[1])
+  const neighborsQuery = parseDepthQuery(raw, 'GET\\s+NEIGHBORS\\s+OF')
+  if (neighborsQuery) {
+    const nodeId = neighborsQuery.id
     if (!ctx.nodes[nodeId]) throw new Error(`Unknown node id: ${nodeId}`)
-    const rels = Object.values(ctx.relations).filter((rel) => rel.sourceId === nodeId || rel.targetId === nodeId)
-    const neighborIds = new Set<string>()
-    for (const rel of rels) {
-      if (rel.sourceId !== nodeId) neighborIds.add(rel.sourceId)
-      if (rel.targetId !== nodeId) neighborIds.add(rel.targetId)
-    }
-    const neighbors = [...neighborIds]
-      .map((id) => ctx.nodes[id])
-      .filter((node): node is C4Node => !!node)
-      .sort((a, b) => a.label.localeCompare(b.label) || a.id.localeCompare(b.id))
-      .map(summarizeNode)
+    const reached = traverseFrom(nodeId, neighborsQuery.depth, (id) => (
+      relations
+        .filter((rel) => rel.sourceId === id || rel.targetId === id)
+        .map((rel) => rel.sourceId === id ? rel.targetId : rel.sourceId)
+    ))
     return {
       query: raw,
       command: 'GET NEIGHBORS OF',
-      result: {
-        nodeId,
-        neighbors,
-        relations: rels.map((rel) => summarizeRelation(rel, ctx.nodes)),
-      },
+      result: summarizeTraversalResults(nodeId, reached, ctx.nodes, relations),
+    }
+  }
+
+  const dependenciesQuery = parseDepthQuery(raw, 'GET\\s+DEPENDENCIES\\s+OF')
+  if (dependenciesQuery) {
+    const nodeId = dependenciesQuery.id
+    if (!ctx.nodes[nodeId]) throw new Error(`Unknown node id: ${nodeId}`)
+    const reached = traverseFrom(nodeId, dependenciesQuery.depth, (id) => (
+      relations.filter((rel) => rel.sourceId === id).map((rel) => rel.targetId)
+    ))
+    return {
+      query: raw,
+      command: 'GET DEPENDENCIES OF',
+      result: summarizeTraversalResults(nodeId, reached, ctx.nodes, relations),
+    }
+  }
+
+  const dependentsQuery = parseDepthQuery(raw, 'GET\\s+DEPENDENTS\\s+OF')
+  if (dependentsQuery) {
+    const nodeId = dependentsQuery.id
+    if (!ctx.nodes[nodeId]) throw new Error(`Unknown node id: ${nodeId}`)
+    const reached = traverseFrom(nodeId, dependentsQuery.depth, (id) => (
+      relations.filter((rel) => rel.targetId === id).map((rel) => rel.sourceId)
+    ))
+    return {
+      query: raw,
+      command: 'GET DEPENDENTS OF',
+      result: summarizeTraversalResults(nodeId, reached, ctx.nodes, relations),
     }
   }
 

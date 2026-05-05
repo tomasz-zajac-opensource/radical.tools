@@ -17,6 +17,7 @@ import {
   C4EdgeRFData,
   DiagramData,
   DiagramView,
+  DiagramSequence,
   DiagramSnapshot,
   PresentationSlide,
   Presentation,
@@ -755,6 +756,11 @@ interface DiagramStore {
   c4Nodes: Record<string, C4Node>
   c4Relations: Record<string, C4Relation>
 
+  // ── sequences (model-level, referenced by dynamic views) ──
+  sequences: Record<string, DiagramSequence>
+  /** ID of the sequence currently being edited via canvas clicks. null = none */
+  activeSequenceId: string | null
+
   // ── views ──
   views: Record<string, DiagramView>
   activeViewId: string | null
@@ -829,6 +835,25 @@ interface DiagramStore {
   hideRelationFromView: (viewId: string, relationId: string) => void
   /** Reverse `hideRelationFromView`. */
   unhideRelationInView: (viewId: string, relationId: string) => void
+  /** Switch a view between 'static' and 'dynamic'. */
+  setViewKind: (viewId: string, kind: 'static' | 'dynamic') => void
+  /** Link/unlink a sequence to a dynamic view. */
+  setViewSequence: (viewId: string, sequenceId: string | null) => void
+
+  // ── actions: sequences ──
+  addSequence: (name: string) => string
+  removeSequence: (id: string) => void
+  renameSequence: (id: string, name: string) => void
+  /** Set which sequence is currently being edited (canvas edge clicks toggle steps). */
+  setActiveSequence: (id: string | null) => void
+  /** Toggle a relation in a model sequence (append if absent, remove if present). */
+  toggleRelationInSequence: (sequenceId: string, relationId: string) => void
+  /** Remove the step at index `idx` from a sequence. */
+  removeFromSequence: (sequenceId: string, idx: number) => void
+  /** Move a step from `fromIdx` to `toIdx` within a sequence. */
+  reorderSequence: (sequenceId: string, fromIdx: number, toIdx: number) => void
+  /** Clear all steps from a sequence. */
+  clearSequence: (sequenceId: string) => void
 
   // ── actions: React Flow sync ──
   onNodesChange: (changes: NodeChange[]) => void
@@ -1049,6 +1074,8 @@ export const useDiagramStore = create<DiagramStore>()(
       for (const n of persisted.nodes) initNodes[n.id] = n
       for (const r of persisted.relations) initRelations[r.id] = r
       if (persisted.views) for (const v of persisted.views) initViews[v.id] = v
+      const initSequences: Record<string, DiagramSequence> = {}
+      if (persisted.sequences) for (const s of persisted.sequences) initSequences[s.id] = s
       initDefaultPositions = persisted.defaultPositions ?? snapshotPositions(initNodes)
       initSnapshots = persisted.snapshots ?? []
       initPres = buildPresentationsFromData(persisted.presentations, persisted.presentationSlides)
@@ -1074,6 +1101,10 @@ export const useDiagramStore = create<DiagramStore>()(
     return {
       c4Nodes: initNodes,
       c4Relations: initRelations,
+      sequences: (persisted?.sequences
+        ? Object.fromEntries(persisted.sequences.map(s => [s.id, s]))
+        : {}) as Record<string, DiagramSequence>,
+      activeSequenceId: null,
       views: initViews,
       activeViewId: null,
       defaultPositions: initDefaultPositions,
@@ -1139,7 +1170,25 @@ export const useDiagramStore = create<DiagramStore>()(
           const hiddenRels = view?.hiddenRelationIds && view.hiddenRelationIds.length
             ? new Set(view.hiddenRelationIds)
             : undefined
-          state.rfEdges = deriveRFEdges(mergedNodes, mergedRels, filter, vcs, hiddenRels) as any
+          const derivedEdges = deriveRFEdges(mergedNodes, mergedRels, filter, vcs, hiddenRels)
+          // Annotate edges with step numbers:
+          // 1. When actively editing a sequence (activeSequenceId set) — always show numbers
+          // 2. When view is dynamic and linked to a sequence — show numbers in view mode
+          const editingSeq = state.activeSequenceId
+            ? (state.sequences as Record<string, DiagramSequence>)[state.activeSequenceId]
+            : undefined
+          const viewSeq = (!editingSeq && view?.kind === 'dynamic' && view.sequenceId)
+            ? (state.sequences as Record<string, DiagramSequence>)[view.sequenceId]
+            : undefined
+          const annotateSeq = editingSeq ?? viewSeq
+          if (annotateSeq && annotateSeq.relationIds.length > 0) {
+            const seqIndex = new Map(annotateSeq.relationIds.map((id, i) => [id, i + 1]))
+            for (const edge of derivedEdges) {
+              const step = seqIndex.get(edge.id)
+              if (step !== undefined && edge.data) edge.data.sequenceStep = step
+            }
+          }
+          state.rfEdges = derivedEdges as any
         })
       },
 
@@ -2010,6 +2059,102 @@ export const useDiagramStore = create<DiagramStore>()(
           const view = state.views[viewId]
           if (!view || !view.hiddenRelationIds) return
           view.hiddenRelationIds = view.hiddenRelationIds.filter((id) => id !== relationId)
+        })
+        get()._sync()
+      },
+
+      setViewKind(viewId, kind) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.kind = kind
+        })
+        get()._sync()
+      },
+
+      setViewSequence(viewId, sequenceId) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.sequenceId = sequenceId ?? undefined
+        })
+        get()._sync()
+      },
+
+      // ── sequences ───────────────────────────────────────────────────────
+      addSequence(name) {
+        const id = uid()
+        set((state) => {
+          state.sequences[id] = { id, name, relationIds: [] }
+        })
+        return id
+      },
+
+      removeSequence(id) {
+        set((state) => {
+          delete state.sequences[id]
+          // Unlink views that referenced this sequence
+          for (const view of Object.values(state.views)) {
+            if ((view as DiagramView).sequenceId === id) {
+              (view as DiagramView).sequenceId = undefined
+            }
+          }
+          if (state.activeSequenceId === id) state.activeSequenceId = null
+        })
+        get()._sync()
+      },
+
+      renameSequence(id, name) {
+        set((state) => {
+          if (state.sequences[id]) state.sequences[id].name = name
+        })
+      },
+
+      setActiveSequence(id) {
+        set((state) => { state.activeSequenceId = id })
+        get()._sync()
+      },
+
+      toggleRelationInSequence(sequenceId, relationId) {
+        set((state) => {
+          const seq = state.sequences[sequenceId]
+          if (!seq) return
+          const idx = seq.relationIds.indexOf(relationId)
+          if (idx === -1) {
+            seq.relationIds.push(relationId)
+          } else {
+            seq.relationIds.splice(idx, 1)
+          }
+        })
+        get()._sync()
+      },
+
+      removeFromSequence(sequenceId, idx) {
+        set((state) => {
+          const seq = state.sequences[sequenceId]
+          if (!seq) return
+          seq.relationIds.splice(idx, 1)
+        })
+        get()._sync()
+      },
+
+      reorderSequence(sequenceId, fromIdx, toIdx) {
+        set((state) => {
+          const seq = state.sequences[sequenceId]
+          if (!seq) return
+          const arr = seq.relationIds
+          if (fromIdx < 0 || fromIdx >= arr.length || toIdx < 0 || toIdx >= arr.length) return
+          const [item] = arr.splice(fromIdx, 1)
+          arr.splice(toIdx, 0, item)
+        })
+        get()._sync()
+      },
+
+      clearSequence(sequenceId) {
+        set((state) => {
+          const seq = state.sequences[sequenceId]
+          if (!seq) return
+          seq.relationIds = []
         })
         get()._sync()
       },
@@ -3429,9 +3574,11 @@ export const useDiagramStore = create<DiagramStore>()(
         const nodes: Record<string, C4Node> = {}
         const relations: Record<string, C4Relation> = {}
         const views: Record<string, DiagramView> = {}
+        const sequences: Record<string, DiagramSequence> = {}
         for (const n of data.nodes) nodes[n.id] = n
         for (const r of data.relations) relations[r.id] = r
         if (data.views) for (const v of data.views) views[v.id] = v
+        if (data.sequences) for (const s of data.sequences) sequences[s.id] = s
 
         // Restore snapshots (backward compat: old files won't have them)
         const snapshots: DiagramSnapshot[] = data.snapshots ?? []
@@ -3444,6 +3591,8 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.c4Nodes = nodes as any
           state.c4Relations = relations as any
+          state.sequences = sequences as any
+          state.activeSequenceId = null
           state.views = views as any
           state.defaultPositions = defaultPos as any
           state.defaultViewport = defaultVP
@@ -3479,7 +3628,7 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       saveDiagram() {
-        const { c4Nodes, c4Relations, views, activeViewId, defaultPositions, defaultViewport, snapshots, presentations, metamodel } = get()
+        const { c4Nodes, c4Relations, sequences, views, activeViewId, defaultPositions, defaultViewport, snapshots, presentations, metamodel } = get()
 
         // Snapshot current positions into the active context before saving
         const currentPos = snapshotPositions(c4Nodes)
@@ -3499,6 +3648,7 @@ export const useDiagramStore = create<DiagramStore>()(
         return {
           nodes: Object.values(c4Nodes),
           relations: Object.values(c4Relations),
+          sequences: Object.values(sequences),
           views: savedViews,
           defaultPositions: savedDefaultPos,
           defaultViewport: savedDefaultVP,
@@ -3517,6 +3667,8 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.c4Nodes = sample.nodes as any
           state.c4Relations = sample.relations as any
+          state.sequences = {} as any
+          state.activeSequenceId = null
           state.views = {} as any
           state.activeViewId = null
           state.defaultPositions = snapshotPositions(sample.nodes) as any
@@ -3549,6 +3701,8 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.c4Nodes = {}
           state.c4Relations = {}
+          state.sequences = {} as any
+          state.activeSequenceId = null
           state.views = {} as any
           state.activeViewId = null
           state.defaultPositions = {} as any
@@ -3676,6 +3830,7 @@ if (typeof window !== 'undefined') {
       !isExploreMode && (
         s.c4Nodes !== prev.c4Nodes ||
         s.c4Relations !== prev.c4Relations ||
+        s.sequences !== prev.sequences ||
         s.views !== prev.views ||
         s.defaultPositions !== prev.defaultPositions ||
         s.defaultViewport !== prev.defaultViewport ||

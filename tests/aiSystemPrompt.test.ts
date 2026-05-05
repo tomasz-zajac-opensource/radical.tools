@@ -27,6 +27,8 @@ describe('AI_SYSTEM_PROMPT contract', () => {
     expect(AI_SYSTEM_PROMPT).toMatch(/BUILT-IN MODEL QUERY LANGUAGE/)
     expect(AI_SYSTEM_PROMPT).toMatch(/LIST NODES/)
     expect(AI_SYSTEM_PROMPT).toMatch(/LIST TECHNOLOGIES/)
+    expect(AI_SYSTEM_PROMPT).toMatch(/AND, OR, NOT/)
+    expect(AI_SYSTEM_PROMPT).toMatch(/GET DEPENDENTS OF/)
   })
 
   it('instructs the model to follow metamodel rules', () => {

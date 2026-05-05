@@ -37,9 +37,28 @@ export interface NodePosition {
   height: number
 }
 
+/**
+ * A named, ordered interaction sequence — a model-level artefact that can be
+ * referenced by one or more dynamic views.
+ * Examples: "User Login Journey", "Payment Flow"
+ */
+export interface DiagramSequence {
+  id: string
+  name: string
+  /** Ordered list of C4Relation IDs that form the interaction steps */
+  relationIds: string[]
+}
+
 export interface DiagramView {
   id: string
   name: string
+  /**
+   * 'static' (default) = ordinary filtered view.
+   * 'dynamic' = shows step-number badges on edges from the linked sequence.
+   */
+  kind?: 'static' | 'dynamic'
+  /** ID of the DiagramSequence to visualise when kind='dynamic' */
+  sequenceId?: string
   /** C4 node IDs included in this view. Ancestors are auto-included. */
   nodeIds: string[]
   /**
@@ -105,6 +124,7 @@ export interface Presentation {
 export interface DiagramData {
   nodes: C4Node[]
   relations: C4Relation[]
+  sequences?: DiagramSequence[]
   views?: DiagramView[]
   /** Positions for the "All" (default) view */
   defaultPositions?: Record<string, NodePosition>
@@ -143,6 +163,8 @@ export interface C4EdgeRFData {
   label?: string
   technology?: string
   isVirtual: boolean
+  /** 1-based step index when this edge is part of the active dynamic view sequence */
+  sequenceStep?: number
 }
 
 // ─── Layout position map ─────────────────────────────────────────────────────
