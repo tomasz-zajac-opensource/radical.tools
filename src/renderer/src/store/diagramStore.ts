@@ -2261,7 +2261,10 @@ export const useDiagramStore = create<DiagramStore>()(
           state.rfEdges = applyEdgeChanges(passthrough, state.rfEdges) as any
           for (const change of passthrough) {
             if (change.type === 'select' && change.id && change.selected) {
-              state.selectedEdgeId = change.id
+              // Don't select edge when a sequence is being edited — clicks are sequence toggles
+              if (!state.activeSequenceId) {
+                state.selectedEdgeId = change.id
+              }
             }
           }
         })

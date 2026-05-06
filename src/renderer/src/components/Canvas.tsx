@@ -585,12 +585,13 @@ function StructuralCanvas(): React.ReactElement {
 
   const onEdgeClick = useCallback(
     (_e: React.MouseEvent, edge: { id: string }) => {
-      selectEdge(edge.id)
-      // If a sequence is being edited, toggle this relation in it
       const state = useDiagramStore.getState()
+      // If a sequence is being edited, toggle this relation and don't open properties
       if (state.activeSequenceId && !edge.id.startsWith('virtual-')) {
         state.toggleRelationInSequence(state.activeSequenceId, edge.id)
+        return
       }
+      selectEdge(edge.id)
     },
     [selectEdge]
   )
