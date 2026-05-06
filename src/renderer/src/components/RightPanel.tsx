@@ -885,6 +885,8 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
   const reorderSequence = useDiagramStore((s) => s.reorderSequence)
   const clearSequence = useDiagramStore((s) => s.clearSequence)
   const setActiveSequence = useDiagramStore((s) => s.setActiveSequence)
+  const addViewFromSequence = useDiagramStore((s) => s.addViewFromSequence)
+  const views = useDiagramStore((s) => s.views)
   const [editingName, setEditingName] = useState(false)
   const [nameVal, setNameVal] = useState('')
 
@@ -1004,9 +1006,34 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
         )}
       </div>
       {!readOnly && (
-        <button className="props-delete" onClick={() => { removeSequence(seq.id); setActiveSequence(null) }}>
-          🗑 Delete sequence
-        </button>
+        <>
+          {seq.relationIds.length > 0 && (() => {
+            const existingView = Object.values(views).find((v) => v.sequenceId === seq.id)
+            return existingView ? (
+              <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Icon.Layers />
+                <span>View: <strong style={{ color: 'var(--text)' }}>{existingView.name}</strong></span>
+              </div>
+            ) : (
+              <button
+                onClick={() => addViewFromSequence(seq.id)}
+                style={{
+                  marginTop: 12, width: '100%', fontSize: 11, padding: '6px 0',
+                  background: 'rgba(var(--accent-rgb),0.10)',
+                  border: '1px solid rgba(var(--accent-rgb),0.30)',
+                  borderRadius: 6, color: 'var(--accent)', cursor: 'pointer', fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+                title="Create a dynamic view showing only nodes and relations from this sequence"
+              >
+                <Icon.Plus /> Create view from sequence
+              </button>
+            )
+          })()}
+          <button className="props-delete" onClick={() => { removeSequence(seq.id); setActiveSequence(null) }}>
+            🗑 Delete sequence
+          </button>
+        </>
       )}
     </div>
   )

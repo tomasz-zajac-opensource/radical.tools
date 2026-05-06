@@ -839,6 +839,13 @@ interface DiagramStore {
   setViewKind: (viewId: string, kind: 'static' | 'dynamic') => void
   /** Link/unlink a sequence to a dynamic view. */
   setViewSequence: (viewId: string, sequenceId: string | null) => void
+  /**
+   * Create a new dynamic view scoped to a sequence:
+   * populates nodeIds with the source/target nodes of every relation in the
+   * sequence, sets kind='dynamic' and links the sequenceId.
+   * Returns the new view id.
+   */
+  addViewFromSequence: (sequenceId: string) => string
 
   // ── actions: sequences ──
   addSequence: (name: string) => string
@@ -2079,6 +2086,32 @@ export const useDiagramStore = create<DiagramStore>()(
           view.sequenceId = sequenceId ?? undefined
         })
         get()._sync()
+      },
+
+      addViewFromSequence(sequenceId) {
+        const { sequences, c4Relations } = get()
+        const seq = sequences[sequenceId]
+        const viewId = uid()
+        // Collect unique node ids (source + target) for all relations in the sequence
+        const nodeSet = new Set<string>()
+        for (const relId of (seq?.relationIds ?? [])) {
+          const rel = c4Relations[relId]
+          if (rel) { nodeSet.add(rel.sourceId); nodeSet.add(rel.targetId) }
+        }
+        const name = seq ? `${seq.name} view` : 'Sequence view'
+        get()._pushUndo()
+        set((state) => {
+          state.views[viewId] = {
+            id: viewId,
+            name,
+            kind: 'dynamic',
+            sequenceId,
+            nodeIds: Array.from(nodeSet),
+            positions: {},
+          }
+        })
+        get().setActiveView(viewId)
+        return viewId
       },
 
       // ── sequences ───────────────────────────────────────────────────────
