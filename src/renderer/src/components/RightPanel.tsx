@@ -297,6 +297,14 @@ const Icon = {
       <path d="M5 3 L11 8 L5 13"/>
     </svg>
   ),
+  Settings: () => (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <path d="M2 4.5 h3 M7 4.5 h7"/>
+      <circle cx="5" cy="4.5" r="1.5"/>
+      <path d="M2 11.5 h7 M11 11.5 h3"/>
+      <circle cx="9.5" cy="11.5" r="1.5"/>
+    </svg>
+  ),
 }
 
 /** Format a timestamp as "just now", "5m ago", "3h ago", "2d ago", "MMM d" */
@@ -318,29 +326,20 @@ function formatRelative(ts: number): string {
 // model evolves over time. Clicking a milestone does NOT restore — it is
 // purely informational (and used for linking to presentation slides).
 
-function SnapshotList({ readOnly = false }: { readOnly?: boolean }) {
+function SnapshotList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpenProps?: (snapId: string) => void }) {
   const snapshots = useDiagramStore((s) => s.snapshots)
   const activeSnapshotId = useDiagramStore((s) => s.activeSnapshotId)
   const createSnapshot = useDiagramStore((s) => s.createSnapshot)
-  const removeSnapshot = useDiagramStore((s) => s.removeSnapshot)
-  const renameSnapshot = useDiagramStore((s) => s.renameSnapshot)
   const viewMilestoneDiff = useDiagramStore((s) => s.selectMilestone)
   const clearMilestoneView = useDiagramStore((s) => s.discardMilestoneChanges)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
 
   const confirmCreate = () => {
     const name = newName.trim()
     if (name) createSnapshot(name)
     setCreating(false)
     setNewName('')
-  }
-
-  const commitRename = () => {
-    if (editingId && editName.trim()) renameSnapshot(editingId, editName.trim())
-    setEditingId(null)
   }
 
   return (
@@ -394,57 +393,31 @@ function SnapshotList({ readOnly = false }: { readOnly?: boolean }) {
       </div>
       {[...snapshots].reverse().map((snap, idx) => {
         const isActive = activeSnapshotId === snap.id
-        const isEditing = editingId === snap.id
         const versionNum = snapshots.length - idx
         const nodeCount = Object.keys(snap.nodes).length
         return (
           <div
             key={snap.id}
             className={`lp-card lp-snap-card${isActive ? ' active' : ''}`}
-            onClick={() => { if (!isEditing) viewMilestoneDiff(snap.id) }}
+            onClick={() => viewMilestoneDiff(snap.id)}
             title={`${new Date(snap.timestamp).toLocaleString()}\nClick to load this milestone onto the canvas`}
           >
             <div className="lp-snap-badge">v{versionNum}</div>
             <div className="lp-card-body">
-              {!readOnly && isEditing ? (
-                <input
-                  className="lp-inline-input"
-                  autoFocus
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  onBlur={commitRename}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setEditingId(null) }}
-                />
-              ) : (
-                <div
-                  className="lp-card-title"
-                  onDoubleClick={readOnly ? undefined : (e) => { e.stopPropagation(); setEditingId(snap.id); setEditName(snap.name) }}
-                  title={readOnly ? undefined : 'Double-click to rename'}
-                >
-                  {snap.name}
-                </div>
-              )}
-              {!isEditing && (
-                <div className="lp-card-meta">
-                  <span>{formatRelative(snap.timestamp)}</span>
-                  <span className="lp-meta-dot">·</span>
-                  <span>{nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}</span>
-                </div>
-              )}
+              <div className="lp-card-title">{snap.name}</div>
+              <div className="lp-card-meta">
+                <span>{formatRelative(snap.timestamp)}</span>
+                <span className="lp-meta-dot">·</span>
+                <span>{nodeCount} {nodeCount === 1 ? 'node' : 'nodes'}</span>
+              </div>
             </div>
-            {!readOnly && !isEditing && (
+            {!readOnly && onOpenProps && (
               <div className="lp-card-actions">
                 <button
                   className="lp-icon-btn"
-                  title="Rename milestone"
-                  onClick={(e) => { e.stopPropagation(); setEditingId(snap.id); setEditName(snap.name) }}
-                ><Icon.Pencil /></button>
-                <button
-                  className="lp-icon-btn danger"
-                  title="Delete milestone"
-                  onClick={(e) => { e.stopPropagation(); removeSnapshot(snap.id) }}
-                ><Icon.Trash /></button>
+                  title="Milestone properties"
+                  onClick={(e) => { e.stopPropagation(); onOpenProps(snap.id) }}
+                ><Icon.Settings /></button>
               </div>
             )}
           </div>
@@ -461,15 +434,11 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
   const activeSequenceId = useDiagramStore((s) => s.activeSequenceId)
   const setActiveSequence = useDiagramStore((s) => s.setActiveSequence)
   const addSequence = useDiagramStore((s) => s.addSequence)
-  const removeSequence = useDiagramStore((s) => s.removeSequence)
-  const renameSequence = useDiagramStore((s) => s.renameSequence)
   const removeFromSequence = useDiagramStore((s) => s.removeFromSequence)
   const reorderSequence = useDiagramStore((s) => s.reorderSequence)
   const clearSequence = useDiagramStore((s) => s.clearSequence)
   const c4Nodes = useDiagramStore((s) => s.c4Nodes)
   const c4Relations = useDiagramStore((s) => s.c4Relations)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
   const toggleExpand = (id: string) =>
@@ -477,21 +446,10 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
 
   const seqList = Object.values(sequences)
 
-  const commit = () => {
-    if (editingId && editName.trim()) renameSequence(editingId, editName.trim())
-    setEditingId(null)
-  }
-
   const btnStyle: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--text-muted)',
-    padding: '2px 3px',
-    borderRadius: 3,
-    display: 'flex',
-    alignItems: 'center',
-    lineHeight: 1,
+    background: 'none', border: 'none', cursor: 'pointer',
+    color: 'var(--text-muted)', padding: '2px 3px', borderRadius: 3,
+    display: 'flex', alignItems: 'center', lineHeight: 1,
   }
 
   return (
@@ -503,68 +461,34 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
       )}
       {seqList.map((seq) => {
         const isActive = activeSequenceId === seq.id
-        const isEditing = editingId === seq.id
         const isExpanded = compact ? expandedIds.has(seq.id) : (isActive)
         return (
           <div key={seq.id}>
             <div
               className={`lp-card lp-view-card${isActive ? ' active' : ''}`}
-              onClick={() => !isEditing && setActiveSequence(isActive ? null : seq.id)}
+              onClick={() => setActiveSequence(isActive ? null : seq.id)}
             >
               <div className="lp-view-icon" style={{ color: isActive ? 'var(--accent)' : undefined }}>
                 <Icon.Bolt />
               </div>
               <div className="lp-card-body">
-                {!readOnly && isEditing ? (
-                  <input
-                    className="lp-inline-input"
-                    autoFocus
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onBlur={commit}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
-                  />
-                ) : (
-                  <div
-                    className="lp-card-title"
-                    onDoubleClick={readOnly ? undefined : (e) => { e.stopPropagation(); setEditingId(seq.id); setEditName(seq.name) }}
-                  >
-                    {seq.name}
-                  </div>
-                )}
-                {!isEditing && (
-                  <div className="lp-card-meta">
-                    <span>{seq.relationIds.length} {seq.relationIds.length === 1 ? 'step' : 'steps'}</span>
-                    {isActive && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>editing</span>}
-                  </div>
-                )}
-              </div>
-              {!readOnly && !isEditing && (
-                <div className="lp-card-actions">
-                  <button
-                    className="lp-icon-btn"
-                    onClick={(e) => { e.stopPropagation(); setEditingId(seq.id); setEditName(seq.name) }}
-                    title="Rename sequence"
-                  ><Icon.Pencil /></button>
-                  <button
-                    className="lp-icon-btn danger"
-                    onClick={(e) => { e.stopPropagation(); removeSequence(seq.id) }}
-                    title="Delete sequence"
-                  ><Icon.Trash /></button>
+                <div className="lp-card-title">{seq.name}</div>
+                <div className="lp-card-meta">
+                  <span>{seq.relationIds.length} {seq.relationIds.length === 1 ? 'step' : 'steps'}</span>
+                  {isActive && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>editing</span>}
                 </div>
-              )}
+              </div>
             </div>
             {/* Inline step detail */}
             {((!compact && isActive) || (compact && isExpanded)) && seq.relationIds.length > 0 && (
               <div style={{ padding: '2px 8px 8px', borderLeft: '2px solid var(--accent)', marginLeft: 10 }}>
-                <div style={{ display: 'grid', gap: 3, marginBottom: 4 }}>
+                <div style={{ display: 'grid', gap: 3, marginBottom: 4, minWidth: 0 }}>
                   {seq.relationIds.map((relId, idx) => {
                     const rel = c4Relations[relId]
                     const src = rel ? c4Nodes[rel.sourceId] : null
                     const tgt = rel ? c4Nodes[rel.targetId] : null
                     return (
-                      <div key={relId} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '4px 6px' }}>
+                      <div key={relId} className="seq-step" style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '4px 6px' }}>
                         <span style={{
                           width: 18, height: 18, borderRadius: '50%',
                           background: 'var(--accent)', color: '#fff',
@@ -583,7 +507,7 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
                           )}
                         </div>
                         {!readOnly && (
-                          <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                          <div className="seq-step-actions">
                             <button
                               style={{ ...btnStyle, opacity: idx === 0 ? 0.3 : 1 }}
                               disabled={idx === 0}
@@ -638,8 +562,6 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
         <button className="lp-add-btn" onClick={() => {
           const id = addSequence(`Sequence ${seqList.length + 1}`)
           setActiveSequence(id)
-          setEditingId(id)
-          setEditName(`Sequence ${seqList.length + 1}`)
         }}>
           <Icon.Plus /> New sequence
         </button>
@@ -648,28 +570,210 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
   )
 }
 
+// ── View properties (left panel pane 2) ─────────────────────────────────────
+
+function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: string; readOnly?: boolean; onClose: () => void }) {
+  const view = useDiagramStore((s) => s.views[viewId])
+  const sequences = useDiagramStore((s) => s.sequences)
+  const renameView = useDiagramStore((s) => s.renameView)
+  const removeView = useDiagramStore((s) => s.removeView)
+  const setViewKind = useDiagramStore((s) => s.setViewKind)
+  const setViewSequence = useDiagramStore((s) => s.setViewSequence)
+  const setActiveView = useDiagramStore((s) => s.setActiveView)
+  const [editingName, setEditingName] = useState(false)
+  const [nameVal, setNameVal] = useState('')
+  const seqList = Object.values(sequences)
+
+  if (!view) return null
+  const isDynamic = view.kind === 'dynamic'
+
+  const commitName = () => {
+    if (nameVal.trim()) renameView(view.id, nameVal.trim())
+    setEditingName(false)
+  }
+
+  return (
+    <div className="props-content">
+      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : '#334155', color: isDynamic ? '#fff' : '#94a3b8' }}>
+        {isDynamic ? <Icon.Bolt /> : <Icon.Layers />} &nbsp;{isDynamic ? 'DYNAMIC VIEW' : 'VIEW'}
+      </div>
+      <div>
+        <div className="props-section-title">Name</div>
+        <div className="props-field">
+          {editingName ? (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input className="props-input" autoFocus value={nameVal}
+                onChange={(e) => setNameVal(e.target.value)} onBlur={commitName}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') setEditingName(false) }}
+                style={{ flex: 1 }} />
+              <button className="lp-icon-btn primary" onClick={commitName} title="Save"><Icon.Check /></button>
+              <button className="lp-icon-btn" onClick={() => setEditingName(false)} title="Cancel"><Icon.Close /></button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: '3px 0' }}>{view.name}</div>
+              {!readOnly && (
+                <button className="lp-icon-btn" title="Rename view"
+                  onClick={() => { setNameVal(view.name); setEditingName(true) }}><Icon.Pencil /></button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      {!readOnly && (
+        <div>
+          <div className="props-section-title">Type</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => setViewKind(view.id, 'static')}
+              style={{
+                flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                background: !isDynamic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: !isDynamic ? '#fff' : 'var(--text-muted)',
+                border: !isDynamic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: !isDynamic ? 600 : 400,
+              }}
+            ><Icon.Layers /> Static</button>
+            <button
+              onClick={() => setViewKind(view.id, 'dynamic')}
+              style={{
+                flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                background: isDynamic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: isDynamic ? '#fff' : 'var(--text-muted)',
+                border: isDynamic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: isDynamic ? 600 : 400,
+              }}
+            ><Icon.Bolt /> Dynamic</button>
+          </div>
+        </div>
+      )}
+      {isDynamic && (
+        <div>
+          <div className="props-section-title">Sequence</div>
+          {readOnly ? (
+            <div style={{ fontSize: 11, color: 'var(--text)' }}>
+              {view.sequenceId && sequences[view.sequenceId]
+                ? sequences[view.sequenceId].name
+                : <span style={{ opacity: 0.5, fontStyle: 'italic' }}>none</span>}
+            </div>
+          ) : (
+            <select
+              value={view.sequenceId ?? ''}
+              onChange={(e) => setViewSequence(view.id, e.target.value || null)}
+              className="props-input"
+              style={{ cursor: 'pointer' }}
+            >
+              <option value="">— none —</option>
+              {seqList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          )}
+        </div>
+      )}
+      <div>
+        <div className="props-section-title">Nodes</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{view.nodeIds.length} node{view.nodeIds.length !== 1 ? 's' : ''}</div>
+      </div>
+      {!readOnly && (
+        <button className="props-delete" onClick={() => { removeView(view.id); setActiveView(null); onClose() }}>
+          🗑 Delete view
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Milestone properties (left panel pane 2) ────────────────────────────────
+
+function MilestonePropertiesContent({ snapId, readOnly = false, onClose }: { snapId: string; readOnly?: boolean; onClose: () => void }) {
+  const snapshots = useDiagramStore((s) => s.snapshots)
+  const renameSnapshot = useDiagramStore((s) => s.renameSnapshot)
+  const removeSnapshot = useDiagramStore((s) => s.removeSnapshot)
+  const restoreSnapshot = useDiagramStore((s) => s.restoreSnapshot)
+  const [editingName, setEditingName] = useState(false)
+  const [nameVal, setNameVal] = useState('')
+
+  const snap = snapshots.find((s) => s.id === snapId)
+  if (!snap) return null
+  const versionNum = snapshots.indexOf(snap) + 1
+  const nodeCount = Object.keys(snap.nodes).length
+  const relationCount = Object.keys(snap.relations).length
+
+  const commitName = () => {
+    if (nameVal.trim()) renameSnapshot(snap.id, nameVal.trim())
+    setEditingName(false)
+  }
+
+  return (
+    <div className="props-content">
+      <div className="props-type-badge" style={{ background: '#334155', color: '#94a3b8' }}>
+        <Icon.Camera /> &nbsp;MILESTONE v{versionNum}
+      </div>
+      <div>
+        <div className="props-section-title">Name</div>
+        <div className="props-field">
+          {editingName ? (
+            <div style={{ display: 'flex', gap: 4 }}>
+              <input className="props-input" autoFocus value={nameVal}
+                onChange={(e) => setNameVal(e.target.value)} onBlur={commitName}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') setEditingName(false) }}
+                style={{ flex: 1 }} />
+              <button className="lp-icon-btn primary" onClick={commitName} title="Save"><Icon.Check /></button>
+              <button className="lp-icon-btn" onClick={() => setEditingName(false)} title="Cancel"><Icon.Close /></button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ flex: 1, fontSize: 13, fontWeight: 600, padding: '3px 0' }}>{snap.name}</div>
+              {!readOnly && (
+                <button className="lp-icon-btn" title="Rename milestone"
+                  onClick={() => { setNameVal(snap.name); setEditingName(true) }}><Icon.Pencil /></button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      <div>
+        <div className="props-section-title">Saved</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {new Date(snap.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' } as any)}
+        </div>
+      </div>
+      <div>
+        <div className="props-section-title">Contents</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          {nodeCount} node{nodeCount !== 1 ? 's' : ''} · {relationCount} relation{relationCount !== 1 ? 's' : ''}
+        </div>
+      </div>
+      {!readOnly && (
+        <>
+          <button
+            className="lp-icon-btn"
+            style={{ justifyContent: 'center', width: '100%', padding: '6px 0', fontSize: 12, gap: 6, borderRadius: 6, marginTop: 4, display: 'flex', alignItems: 'center' }}
+            title="Restore this milestone as the current live state"
+            onClick={() => { restoreSnapshot(snap.id); onClose() }}
+          >
+            <Icon.Restore /> Restore to live
+          </button>
+          <button className="props-delete" onClick={() => { removeSnapshot(snap.id); onClose() }}>
+            🗑 Delete milestone
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── View list (left panel) ────────────────────────────────────────────────────
 
-function ViewList({ readOnly = false }: { readOnly?: boolean }) {
+function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpenProps?: (viewId: string) => void }) {
   const views = useDiagramStore((s) => s.views)
   const sequences = useDiagramStore((s) => s.sequences)
   const activeViewId = useDiagramStore((s) => s.activeViewId)
   const setActiveView = useDiagramStore((s) => s.setActiveView)
   const addView = useDiagramStore((s) => s.addView)
-  const removeView = useDiagramStore((s) => s.removeView)
-  const renameView = useDiagramStore((s) => s.renameView)
-  const setViewKind = useDiagramStore((s) => s.setViewKind)
-  const setViewSequence = useDiagramStore((s) => s.setViewSequence)
   const totalNodes = useDiagramStore((s) => Object.keys(s.c4Nodes).length)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
   const viewList = Object.values(views)
-  const seqList = Object.values(sequences)
-
-  const commit = () => {
-    if (editingId && editName.trim()) renameView(editingId, editName.trim())
-    setEditingId(null)
-  }
 
   return (
     <div className="lp-view-list">
@@ -685,95 +789,33 @@ function ViewList({ readOnly = false }: { readOnly?: boolean }) {
       </div>
       {viewList.map((v) => {
         const isActive = activeViewId === v.id
-        const isEditing = editingId === v.id
         const isDynamic = v.kind === 'dynamic'
         return (
           <div key={v.id}>
             <div
               className={`lp-card lp-view-card${isActive ? ' active' : ''}`}
-              onClick={() => !isEditing && setActiveView(v.id)}
+              onClick={() => setActiveView(v.id)}
             >
               <div className="lp-view-icon" style={{ color: isDynamic ? 'var(--accent)' : undefined }}>
                 {isDynamic ? <Icon.Bolt /> : <Icon.Layers />}
               </div>
               <div className="lp-card-body">
-                {!readOnly && isEditing ? (
-                  <input
-                    className="lp-inline-input"
-                    autoFocus
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onBlur={commit}
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditingId(null) }}
-                  />
-                ) : (
-                  <div
-                    className="lp-card-title"
-                    onDoubleClick={readOnly ? undefined : (e) => { e.stopPropagation(); setEditingId(v.id); setEditName(v.name) }}
-                  >
-                    {v.name}
-                  </div>
-                )}
-                {!isEditing && (
-                  <div className="lp-card-meta">
-                    <span>{v.nodeIds.length} {v.nodeIds.length === 1 ? 'node' : 'nodes'}</span>
-                    {isDynamic && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>dynamic</span>}
-                  </div>
-                )}
+                <div className="lp-card-title">{v.name}</div>
+                <div className="lp-card-meta">
+                  <span>{v.nodeIds.length} {v.nodeIds.length === 1 ? 'node' : 'nodes'}</span>
+                  {isDynamic && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>dynamic</span>}
+                </div>
               </div>
-              {!readOnly && !isEditing && (
+              {!readOnly && onOpenProps && (
                 <div className="lp-card-actions">
                   <button
                     className="lp-icon-btn"
-                    onClick={(e) => { e.stopPropagation(); setViewKind(v.id, isDynamic ? 'static' : 'dynamic') }}
-                    title={isDynamic ? 'Switch to static view' : 'Switch to dynamic view'}
-                    style={{ color: isDynamic ? 'var(--accent)' : undefined }}
-                  ><Icon.Bolt /></button>
-                  <button
-                    className="lp-icon-btn"
-                    onClick={(e) => { e.stopPropagation(); setEditingId(v.id); setEditName(v.name) }}
-                    title="Rename view"
-                  ><Icon.Pencil /></button>
-                  <button
-                    className="lp-icon-btn danger"
-                    onClick={(e) => { e.stopPropagation(); removeView(v.id) }}
-                    title="Delete view"
-                  ><Icon.Trash /></button>
+                    onClick={(e) => { e.stopPropagation(); onOpenProps(v.id) }}
+                    title="View properties"
+                  ><Icon.Settings /></button>
                 </div>
               )}
             </div>
-            {isDynamic && !isEditing && (
-              <div style={{ padding: '2px 8px 6px', marginLeft: 10 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 3 }}>Sequence</div>
-                {readOnly ? (
-                  <div style={{ fontSize: 11, color: 'var(--text)' }}>
-                    {v.sequenceId && sequences[v.sequenceId] ? sequences[v.sequenceId].name : <span style={{ opacity: 0.5, fontStyle: 'italic' }}>none</span>}
-                  </div>
-                ) : (
-                  <select
-                    value={v.sequenceId ?? ''}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => setViewSequence(v.id, e.target.value || null)}
-                    style={{
-                      width: '100%',
-                      fontSize: 11,
-                      padding: '3px 6px',
-                      background: 'var(--surface-2, rgba(255,255,255,0.06))',
-                      border: '1px solid var(--border)',
-                      borderRadius: 4,
-                      color: 'var(--text)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <option value="">— none —</option>
-                    {seqList.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
           </div>
         )
       })}
@@ -781,8 +823,7 @@ function ViewList({ readOnly = false }: { readOnly?: boolean }) {
         <button className="lp-add-btn" onClick={() => {
           const id = addView(`View ${viewList.length + 1}`)
           setActiveView(id)
-          setEditingId(id)
-          setEditName(`View ${viewList.length + 1}`)
+          if (onOpenProps) onOpenProps(id)
         }}>
           <Icon.Plus /> New view
         </button>
@@ -828,45 +869,67 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
   const viewsCount = useDiagramStore((s) => Object.keys(s.views).length)
   const snapshotsCount = useDiagramStore((s) => s.snapshots.length)
 
+  const defaultSection = mode === 'designer' ? 'elements' : 'views'
+  const [openSection, setOpenSection] = useState<'elements' | 'views' | 'milestones'>(defaultSection as any)
+  type PaneContent = { kind: 'view'; id: string } | { kind: 'milestone'; id: string }
+  const [paneContent, setPaneContent] = useState<PaneContent | null>(null)
+  const hasPaneContent = !!paneContent
+
   const toggle = onToggleCollapsed && (
     <PanelToggle side="left" collapsed={collapsed} onToggle={onToggleCollapsed} />
   )
 
-  if (mode === 'viewer') {
-    return (
-      <div className={`left-panel${collapsed ? ' collapsed' : ''}`}>
-        <div className="panel-content">
-          <AccordionSection title="Views" count={viewsCount}>
-            <ViewList readOnly={true} />
-          </AccordionSection>
-          <AccordionSection title="Milestones" defaultOpen={false} count={snapshotsCount}>
-            <SnapshotList readOnly={true} />
-          </AccordionSection>
-        </div>
-        {toggle}
-      </div>
-    )
-  }
-
   return (
     <div className={`left-panel${collapsed ? ' collapsed' : ''}`}>
       <div className="panel-content">
-        {mode === 'designer' && (
-          <AccordionSection title="Elements">
-            {PALETTE_ITEMS.map((item) => (
-              <PaletteItem key={item.type} {...item} />
-            ))}
-            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, padding: '0 4px' }}>
-              Drag to canvas · Double-click canvas to add System
-            </div>
-          </AccordionSection>
-        )}
-        <AccordionSection title="Views" count={viewsCount}>
-          <ViewList readOnly={isReadOnly} />
-        </AccordionSection>
-        <AccordionSection title="Milestones" defaultOpen={false} count={snapshotsCount}>
-          <SnapshotList readOnly={isReadOnly} />
-        </AccordionSection>
+        <div className={`rp-slider${hasPaneContent ? ' show-props' : ''}`}>
+
+          {/* Pane 1 — accordion */}
+          <div className="rp-pane">
+            {mode === 'designer' && (
+              <AccordionSection title="Elements"
+                open={openSection === 'elements'} onToggle={() => setOpenSection('elements')}>
+                {PALETTE_ITEMS.map((item) => (
+                  <PaletteItem key={item.type} {...item} />
+                ))}
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, padding: '0 4px' }}>
+                  Drag to canvas · Double-click canvas to add System
+                </div>
+              </AccordionSection>
+            )}
+            <AccordionSection title="Views" count={viewsCount}
+              open={openSection === 'views'} onToggle={() => setOpenSection('views')}>
+              <ViewList
+                readOnly={isReadOnly}
+                onOpenProps={!isReadOnly ? (id) => { setPaneContent({ kind: 'view', id }); setOpenSection('views') } : undefined}
+              />
+            </AccordionSection>
+            <AccordionSection title="Milestones" count={snapshotsCount}
+              open={openSection === 'milestones'} onToggle={() => setOpenSection('milestones')}>
+              <SnapshotList readOnly={isReadOnly} onOpenProps={!isReadOnly ? (id) => { setPaneContent({ kind: 'milestone', id }); setOpenSection('milestones') } : undefined} />
+            </AccordionSection>
+          </div>
+
+          {/* Pane 2 — view / milestone properties */}
+          <div className="rp-pane">
+            <button className="rp-back-btn" onClick={() => setPaneContent(null)}>◀ Back</button>
+            {paneContent?.kind === 'view' && (
+              <ViewPropertiesContent
+                viewId={paneContent.id}
+                readOnly={isReadOnly}
+                onClose={() => setPaneContent(null)}
+              />
+            )}
+            {paneContent?.kind === 'milestone' && (
+              <MilestonePropertiesContent
+                snapId={paneContent.id}
+                readOnly={isReadOnly}
+                onClose={() => setPaneContent(null)}
+              />
+            )}
+          </div>
+
+        </div>
       </div>
       {toggle}
     </div>
@@ -949,13 +1012,13 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
             No steps yet
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
             {seq.relationIds.map((relId, idx) => {
               const rel = c4Relations[relId]
               const src = rel ? c4Nodes[rel.sourceId] : null
               const tgt = rel ? c4Nodes[rel.targetId] : null
               return (
-                <div key={relId} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '5px 7px' }}>
+                <div key={relId} className="seq-step" style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '5px 7px' }}>
                   <span style={{
                     width: 20, height: 20, borderRadius: '50%',
                     background: 'var(--accent)', color: '#fff',
@@ -974,17 +1037,17 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
                     )}
                   </div>
                   {!readOnly && (
-                    <div style={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+                    <div className="seq-step-actions">
                       <button style={{ ...btnStyle, opacity: idx === 0 ? 0.3 : 1 }} disabled={idx === 0}
                         onClick={() => reorderSequence(seq.id, idx, idx - 1)} title="Move up"><Icon.ArrowUp /></button>
                       <button style={{ ...btnStyle, opacity: idx === seq.relationIds.length - 1 ? 0.3 : 1 }}
                         disabled={idx === seq.relationIds.length - 1}
                         onClick={() => reorderSequence(seq.id, idx, idx + 1)} title="Move down"><Icon.ArrowDown /></button>
                       <button
-                        className="lp-icon-btn danger"
+                        style={{ ...btnStyle, color: 'var(--danger, #ef4444)' }}
                         onClick={() => removeFromSequence(seq.id, idx)}
                         title="Remove step"
-                      ><Icon.Trash /></button>
+                      ><Icon.Close /></button>
                     </div>
                   )}
                 </div>

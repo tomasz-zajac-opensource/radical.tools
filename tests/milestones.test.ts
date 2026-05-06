@@ -13,6 +13,8 @@
  *     surviving nodes (only newly-introduced nodes take their snapshot
  *     positions)
  *   - restoreSnapshot loads the snapshot into c4Nodes/c4Relations
+ *   - renameSnapshot updates the name
+ *   - removeSnapshot deletes the milestone; if active, restores live HEAD
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useDiagramStore } from '../src/renderer/src/store/diagramStore'
@@ -131,5 +133,45 @@ describe('restoreSnapshot', () => {
     expect(s.activeSnapshotId).toBe('snap-1')
     // v1 had only sys1 + ctn1 + ctn2 + usr1
     expect(Object.keys(s.c4Nodes).sort()).toEqual(['ctn1', 'ctn2', 'sys1', 'usr1'])
+  })
+})
+
+describe('renameSnapshot', () => {
+  it('updates the milestone name', () => {
+    useDiagramStore.getState().renameSnapshot('snap-1', 'New Name')
+    const snap = useDiagramStore.getState().snapshots.find((s: any) => s.id === 'snap-1')!
+    expect(snap.name).toBe('New Name')
+  })
+
+  it('is a no-op for unknown ids', () => {
+    expect(() => useDiagramStore.getState().renameSnapshot('nonexistent', 'X')).not.toThrow()
+  })
+})
+
+describe('removeSnapshot', () => {
+  it('deletes the snapshot from the list', () => {
+    const before = useDiagramStore.getState().snapshots.length
+    useDiagramStore.getState().removeSnapshot('snap-2')
+    expect(useDiagramStore.getState().snapshots.length).toBe(before - 1)
+    expect(useDiagramStore.getState().snapshots.find((s: any) => s.id === 'snap-2')).toBeUndefined()
+  })
+
+  it('restores live HEAD and clears flags when the active milestone is removed', () => {
+    // Enter milestone view mode
+    useDiagramStore.getState().selectMilestone('snap-2')
+    expect(useDiagramStore.getState().activeSnapshotId).toBe('snap-2')
+
+    useDiagramStore.getState().removeSnapshot('snap-2')
+    const s = useDiagramStore.getState()
+    expect(s.activeSnapshotId).toBeNull()
+    expect(Object.keys(s.diffHighlight)).toHaveLength(0)
+    expect(s.diffBaseSnapshotId).toBeNull()
+    expect(s.snapshots.find((x: any) => x.id === 'snap-2')).toBeUndefined()
+  })
+
+  it('does not affect activeSnapshotId when a different snapshot is removed', () => {
+    useDiagramStore.getState().selectMilestone('snap-1')
+    useDiagramStore.getState().removeSnapshot('snap-2')
+    expect(useDiagramStore.getState().activeSnapshotId).toBe('snap-1')
   })
 })

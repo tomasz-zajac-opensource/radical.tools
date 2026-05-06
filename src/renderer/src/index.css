@@ -951,8 +951,7 @@ body {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   transition: opacity 0.18s ease;
 }
 .left-panel.collapsed .panel-content {
@@ -1130,6 +1129,26 @@ body {
 }
 .lp-card.active .lp-card-actions {
   max-width: 80px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Step items inside sequence detail */
+.seq-step {
+  overflow: hidden;
+  min-width: 0;
+}
+.seq-step-actions {
+  display: flex; gap: 1px; align-items: center; flex-shrink: 0;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-width 0.18s ease, opacity 0.15s ease;
+}
+.seq-step:hover .seq-step-actions,
+.seq-step:focus-within .seq-step-actions {
+  max-width: 64px;
   opacity: 1;
   pointer-events: auto;
 }

@@ -9,6 +9,11 @@
  *   - setActiveView in VIEWER (explore mode) only flips activeViewId —
  *     it does NOT save current positions to the outgoing view, and does
  *     NOT load the incoming view's positions onto c4Nodes
+ *   - renameView updates the name
+ *   - removeView deletes the view; if it was active, resets activeViewId to null
+ *   - setViewKind toggles static / dynamic
+ *   - setViewSequence links / unlinks a sequence
+ *   - addViewFromSequence creates a dynamic view with nodes from the sequence
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useDiagramStore } from '../src/renderer/src/store/diagramStore'
@@ -125,5 +130,110 @@ describe('setActiveView in viewer (explore) mode', () => {
     expect(n.y).toBe(777)
     // 3. defaultPositions were NOT overwritten with mid-explore coords
     expect(JSON.stringify(useDiagramStore.getState().defaultPositions)).toBe(dpBefore)
+  })
+})
+
+describe('renameView', () => {
+  it('updates the view name', () => {
+    const vid = useDiagramStore.getState().addView('Old Name')
+    useDiagramStore.getState().renameView(vid, 'New Name')
+    expect(useDiagramStore.getState().views[vid].name).toBe('New Name')
+  })
+
+  it('is a no-op for unknown ids', () => {
+    expect(() => useDiagramStore.getState().renameView('nonexistent', 'X')).not.toThrow()
+  })
+})
+
+describe('removeView', () => {
+  it('deletes the view from the store', () => {
+    const vid = useDiagramStore.getState().addView('To Remove')
+    useDiagramStore.getState().removeView(vid)
+    expect(useDiagramStore.getState().views[vid]).toBeUndefined()
+  })
+
+  it('resets activeViewId to null when the active view is removed', () => {
+    const vid = useDiagramStore.getState().addView('Active View')
+    useDiagramStore.getState().setActiveView(vid)
+    expect(useDiagramStore.getState().activeViewId).toBe(vid)
+    useDiagramStore.getState().removeView(vid)
+    expect(useDiagramStore.getState().activeViewId).toBeNull()
+  })
+
+  it('leaves activeViewId unchanged when a different view is removed', () => {
+    const v1 = useDiagramStore.getState().addView('Keep')
+    const v2 = useDiagramStore.getState().addView('Remove')
+    useDiagramStore.getState().setActiveView(v1)
+    useDiagramStore.getState().removeView(v2)
+    expect(useDiagramStore.getState().activeViewId).toBe(v1)
+    expect(useDiagramStore.getState().views[v2]).toBeUndefined()
+  })
+})
+
+describe('setViewKind', () => {
+  it('changes kind to dynamic', () => {
+    const vid = useDiagramStore.getState().addView('V')
+    useDiagramStore.getState().setViewKind(vid, 'dynamic')
+    expect(useDiagramStore.getState().views[vid].kind).toBe('dynamic')
+  })
+
+  it('changes kind back to static', () => {
+    const vid = useDiagramStore.getState().addView('V')
+    useDiagramStore.getState().setViewKind(vid, 'dynamic')
+    useDiagramStore.getState().setViewKind(vid, 'static')
+    expect(useDiagramStore.getState().views[vid].kind).toBe('static')
+  })
+})
+
+describe('setViewSequence', () => {
+  it('links a sequence id onto the view', () => {
+    const vid = useDiagramStore.getState().addView('V')
+    useDiagramStore.getState().setViewSequence(vid, 'seq-abc')
+    expect(useDiagramStore.getState().views[vid].sequenceId).toBe('seq-abc')
+  })
+
+  it('unlinks when called with null', () => {
+    const vid = useDiagramStore.getState().addView('V')
+    useDiagramStore.getState().setViewSequence(vid, 'seq-abc')
+    useDiagramStore.getState().setViewSequence(vid, null)
+    expect(useDiagramStore.getState().views[vid].sequenceId).toBeUndefined()
+  })
+})
+
+describe('addViewFromSequence', () => {
+  it('creates a dynamic view with nodes from the sequence relations', () => {
+    // Create a sequence with two relations involving distinct nodes
+    const seqId = useDiagramStore.getState().addSequence('Test Seq')
+    // Pick two existing relations from the sample data
+    const relIds = Object.keys(useDiagramStore.getState().c4Relations).slice(0, 2)
+    for (const relId of relIds) {
+      useDiagramStore.getState().toggleRelationInSequence(seqId, relId)
+    }
+
+    const viewsBefore = Object.keys(useDiagramStore.getState().views).length
+    const vid = useDiagramStore.getState().addViewFromSequence(seqId)
+    const view = useDiagramStore.getState().views[vid]
+
+    expect(view).toBeDefined()
+    expect(view.kind).toBe('dynamic')
+    expect(view.sequenceId).toBe(seqId)
+    expect(Object.keys(useDiagramStore.getState().views).length).toBe(viewsBefore + 1)
+
+    // View nodes should include source + target of each relation
+    const rels = useDiagramStore.getState().c4Relations
+    const expectedNodes = new Set<string>()
+    for (const relId of relIds) {
+      expectedNodes.add(rels[relId].sourceId)
+      expectedNodes.add(rels[relId].targetId)
+    }
+    for (const nid of expectedNodes) {
+      expect(view.nodeIds).toContain(nid)
+    }
+  })
+
+  it('activates the newly created view', () => {
+    const seqId = useDiagramStore.getState().addSequence('Seq')
+    const vid = useDiagramStore.getState().addViewFromSequence(seqId)
+    expect(useDiagramStore.getState().activeViewId).toBe(vid)
   })
 })
