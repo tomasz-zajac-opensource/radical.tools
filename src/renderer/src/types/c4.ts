@@ -85,6 +85,16 @@ export interface DiagramView {
    * Optional for backwards compat with persisted views.
    */
   viewport?: { x: number; y: number; zoom: number }
+  /**
+   * Auto-layout strategy used when the user invokes "Smart Layout" while
+   * this view is active.
+   *  - 'auto' (default, undefined) — current behaviour: ensemble Smart Layout.
+   *  - 'tree'                      — hierarchical nested tree layout (ELK
+   *                                  mrtree per container, top-down).
+   * Useful for views populated mostly with domain objects, where a clean
+   * containment-tree visualisation is preferable to a force/layered graph.
+   */
+  layoutMode?: 'auto' | 'tree'
 }
 
 /** Named snapshot (version) of the diagram state */

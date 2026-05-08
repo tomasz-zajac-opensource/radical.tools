@@ -83,6 +83,21 @@ const IconSmartLayout = () => (
   </svg>
 )
 
+// Hierarchical tree icon — root branching down to two children, each with two
+// leaves. Used when the active view is configured for the nested-tree layout.
+const IconTreeLayout = () => (
+  <svg className="toolbar-btn-accent-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="8" cy="2.5" r="1.2" />
+    <circle cx="4" cy="8" r="1.2" />
+    <circle cx="12" cy="8" r="1.2" />
+    <circle cx="2.5" cy="13.5" r="1" />
+    <circle cx="5.5" cy="13.5" r="1" />
+    <circle cx="10.5" cy="13.5" r="1" />
+    <circle cx="13.5" cy="13.5" r="1" />
+    <path d="M8 3.7v1.5M8 5.2L4 6.8M8 5.2l4 1.6M4 9.2v1.5M4 10.7l-1.5 1.8M4 10.7l1.5 1.8M12 9.2v1.5M12 10.7l-1.5 1.8M12 10.7l1.5 1.8" />
+  </svg>
+)
+
 const IconSearch = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
     <circle cx="7" cy="7" r="4.5" />
@@ -351,6 +366,9 @@ export function Toolbar(): React.ReactElement {
   const fitAll = useDiagramStore((s) => s.fitAll)
   const runSmartLayout = useDiagramStore((s) => s.runSmartLayout)
   const isLayoutRunning = useDiagramStore((s) => s.isLayoutRunning)
+  const activeViewLayoutMode = useDiagramStore((s) =>
+    s.activeViewId ? s.views[s.activeViewId]?.layoutMode ?? 'auto' : 'auto'
+  )
   const connectionModifier = useDiagramStore((s) => s.connectionModifier)
   const setConnectionModifier = useDiagramStore((s) => s.setConnectionModifier)
 
@@ -446,9 +464,17 @@ export function Toolbar(): React.ReactElement {
         className="toolbar-btn toolbar-btn-accent"
         onClick={() => { void runSmartLayout() }}
         disabled={isLayoutRunning || appMode === 'metamodel'}
-        title="Smart Layout — ensemble of layered + semantic algorithms with edge-crossing minimisation, picks the cleanest result."
+        title={
+          activeViewLayoutMode === 'tree'
+            ? 'Tree Layout — hierarchical nested-tree arrangement (configured for the active view).'
+            : 'Smart Layout — ensemble of layered + semantic algorithms with edge-crossing minimisation, picks the cleanest result.'
+        }
       >
-        <IconSmartLayout /> Smart Layout
+        {activeViewLayoutMode === 'tree' ? (
+          <><IconTreeLayout /> Tree Layout</>
+        ) : (
+          <><IconSmartLayout /> Smart Layout</>
+        )}
       </button>
 
       <div className="toolbar-sep" />

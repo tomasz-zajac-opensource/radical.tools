@@ -38,7 +38,7 @@ import {
   isParentAllowed,
   canAddMoreOfType,
 } from '../types/metamodel'
-import { applyElkLayout } from '../layout/elkLayout'
+import { applyElkLayout, applyTreeLayout } from '../layout/elkLayout'
 import { applyColaLayout } from '../layout/colaLayout'
 import { applyRadicalLayout } from '../layout/radicalLayout'
 import { runSmartLayout } from '../layout/smartLayout'
@@ -840,6 +840,8 @@ interface DiagramStore {
   unhideRelationInView: (viewId: string, relationId: string) => void
   /** Switch a view between 'static' and 'dynamic'. */
   setViewKind: (viewId: string, kind: 'static' | 'dynamic') => void
+  /** Choose the auto-layout strategy used for this view. */
+  setViewLayoutMode: (viewId: string, mode: 'auto' | 'tree') => void
   /** Link/unlink a sequence to a dynamic view. */
   setViewSequence: (viewId: string, sequenceId: string | null) => void
   /**
@@ -876,6 +878,7 @@ interface DiagramStore {
   runColaLayout: () => void
   runRadicalLayout: () => void
   runReferenceLayout: () => void
+  runTreeLayout: () => Promise<void>
   runSmartLayout: () => Promise<void>
   setLayoutMode: (mode: 'elk' | 'cola' | 'radical') => void
   startLiveLayout: (opts?: { skipBulk?: boolean }) => void
@@ -2086,6 +2089,15 @@ export const useDiagramStore = create<DiagramStore>()(
         get()._sync()
       },
 
+      setViewLayoutMode(viewId, mode) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.layoutMode = mode
+        })
+        get()._sync()
+      },
+
       setViewSequence(viewId, sequenceId) {
         set((state) => {
           const view = state.views[viewId]
@@ -2590,11 +2602,81 @@ export const useDiagramStore = create<DiagramStore>()(
         }
       },
 
+      async runTreeLayout() {
+        if (get().appMode === 'metamodel') return
+        set((state) => { state.isLayoutRunning = true })
+        try {
+          const state = get()
+          const view = state.activeViewId ? state.views[state.activeViewId] : undefined
+          const vf = computeViewNodeSet(view, state.c4Nodes)
+          const vcs = computeViewCollapsedSet(vf, state.c4Nodes)
+          const { nodes: c4Nodes, relations: c4Relations } = filterForView(state.c4Nodes, state.c4Relations, vf, vcs)
+          const positions = await applyTreeLayout(c4Nodes, c4Relations)
+          get()._markMilestoneEdit()
+          set((state) => {
+            for (const [id, pos] of Object.entries(positions)) {
+              const node = state.c4Nodes[id]
+              if (!node) continue
+              node.x = pos.x
+              node.y = pos.y
+              if (pos.width)  node.width  = pos.width
+              if (pos.height) node.height = pos.height
+            }
+          })
+          get()._resizeParentsBottomUp(vf, vcs)
+
+          // Final collision-safety pass at root level.
+          const { nodes: safetyNodes } = filterForView(get().c4Nodes, get().c4Relations, vf, vcs)
+          const rootIds = Object.values(safetyNodes)
+            .filter((n) => !n.parentId)
+            .map((n) => n.id)
+          for (const id of rootIds) {
+            const updates = separateSiblings(id, safetyNodes)
+            if (Object.keys(updates).length > 0) {
+              set((state) => {
+                for (const [sid, pos] of Object.entries(updates)) {
+                  const n = state.c4Nodes[sid]
+                  if (n) { n.x = pos.x; n.y = pos.y }
+                }
+              })
+            }
+          }
+          get()._sync()
+
+          // Drop cola caches so the live layout doesn't snap nodes back to
+          // their pre-layout positions on the next rebuild.
+          _liveLayout?.reset()
+          if (typeof window !== 'undefined') {
+            const flush = (window as any).__radicalFlushPersist as (() => Promise<void>) | undefined
+            void flush?.()
+          }
+          if (typeof requestAnimationFrame !== 'undefined') {
+            requestAnimationFrame(() => { _getFitViewFn()?.() })
+          } else {
+            _getFitViewFn()?.()
+          }
+          get().pushNotification('Hierarchical tree layout applied.', 'info')
+        } finally {
+          set((state) => { state.isLayoutRunning = false })
+        }
+      },
+
       async runSmartLayout() {
         // Allowed in designer and viewer (viewer = explore: positions are
         // reverted on exit by the __preModeLayout snapshot in setAppMode).
         // Disallowed in metamodel where the canvas isn't shown.
         if (get().appMode === 'metamodel') return
+        // Per-view layout-mode override: views configured for the
+        // hierarchical nested-tree strategy delegate here. Default is
+        // unchanged (ensemble Smart Layout).
+        {
+          const s = get()
+          const v = s.activeViewId ? s.views[s.activeViewId] : undefined
+          if (v?.layoutMode === 'tree') {
+            await get().runTreeLayout()
+            return
+          }
+        }
         set((state) => { state.isLayoutRunning = true })
         try {
           const state = get()

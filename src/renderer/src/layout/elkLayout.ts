@@ -198,3 +198,70 @@ export async function applyElkLayout(
     return {}
   }
 }
+
+// ─── Hierarchical nested-tree layout ────────────────────────────────────────
+//
+// Top-down layered layout applied at every nesting level (root + every
+// compound container). Designed for views dominated by domain objects where
+// containment hierarchy is the dominant visual structure: each parent stacks
+// its children vertically into clear "rows", producing a nested-tree feel.
+//
+// We deliberately stay on ELK's "layered" algorithm (not "mrtree") because
+// real diagrams almost always contain cross-references between siblings,
+// which break mrtree's strict tree assumption and yield poor placements.
+// Layered handles arbitrary DAGs and falls back gracefully on cycles.
+
+const TREE_ROOT_OPTIONS: LayoutOptions = {
+  'elk.algorithm': 'layered',
+  'elk.direction': 'DOWN',
+  'elk.separateConnectedComponents': 'true',
+  'elk.spacing.componentComponent': '60',
+  'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+  'elk.layered.crossingMinimization.greedySwitch.type': 'TWO_SIDED',
+  'elk.layered.thoroughness': '50',
+  // Honour input order so siblings stay close to their declared grouping —
+  // the dominant cue users associate with "tree" layouts.
+  'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+  'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+  'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
+  'elk.spacing.nodeNode': '50',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '70',
+  'elk.spacing.edgeNode': '20',
+  'elk.spacing.edgeEdge': '10',
+  'elk.layered.compaction.postCompaction.strategy': 'LEFT',
+  'elk.layered.unnecessaryBendpoints': 'true',
+  'elk.padding': '[top=120, right=30, bottom=30, left=30]',
+}
+
+const TREE_CHILD_OPTIONS: LayoutOptions = {
+  // Children of every compound container also flow top-down — this is what
+  // produces the visible "nested tree" look (vs. the default ELK config
+  // where compound children flow left-to-right).
+  'elk.algorithm': 'layered',
+  'elk.direction': 'DOWN',
+  'elk.separateConnectedComponents': 'true',
+  'elk.spacing.componentComponent': '30',
+  'elk.layered.crossingMinimization.strategy': 'LAYER_SWEEP',
+  'elk.layered.crossingMinimization.greedySwitch.type': 'TWO_SIDED',
+  'elk.layered.thoroughness': '50',
+  'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+  'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+  'elk.layered.nodePlacement.bk.fixedAlignment': 'BALANCED',
+  'elk.spacing.nodeNode': '28',
+  'elk.layered.spacing.nodeNodeBetweenLayers': '40',
+  'elk.spacing.edgeNode': '12',
+  'elk.spacing.edgeEdge': '8',
+  'elk.layered.compaction.postCompaction.strategy': 'LEFT',
+  'elk.layered.unnecessaryBendpoints': 'true',
+  'elk.padding': '[top=110, right=20, bottom=20, left=20]',
+}
+
+export async function applyTreeLayout(
+  c4Nodes: Record<string, C4Node>,
+  c4Relations: Record<string, C4Relation>,
+): Promise<PositionMap> {
+  return applyElkLayout(c4Nodes, c4Relations, {
+    rootOptions: TREE_ROOT_OPTIONS,
+    childOptions: TREE_CHILD_OPTIONS,
+  })
+}

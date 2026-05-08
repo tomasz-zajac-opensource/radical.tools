@@ -8,6 +8,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
   const addView = useDiagramStore((s) => s.addView)
   const removeView = useDiagramStore((s) => s.removeView)
   const renameView = useDiagramStore((s) => s.renameView)
+  const setViewLayoutMode = useDiagramStore((s) => s.setViewLayoutMode)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -18,6 +19,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
   }, [editingId])
 
   const viewList = Object.values(views)
+  const activeView = activeViewId ? views[activeViewId] : null
 
   const handleAdd = () => {
     const id = addView(`View ${viewList.length + 1}`)
@@ -86,6 +88,48 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
         <button className="view-tab view-tab-add" onClick={handleAdd} title="New view">
           +
         </button>
+      )}
+      {!readOnly && (
+        <label
+          className="view-layout-mode"
+          title={
+            activeView
+              ? 'Auto-layout strategy applied when running Smart Layout for this view.'
+              : 'Select a view to choose its auto-layout strategy.'
+          }
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            padding: '0 8px',
+            whiteSpace: 'nowrap',
+            opacity: activeView ? 1 : 0.5,
+          }}
+        >
+          <span>Layout:</span>
+          <select
+            value={activeView?.layoutMode ?? 'auto'}
+            disabled={!activeView}
+            onChange={(e) =>
+              activeView && setViewLayoutMode(activeView.id, e.target.value as 'auto' | 'tree')
+            }
+            style={{
+              fontSize: 11,
+              padding: '2px 4px',
+              background: 'var(--input-bg, transparent)',
+              color: 'inherit',
+              border: '1px solid var(--border-color)',
+              borderRadius: 3,
+              cursor: activeView ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <option value="auto">Auto (Smart)</option>
+            <option value="tree">Hierarchical tree</option>
+          </select>
+        </label>
       )}
     </div>
   )

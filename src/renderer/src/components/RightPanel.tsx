@@ -590,6 +590,7 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
   const removeView = useDiagramStore((s) => s.removeView)
   const setViewKind = useDiagramStore((s) => s.setViewKind)
   const setViewSequence = useDiagramStore((s) => s.setViewSequence)
+  const setViewLayoutMode = useDiagramStore((s) => s.setViewLayoutMode)
   const setActiveView = useDiagramStore((s) => s.setActiveView)
   const [editingName, setEditingName] = useState(false)
   const [nameVal, setNameVal] = useState('')
@@ -658,6 +659,21 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
               }}
             ><Icon.Bolt /> Dynamic</button>
           </div>
+        </div>
+      )}
+      {!readOnly && (
+        <div>
+          <div className="props-section-title">Auto-layout</div>
+          <select
+            value={view.layoutMode ?? 'auto'}
+            onChange={(e) => setViewLayoutMode(view.id, e.target.value as 'auto' | 'tree')}
+            className="props-input"
+            style={{ cursor: 'pointer', width: '100%' }}
+            title="Layout strategy applied when running Smart Layout while this view is active. Use 'Hierarchical tree' for views dominated by domain objects."
+          >
+            <option value="auto">Auto (Smart Layout)</option>
+            <option value="tree">Hierarchical nested tree</option>
+          </select>
         </div>
       )}
       {isDynamic && (
