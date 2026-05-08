@@ -18,6 +18,7 @@ import {
   COLLAPSED_HEIGHT,
   COLLAPSED_WIDTH,
   NODE_SIZES,
+  isContainerType,
 } from '../types/c4'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,13 +47,13 @@ interface C4Group extends Group {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function effectiveWidth(n: C4Node): number {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed)
+  if (isContainerType(n.type) && n.collapsed)
     return COLLAPSED_WIDTH[n.type]
   return n.width ?? NODE_SIZES[n.type].width
 }
 
 function effectiveHeight(n: C4Node): number {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed)
+  if (isContainerType(n.type) && n.collapsed)
     return COLLAPSED_HEIGHT[n.type]
   return n.height ?? NODE_SIZES[n.type].height
 }
@@ -424,9 +425,12 @@ export class LiveColaLayout {
     const nodeIndex = new Map<string, number>()
     this.colaNodes.forEach((cn, i) => nodeIndex.set(cn.c4id, i))
 
-    // ── Groups bottom-up (containers then systems) ──────────────────────
+    // ── Groups bottom-up (leaf-containers like 'container' first) ──
+    // First pass: containers whose children are all leaves (no further nesting
+    // among groups). 'container' is a flat container in the C4 metamodel.
     for (const n of visibleNodes) {
-      if (!parentIds.has(n.id) || n.type !== 'container') continue
+      if (!parentIds.has(n.id)) continue
+      if (n.type !== 'container') continue
       const leafIndices = leafNodes
         .filter((c) => c.parentId === n.id)
         .map((c) => nodeIndex.get(c.id))
@@ -444,11 +448,10 @@ export class LiveColaLayout {
     const groupIndex = new Map<string, number>()
     this.colaGroups.forEach((g, i) => groupIndex.set(g.c4id, i))
 
-    // ── Systems bottom-up by depth ──────────────────────────────────────
-    // Systems can nest (system inside system inside system…). We need each
-    // parent system's group to reference its children's group indices, which
-    // means children must be added to colaGroups (and thus groupIndex) BEFORE
-    // their parent. Sort by ancestor depth descending — deepest first.
+    // ── Outer containers (system / domain) bottom-up by depth ───────────
+    // Systems and domains can nest. Each parent's group references its
+    // children's group indices, so children must be added to colaGroups
+    // BEFORE their parent. Sort by ancestor depth descending — deepest first.
     const depthCache = new Map<string, number>()
     const visibleNodeMap = new Map(visibleNodes.map(n => [n.id, n] as const))
     const depthOf = (id: string): number => {
@@ -459,11 +462,11 @@ export class LiveColaLayout {
       depthCache.set(id, d)
       return d
     }
-    const systemNodes = visibleNodes
-      .filter(n => parentIds.has(n.id) && n.type === 'system')
+    const outerContainerNodes = visibleNodes
+      .filter(n => parentIds.has(n.id) && (n.type === 'system' || n.type === 'domain'))
       .sort((a, b) => depthOf(b.id) - depthOf(a.id))
 
-    for (const n of systemNodes) {
+    for (const n of outerContainerNodes) {
       const childLeafIndices: number[] = []
       const childGroupIndices: number[] = []
       for (const c of visibleNodes.filter((v) => v.parentId === n.id)) {

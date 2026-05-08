@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { documents, useDocumentsStore, type DocumentMeta, type DocumentSource } from '../store/documentStore'
 import { useDiagramStore } from '../store/diagramStore'
+import { availableMetamodels } from '../types/metamodel'
 
 interface Props {
   open: boolean
@@ -30,6 +31,8 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   // input row instead of relying on the browser dialog.
   const [creatingNew, setCreatingNew] = useState(false)
   const [newName, setNewName] = useState('')
+  const presets = useMemo(() => availableMetamodels(), [])
+  const [newPresetId, setNewPresetId] = useState<string>(presets[0]?.id ?? 'c4-builtin')
   const saveDiagram = useDiagramStore((s) => s.saveDiagram)
 
   // Default the visible tab to the source of the active document so users
@@ -67,12 +70,16 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   const handleNewLSStart = (): void => {
     setCreatingNew(true)
     setNewName('Untitled')
+    setNewPresetId(presets[0]?.id ?? 'c4-builtin')
     setTab('ls')
   }
 
   const handleNewLSCommit = (): void => {
     const name = newName.trim() || 'Untitled'
-    documents.createLSDocument(name, { nodes: [], relations: [] } as any)
+    const preset = presets.find((p) => p.id === newPresetId)
+    const data: any = { nodes: [], relations: [] }
+    if (preset) data.metamodel = preset.build()
+    documents.createLSDocument(name, data)
     setCreatingNew(false)
     setNewName('')
     setTab('ls')
@@ -123,20 +130,40 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
     if (tab === 'ls') {
       if (creatingNew) {
         return (
-          <div className="docmgr-toolbar">
-            <input
-              className="docmgr-rename-input"
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Model name"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleNewLSCommit()
-                else if (e.key === 'Escape') handleNewLSCancel()
-              }}
-            />
-            <button className="docmgr-btn primary" onClick={handleNewLSCommit}>Create</button>
-            <button className="docmgr-btn" onClick={handleNewLSCancel}>Cancel</button>
+          <div className="docmgr-toolbar docmgr-toolbar-create">
+            <div className="docmgr-create-row">
+              <input
+                className="docmgr-rename-input"
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Model name"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleNewLSCommit()
+                  else if (e.key === 'Escape') handleNewLSCancel()
+                }}
+              />
+              <button className="docmgr-btn primary" onClick={handleNewLSCommit}>Create</button>
+              <button className="docmgr-btn" onClick={handleNewLSCancel}>Cancel</button>
+            </div>
+            <div className="docmgr-mm-picker">
+              <div className="docmgr-mm-picker-title">Choose a metamodel</div>
+              {presets.map((p) => {
+                const active = p.id === newPresetId
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`docmgr-mm-option${active ? ' active' : ''}`}
+                    onClick={() => setNewPresetId(p.id)}
+                    aria-pressed={active}
+                  >
+                    <div className="docmgr-mm-option-name">{p.name}</div>
+                    <div className="docmgr-mm-option-desc">{p.description}</div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )
       }

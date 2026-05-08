@@ -14,7 +14,7 @@
 
 import ELK from 'elkjs/lib/elk.bundled.js'
 import type { ElkNode, ElkExtendedEdge, LayoutOptions } from 'elkjs'
-import { C4Node, C4Relation, PositionMap, COLLAPSED_HEIGHT, COLLAPSED_WIDTH } from '../types/c4'
+import { C4Node, C4Relation, PositionMap, COLLAPSED_HEIGHT, COLLAPSED_WIDTH, isContainerType } from '../types/c4'
 
 const elk = new ELK()
 
@@ -110,7 +110,7 @@ function buildElkNode(
   allNodes: Record<string, C4Node>,
   elkNodeMap: ElkNodeMap
 ): ElkNode {
-  const isCollapsed = n.collapsed && (n.type === 'system' || n.type === 'container')
+  const isCollapsed = n.collapsed && isContainerType(n.type)
   const width  = isCollapsed ? COLLAPSED_WIDTH[n.type]  : n.width
   const height = isCollapsed ? COLLAPSED_HEIGHT[n.type] : n.height
   const childC4 = isCollapsed ? [] : Object.values(allNodes).filter((c) => c.parentId === n.id)

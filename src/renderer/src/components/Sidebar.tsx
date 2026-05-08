@@ -3,26 +3,39 @@ import { useDiagramStore } from '../store/diagramStore'
 import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS } from '../types/c4'
 
 function C4Icon({ type, size = 12 }: { type: C4ElementType; size?: number }) {
+  const mm = useDiagramStore((s) => s.metamodel)
+  const def = mm?.nodeTypes[type]
+  const color = def?.color ?? NODE_COLORS[type] ?? '#666'
+  const icon  = def?.iconPath ?? TYPE_ICON_PATHS[type] ?? ''
   return (
-    <svg viewBox="0 0 16 16" width={size} height={size} fill={NODE_COLORS[type]} style={{ flexShrink: 0 }}>
-      <path d={TYPE_ICON_PATHS[type]} />
+    <svg viewBox="0 0 16 16" width={size} height={size} fill={color} style={{ flexShrink: 0 }}>
+      <path d={icon} />
     </svg>
   )
 }
 
-const PALETTE_ITEMS: { type: C4ElementType; sublabel: string }[] = [
-  { type: 'person',    sublabel: 'Actor / user' },
-  { type: 'system',    sublabel: 'Software system' },
-  { type: 'container', sublabel: 'App, DB, service…' },
-  { type: 'component', sublabel: 'Class, module…' },
-  { type: 'database',  sublabel: 'Database store' },
-  { type: 'webapp',    sublabel: 'Web application' },
-  { type: 'queue',     sublabel: 'Message queue / bus' },
-]
+/** Optional sub-labels for the well-known C4 types; shown under the type name. */
+const C4_SUBLABELS: Record<string, string> = {
+  person:    'Actor / user',
+  system:    'Software system',
+  container: 'App, DB, service…',
+  component: 'Class, module…',
+  database:  'Database store',
+  webapp:    'Web application',
+  queue:     'Message queue / bus',
+  domain:    'DDD problem space',
+}
 
-function PaletteItem({ type, sublabel }: { type: C4ElementType; sublabel: string }) {
+function PaletteItem({ typeId }: { typeId: string }) {
+  const mm = useDiagramStore((s) => s.metamodel)
+  const def = mm?.nodeTypes[typeId]
+  const color = def?.color ?? NODE_COLORS[typeId as C4ElementType] ?? '#666'
+  const icon  = def?.iconPath ?? TYPE_ICON_PATHS[typeId as C4ElementType] ?? ''
+  const label = def?.label ?? TYPE_LABELS[typeId as C4ElementType] ?? typeId
+  const sublabel = C4_SUBLABELS[typeId] ?? ''
+
   const onDragStart = (event: React.DragEvent) => {
-    event.dataTransfer.setData('application/c4-type', type)
+    event.dataTransfer.setData('application/c4-type', typeId)
     event.dataTransfer.effectAllowed = 'copy'
   }
 
@@ -30,15 +43,15 @@ function PaletteItem({ type, sublabel }: { type: C4ElementType; sublabel: string
     <div className="palette-item" draggable onDragStart={onDragStart}>
       <div
         className="palette-badge"
-        style={{ background: NODE_COLORS[type] }}
+        style={{ background: color }}
       >
         <svg viewBox="0 0 16 16" width="16" height="16" fill="#fff">
-          <path d={TYPE_ICON_PATHS[type]} />
+          <path d={icon} />
         </svg>
       </div>
       <div>
-        <div className="palette-label">{TYPE_LABELS[type]}</div>
-        <div className="palette-sublabel">{sublabel}</div>
+        <div className="palette-label">{label}</div>
+        {sublabel && <div className="palette-sublabel">{sublabel}</div>}
       </div>
     </div>
   )
@@ -122,7 +135,16 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
 
 export function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => void }): React.ReactElement {
   const allNodes = useDiagramStore((s) => s.c4Nodes)
+  const metamodel = useDiagramStore((s) => s.metamodel)
   const rootNodes = Object.values(allNodes).filter((n) => !n.parentId)
+
+  // Order: domain first (when present), then standard C4 order, then any custom types last.
+  const C4_ORDER = ['domain', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
+  const allTypeIds = metamodel ? Object.keys(metamodel.nodeTypes) : C4_ORDER
+  const paletteIds = [
+    ...C4_ORDER.filter(t => allTypeIds.includes(t)),
+    ...allTypeIds.filter(t => !C4_ORDER.includes(t)),
+  ]
 
   return (
     <div className={`sidebar ${open ? '' : 'sidebar--closed'}`}>
@@ -134,8 +156,8 @@ export function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => voi
           {/* Palette */}
           <div className="sidebar-section">
             <div className="sidebar-section-title">Elements</div>
-            {PALETTE_ITEMS.map((item) => (
-              <PaletteItem key={item.type} {...item} />
+            {paletteIds.map((typeId) => (
+              <PaletteItem key={typeId} typeId={typeId} />
             ))}
             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
               Drag to canvas · Double-click canvas to add System

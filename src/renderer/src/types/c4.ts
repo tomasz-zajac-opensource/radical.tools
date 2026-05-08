@@ -2,7 +2,17 @@
 
 import type { Metamodel } from './metamodel'
 
-export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue'
+export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain'
+
+/** Types that act as containers (can hold children, collapse, auto-resize). */
+export const CONTAINER_TYPES: ReadonlySet<string> = new Set([
+  'system', 'container', 'domain',
+])
+
+/** True when the given node-type id behaves as a parent container. */
+export function isContainerType(type: string | undefined): boolean {
+  return !!type && CONTAINER_TYPES.has(type)
+}
 
 export interface C4Node {
   id: string
@@ -181,6 +191,7 @@ export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }
   database:  { width: 190, height: 130 },
   webapp:    { width: 210, height: 140 },
   queue:     { width: 220, height: 95 },
+  domain:    { width: 520, height: 360 },
 }
 
 export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
@@ -191,6 +202,7 @@ export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
   database:  130,
   webapp:    140,
   queue:     95,
+  domain:    220,
 }
 
 export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
@@ -201,6 +213,7 @@ export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
   database:  190,
   webapp:    210,
   queue:     220,
+  domain:    360,
 }
 
 export const NODE_COLORS: Record<C4ElementType, string> = {
@@ -211,6 +224,7 @@ export const NODE_COLORS: Record<C4ElementType, string> = {
   database:  '#438dd5',
   webapp:    '#438dd5',
   queue:     '#438dd5',
+  domain:    '#4c1d95',
 }
 
 export const NODE_FG: Record<C4ElementType, string> = {
@@ -221,6 +235,7 @@ export const NODE_FG: Record<C4ElementType, string> = {
   database:  '#fff',
   webapp:    '#fff',
   queue:     '#fff',
+  domain:    '#fff',
 }
 
 export const TYPE_LABELS: Record<C4ElementType, string> = {
@@ -231,6 +246,7 @@ export const TYPE_LABELS: Record<C4ElementType, string> = {
   database:  'Database',
   webapp:    'Web App',
   queue:     'Queue',
+  domain:    'Domain',
 }
 
 // ─── SVG icon paths (16×16 viewBox) ──────────────────────────────────────────
@@ -244,4 +260,6 @@ export const TYPE_ICON_PATHS: Record<C4ElementType, string> = {
   database:  'M8 1C4.7 1 2 2.3 2 4v8c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3ZM2 4c0 1.7 2.7 3 6 3s6-1.3 6-3',
   webapp:    'M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm1 2.5V13h10V5.5H3ZM4 3.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z',
   queue:     'M4 3a3 2 0 1 0 0 4h8a3 2 0 1 0 0-4H4Zm-2 5.5a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Zm10 0a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Z',
+  // Domain: large rounded boundary with inner dashed marks
+  domain:    'M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9Zm1.5 1A.5.5 0 0 0 3 5v6a.5.5 0 0 0 .5.5h9A.5.5 0 0 0 13 11V5a.5.5 0 0 0-.5-.5h-9ZM5 7h2v2H5V7Zm4 0h2v2H9V7Z',
 }

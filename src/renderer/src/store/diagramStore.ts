@@ -26,12 +26,14 @@ import {
   NODE_SIZES,
   COLLAPSED_HEIGHT,
   COLLAPSED_WIDTH,
+  isContainerType,
 } from '../types/c4'
 import {
   Metamodel,
   NodeTypeDef,
   RelationTypeDef,
   builtInC4Metamodel,
+  builtInDddC4Metamodel,
   isRelationAllowed,
   isParentAllowed,
   canAddMoreOfType,
@@ -338,7 +340,7 @@ function getDescendants(nodeId: string, nodes: Record<string, C4Node>): string[]
 
 /** Effective rendered height of a node (respects collapse + view collapse). */
 function effectiveNodeHeight(n: C4Node, viewCollapsedSet?: Set<string>): number {
-  if ((n.type === 'system' || n.type === 'container') && isEffectivelyCollapsed(n, viewCollapsedSet)) {
+  if (isContainerType(n.type) && isEffectivelyCollapsed(n, viewCollapsedSet)) {
     return COLLAPSED_HEIGHT[n.type]
   }
   return n.height
@@ -346,7 +348,7 @@ function effectiveNodeHeight(n: C4Node, viewCollapsedSet?: Set<string>): number 
 
 /** Effective rendered width of a node (respects collapse + view collapse). */
 function effectiveNodeWidth(n: C4Node, viewCollapsedSet?: Set<string>): number {
-  if ((n.type === 'system' || n.type === 'container') && isEffectivelyCollapsed(n, viewCollapsedSet)) {
+  if (isContainerType(n.type) && isEffectivelyCollapsed(n, viewCollapsedSet)) {
     return COLLAPSED_WIDTH[n.type]
   }
   return n.width
@@ -528,6 +530,7 @@ function deriveRFNodes(
     return d
   }
   const typeRank = (t: string): number => {
+    if (t === 'domain') return 0
     if (t === 'system') return 0
     if (t === 'container' || t === 'database' || t === 'webapp' || t === 'queue') return 1
     if (t === 'component') return 2
@@ -556,11 +559,11 @@ function deriveRFNodes(
     const collapsed = isEffectivelyCollapsed(n, viewCollapsedSet)
     const isGhost = ghostIds?.has(n.id) ?? false
     const effHeight =
-      (n.type === 'system' || n.type === 'container') && (collapsed || !hasChildren)
+      isContainerType(n.type) && (collapsed || !hasChildren)
         ? COLLAPSED_HEIGHT[n.type]
         : n.height
     const effWidth =
-      (n.type === 'system' || n.type === 'container') && (collapsed || !hasChildren)
+      isContainerType(n.type) && (collapsed || !hasChildren)
         ? COLLAPSED_WIDTH[n.type]
         : n.width
 
@@ -572,7 +575,7 @@ function deriveRFNodes(
       const parent = nodes[n.parentId]
       const parentExpanded =
         parent &&
-        (parent.type === 'system' || parent.type === 'container') &&
+        isContainerType(parent.type) &&
         !isEffectivelyCollapsed(parent, viewCollapsedSet) &&
         parentSet.has(parent.id)
       if (parentExpanded && renderY < PARENT_LABEL_PAD) {
@@ -617,7 +620,7 @@ function deriveRFNodes(
       // Stack deeper nodes above their ancestors so a sub-system rendered
       // inside another system doesn't get hidden behind it.
       zIndex: depthOf(n.id) * 10
-        + (n.type === 'system' ? 0 : n.type === 'container' ? 1 : 2),
+        + (n.type === 'domain' ? -1 : n.type === 'system' ? 0 : n.type === 'container' ? 1 : 2),
     })
   }
   return rfNodes
@@ -1086,11 +1089,15 @@ export const useDiagramStore = create<DiagramStore>()(
       initDefaultPositions = persisted.defaultPositions ?? snapshotPositions(initNodes)
       initSnapshots = persisted.snapshots ?? []
       initPres = buildPresentationsFromData(persisted.presentations, persisted.presentationSlides)
-      // Auto-refresh the built-in C4 preset so persisted documents pick up
+      // Auto-refresh built-in presets so persisted documents pick up
       // metamodel updates shipped with new app versions.
-      initMetamodel = (persisted.metamodel && persisted.metamodel.id !== 'c4-builtin')
-        ? persisted.metamodel
-        : builtInC4Metamodel()
+      initMetamodel = (() => {
+        const persistedMm = persisted.metamodel
+        if (!persistedMm) return builtInC4Metamodel()
+        if (persistedMm.id === 'c4-builtin') return builtInC4Metamodel()
+        if (persistedMm.id === 'c4-ddd-builtin') return builtInDddC4Metamodel()
+        return persistedMm
+      })()
       // Signal the boot startLiveLayout() call to skip cola's bulk phase
       // so the persisted positions aren't immediately overwritten.
       _initLoadedFromDisk = true
@@ -1367,8 +1374,8 @@ export const useDiagramStore = create<DiagramStore>()(
         if (prevCollapsed) {
           const allNodes = get().c4Nodes
           const parent = allNodes[id]
-          if (parent && (parent.type === 'system' || parent.type === 'container')) {
-            const HEADER_OFFSET = parent.type === 'system' ? 120 : 110
+          if (parent && isContainerType(parent.type)) {
+            const HEADER_OFFSET = (parent.type === 'container') ? 110 : 120
             const PAD = 24
             const children = Object.values(allNodes).filter((c) => c.parentId === id)
             if (children.length > 0) {
@@ -2328,7 +2335,7 @@ export const useDiagramStore = create<DiagramStore>()(
       fitParentToChildren(parentId, viewFilter, viewCollapsedSet) {
         const { c4Nodes } = get()
         const parent = c4Nodes[parentId]
-        if (!parent || (parent.type !== 'system' && parent.type !== 'container')) return
+        if (!parent || !isContainerType(parent.type)) return
         // Don't resize a collapsed node (model-collapsed or view-collapsed)
         if (isEffectivelyCollapsed(parent, viewCollapsedSet)) return
 
@@ -2338,8 +2345,8 @@ export const useDiagramStore = create<DiagramStore>()(
         if (children.length === 0) return
 
         // Padding matching ELK CHILD_OPTIONS (direction RIGHT, same for both levels)
-        const padRight  = parent.type === 'system' ? 30 : 20
-        const padBottom = parent.type === 'system' ? 30 : 20
+        const padRight  = (parent.type === 'container') ? 20 : 30
+        const padBottom = (parent.type === 'container') ? 20 : 30
 
         let maxRight = 0
         let maxBottom = 0
@@ -3644,9 +3651,13 @@ export const useDiagramStore = create<DiagramStore>()(
           state.presentationSlides = presInit.presentations[0].slides as any
           state.presentationActive = false
           state.presentationSlideIndex = 0
-          state.metamodel = ((data.metamodel && data.metamodel.id !== 'c4-builtin')
-            ? data.metamodel
-            : builtInC4Metamodel()) as any
+          state.metamodel = ((): any => {
+            const dm = data.metamodel
+            if (!dm) return builtInC4Metamodel()
+            if (dm.id === 'c4-builtin') return builtInC4Metamodel()
+            if (dm.id === 'c4-ddd-builtin') return builtInDddC4Metamodel()
+            return dm
+          })()
         })
         get()._sync()
         // skipBulk=true: loaded positions are already correct; the 110-iteration

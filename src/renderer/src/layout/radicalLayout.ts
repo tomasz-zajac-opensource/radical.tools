@@ -19,6 +19,7 @@ import {
   NODE_SIZES,
   COLLAPSED_HEIGHT,
   COLLAPSED_WIDTH,
+  isContainerType,
 } from '../types/c4'
 
 // ─── Configuration ───────────────────────────────────────────────────────────
@@ -43,14 +44,14 @@ function snap(v: number): number {
 }
 
 function effectiveWidth(n: C4Node): number {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed) {
+  if (isContainerType(n.type) && n.collapsed) {
     return COLLAPSED_WIDTH[n.type]
   }
   return n.width
 }
 
 function effectiveHeight(n: C4Node): number {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed) {
+  if (isContainerType(n.type) && n.collapsed) {
     return COLLAPSED_HEIGHT[n.type]
   }
   return n.height

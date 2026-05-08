@@ -36,7 +36,7 @@
  */
 
 import type { C4Node, C4Relation } from '../types/c4'
-import { COLLAPSED_WIDTH, COLLAPSED_HEIGHT } from '../types/c4'
+import { COLLAPSED_WIDTH, COLLAPSED_HEIGHT, isContainerType } from '../types/c4'
 
 // ── Geometry primitives ───────────────────────────────────────────────────────
 
@@ -86,7 +86,7 @@ function centre(r: Rect): Point {
 // ── Effective dimensions (collapsed nodes are smaller) ────────────────────────
 
 function effectiveDims(n: C4Node): { w: number; h: number } {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed) {
+  if (isContainerType(n.type) && n.collapsed) {
     return { w: COLLAPSED_WIDTH[n.type], h: COLLAPSED_HEIGHT[n.type] }
   }
   return { w: n.width, h: n.height }

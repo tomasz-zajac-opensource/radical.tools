@@ -1,6 +1,6 @@
 import React, { ChangeEvent, useState, useMemo } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS, NODE_FG } from '../types/c4'
+import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS, NODE_FG, isContainerType } from '../types/c4'
 // SlidesColumn was used here; now lives in the bottom PresenterDock
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -15,30 +15,41 @@ function C4Icon({ type, size = 12 }: { type: C4ElementType; size?: number }) {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE_ITEMS: { type: C4ElementType; sublabel: string }[] = [
-  { type: 'person',    sublabel: 'Actor / user' },
-  { type: 'system',    sublabel: 'Software system' },
-  { type: 'container', sublabel: 'App, DB, service…' },
-  { type: 'component', sublabel: 'Class, module…' },
-  { type: 'database',  sublabel: 'Database store' },
-  { type: 'webapp',    sublabel: 'Web application' },
-  { type: 'queue',     sublabel: 'Message queue / bus' },
-]
+// Sublabels for built-in C4/DDD types. Custom types fall back to def.description.
+const PALETTE_SUBLABELS: Record<string, string> = {
+  person:    'Actor / user',
+  system:    'Software system',
+  container: 'App, DB, service…',
+  component: 'Class, module…',
+  database:  'Database store',
+  webapp:    'Web application',
+  queue:     'Message queue / bus',
+  domain:    'DDD problem space',
+}
 
-function PaletteItem({ type, sublabel }: { type: C4ElementType; sublabel: string }) {
+// Order: domain first (when present), then standard C4 order, then any custom types last.
+const PALETTE_ORDER = ['domain', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
+
+function PaletteItem({ typeId, label, sublabel, color, iconPath }: {
+  typeId: string
+  label: string
+  sublabel: string
+  color: string
+  iconPath: string
+}) {
   const onDragStart = (event: React.DragEvent) => {
-    event.dataTransfer.setData('application/c4-type', type)
+    event.dataTransfer.setData('application/c4-type', typeId)
     event.dataTransfer.effectAllowed = 'copy'
   }
   return (
     <div className="palette-item" draggable onDragStart={onDragStart}>
-      <div className="palette-badge" style={{ background: NODE_COLORS[type] }}>
+      <div className="palette-badge" style={{ background: color }}>
         <svg viewBox="0 0 16 16" width="16" height="16" fill="#fff">
-          <path d={TYPE_ICON_PATHS[type]} />
+          <path d={iconPath} />
         </svg>
       </div>
       <div>
-        <div className="palette-label">{TYPE_LABELS[type]}</div>
+        <div className="palette-label">{label}</div>
         <div className="palette-sublabel">{sublabel}</div>
       </div>
     </div>
@@ -63,7 +74,7 @@ function TreeNodeItem({ nodeId, depth }: { nodeId: string; depth: number }) {
   const children = Object.values(allNodes).filter((n) => n.parentId === nodeId)
   const hasChildren = children.length > 0
   const isSelected = selectedNodeId === nodeId
-  const canCollapse = (node.type === 'system' || node.type === 'container') && hasChildren
+  const canCollapse = isContainerType(node.type) && hasChildren
   const inView = !activeView || activeView.nodeIds.includes(nodeId)
 
   return (
@@ -868,6 +879,29 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
   const isReadOnly = readOnly || mode !== 'designer'
   const viewsCount = useDiagramStore((s) => Object.keys(s.views).length)
   const snapshotsCount = useDiagramStore((s) => s.snapshots.length)
+  const metamodel = useDiagramStore((s) => s.metamodel)
+
+  // Build palette dynamically from metamodel; fall back to static C4 records
+  // for built-in types and to def.description / metadata for custom types.
+  const paletteItems = useMemo(() => {
+    const allTypeIds = metamodel ? Object.keys(metamodel.nodeTypes) : [...PALETTE_ORDER]
+    const ordered = [
+      ...PALETTE_ORDER.filter(t => allTypeIds.includes(t)),
+      ...allTypeIds.filter(t => !PALETTE_ORDER.includes(t)),
+    ]
+    return ordered.map((typeId) => {
+      const def = metamodel?.nodeTypes[typeId]
+      const t = typeId as C4ElementType
+      const builtIn = (TYPE_LABELS as Record<string, string>)[typeId] !== undefined
+      return {
+        typeId,
+        label: def?.label ?? (builtIn ? TYPE_LABELS[t] : typeId),
+        sublabel: PALETTE_SUBLABELS[typeId] ?? '',
+        color: builtIn ? NODE_COLORS[t] : (def?.color ?? '#64748b'),
+        iconPath: builtIn ? TYPE_ICON_PATHS[t] : (TYPE_ICON_PATHS.system),
+      }
+    })
+  }, [metamodel])
 
   const defaultSection = mode === 'designer' ? 'elements' : 'views'
   const [openSection, setOpenSection] = useState<'elements' | 'views' | 'milestones'>(defaultSection as any)
@@ -889,8 +923,8 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
             {mode === 'designer' && (
               <AccordionSection title="Elements"
                 open={openSection === 'elements'} onToggle={() => setOpenSection('elements')}>
-                {PALETTE_ITEMS.map((item) => (
-                  <PaletteItem key={item.type} {...item} />
+                {paletteItems.map((item) => (
+                  <PaletteItem key={item.typeId} {...item} />
                 ))}
                 <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, padding: '0 4px' }}>
                   Drag to canvas · Double-click canvas to add System

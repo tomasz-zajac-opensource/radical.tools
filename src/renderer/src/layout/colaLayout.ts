@@ -17,6 +17,7 @@ import {
   COLLAPSED_HEIGHT,
   COLLAPSED_WIDTH,
   NODE_SIZES,
+  isContainerType,
 } from '../types/c4'
 
 // webcola Node at runtime has x/y mutated in-place
@@ -32,14 +33,14 @@ type ColaLink = Link<ColaNode | number>
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function effectiveHeight(n: C4Node): number {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed) {
+  if (isContainerType(n.type) && n.collapsed) {
     return COLLAPSED_HEIGHT[n.type]
   }
   return n.height ?? NODE_SIZES[n.type].height
 }
 
 function effectiveWidth(n: C4Node): number {
-  if ((n.type === 'system' || n.type === 'container') && n.collapsed) {
+  if (isContainerType(n.type) && n.collapsed) {
     return COLLAPSED_WIDTH[n.type]
   }
   return n.width ?? NODE_SIZES[n.type].width

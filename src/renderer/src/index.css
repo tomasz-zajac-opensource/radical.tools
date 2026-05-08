@@ -2863,6 +2863,46 @@ body {
   display: flex; gap: 8px; align-items: center; padding: 12px 18px;
   border-bottom: 1px solid var(--border-color);
 }
+.docmgr-toolbar-create {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.docmgr-create-row {
+  display: flex; gap: 8px; align-items: center;
+}
+.docmgr-create-row .docmgr-rename-input { flex: 1; }
+.docmgr-mm-picker {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.docmgr-mm-picker-title {
+  font-size: 12px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.docmgr-mm-option {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: inherit;
+}
+.docmgr-mm-option:hover {
+  background: var(--hover-bg);
+  border-color: var(--border-color-strong);
+}
+.docmgr-mm-option.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.docmgr-mm-option-name {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.docmgr-mm-option-desc {
+  font-size: 12px; color: var(--text-muted); line-height: 1.4;
+}
 .docmgr-toolbar-hint {
   color: var(--text-muted);
   font-size: 12px;
@@ -4496,6 +4536,49 @@ body {
   flex-direction: column;
   gap: 8px;
   margin-top: auto;
+}
+
+.welcome-mm-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(127, 127, 127, 0.06);
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 10px;
+  margin-top: 4px;
+}
+.welcome-mm-picker-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 2px 4px 6px;
+}
+.welcome-mm-option {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+.welcome-mm-option:hover {
+  background: rgba(59, 111, 230, 0.08);
+  border-color: rgba(59, 111, 230, 0.3);
+}
+.welcome-mm-option-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.welcome-mm-option-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .welcome-sample-link {
