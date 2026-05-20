@@ -12,7 +12,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: false,
     titleBarStyle: 'default',
-    title: 'Radical Model',
+    title: 'Radical.Tools',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

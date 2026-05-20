@@ -1,9 +1,9 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  name_prefix  = "${var.project_name}-${var.environment}"
-  use_www      = var.www_domain != "" && var.apex_domain != ""
-  use_app      = local.use_www && var.app_domain != ""
+  name_prefix = "${var.project_name}-${var.environment}"
+  use_www     = var.www_domain != "" && var.apex_domain != ""
+  use_app     = local.use_www && var.app_domain != ""
 }
 
 # ── S3 bucket ────────────────────────────────────────────────────────────────
@@ -102,24 +102,24 @@ resource "aws_route53_record" "app" {
   ttl     = 300
 }
 
-# www CNAME → CloudFront (DNS only; alias ownership stays on apex)
+# www CNAME → marketing-website CloudFront
 resource "aws_route53_record" "www" {
   count   = local.use_www ? 1 : 0
   zone_id = aws_route53_zone.apex[0].zone_id
   name    = var.www_domain
   type    = "CNAME"
-  records = [aws_cloudfront_distribution.spa.domain_name]
+  records = [aws_cloudfront_distribution.web[0].domain_name]
   ttl     = 300
 }
 
-# apex A alias → CloudFront (Route 53 supports apex aliases to CloudFront)
+# apex A alias → marketing-website CloudFront (Route 53 supports apex aliases to CloudFront)
 resource "aws_route53_record" "apex" {
   count   = local.use_www ? 1 : 0
   zone_id = aws_route53_zone.apex[0].zone_id
   name    = var.apex_domain
   type    = "A"
   alias {
-    name                   = aws_cloudfront_distribution.spa.domain_name
+    name                   = aws_cloudfront_distribution.web[0].domain_name
     zone_id                = "Z2FDTNDATAQYW2"
     evaluate_target_health = false
   }
@@ -220,9 +220,9 @@ resource "aws_cloudfront_distribution" "spa" {
 
 data "aws_iam_policy_document" "spa_bucket" {
   statement {
-    sid     = "AllowCloudFrontServicePrincipal"
-    effect  = "Allow"
-    actions = ["s3:GetObject"]
+    sid       = "AllowCloudFrontServicePrincipal"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.spa.arn}/*"]
 
     principals {

@@ -63,3 +63,27 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/index.html"
+
+      # ── Marketing website (radical.tools + www) ─────────────────────────
+      - name: Sync marketing website to S3
+        run: |
+          # Static site under website/ — HTML/CSS/screenshots.
+          # Exclude index.html so we can upload it with no-cache headers below.
+          aws s3 sync website/ \
+            s3://${{ secrets.WEB_S3_BUCKET }}/ \
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public, max-age=3600"
+
+      - name: Upload website index.html (no-cache)
+        run: |
+          aws s3 cp website/index.html \
+            s3://${{ secrets.WEB_S3_BUCKET }}/index.html \
+            --cache-control "no-store" \
+            --content-type "text/html; charset=utf-8"
+
+      - name: Invalidate CloudFront for marketing site
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.WEB_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/index.html" "/style.css"

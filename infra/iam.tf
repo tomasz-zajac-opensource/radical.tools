@@ -6,8 +6,8 @@
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.create_oidc_provider ? 1 : 0
 
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
   # Thumbprint for GitHub's OIDC root CA. GitHub publishes this; it rarely
   # changes but should be verified at:
   # https://docs.github.com/en/actions/security-for-github-actions/security-hardening-your-deployments/about-security-hardening-with-openid-connect#getting-the-thumbprint-for-an-oidc-provider
@@ -56,7 +56,7 @@ resource "aws_iam_role" "github_deploy" {
 }
 
 data "aws_iam_policy_document" "github_deploy_permissions" {
-  # Least-privilege: only the S3 bucket and CloudFront distribution created above.
+  # Least-privilege: only the S3 buckets and CloudFront distributions created above.
   statement {
     sid    = "S3Deploy"
     effect = "Allow"
@@ -66,17 +66,26 @@ data "aws_iam_policy_document" "github_deploy_permissions" {
       "s3:GetObject",
       "s3:ListBucket",
     ]
-    resources = [
-      aws_s3_bucket.spa.arn,
-      "${aws_s3_bucket.spa.arn}/*",
-    ]
+    resources = concat(
+      [
+        aws_s3_bucket.spa.arn,
+        "${aws_s3_bucket.spa.arn}/*",
+      ],
+      local.use_web ? [
+        aws_s3_bucket.web[0].arn,
+        "${aws_s3_bucket.web[0].arn}/*",
+      ] : []
+    )
   }
 
   statement {
-    sid       = "CloudFrontInvalidate"
-    effect    = "Allow"
-    actions   = ["cloudfront:CreateInvalidation"]
-    resources = [aws_cloudfront_distribution.spa.arn]
+    sid     = "CloudFrontInvalidate"
+    effect  = "Allow"
+    actions = ["cloudfront:CreateInvalidation"]
+    resources = concat(
+      [aws_cloudfront_distribution.spa.arn],
+      local.use_web ? [aws_cloudfront_distribution.web[0].arn] : []
+    )
   }
 }
 

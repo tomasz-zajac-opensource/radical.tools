@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Radical.Tools - Architecture Modelling Tool</title>
+  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Ships with C4. MIT licensed. Desktop or browser." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── NAVBAR ── -->
+  <header class="navbar" id="home">
+    <div class="nav-inner">
+      <a href="#home" class="nav-logo">Radical<span class="dot">.</span>Tools</a>
+      <nav class="nav-links">
+        <a href="#home">Home</a>
+        <a href="#concepts">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#install">Install</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener" class="btn btn-outline">GitHub</a>
+        <a href="https://app.radical.tools" target="_blank" rel="noopener" class="btn btn-primary">Launch</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="slides">
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-eyebrow">
+          <span class="eyebrow-tag">MIT</span>
+          <span class="eyebrow-sep">/</span>
+          <span>open source</span>
+          <span class="eyebrow-sep">/</span>
+          <span>C4 &amp; beyond</span>
+        </div>
+        <h1 class="hero-title">
+          Architecture modelling,<br />
+          <span class="accent">not just drawing.</span>
+        </h1>
+        <p class="hero-sub">
+          Diagrams go stale because the drawing <em>is</em> the document.
+          Radical.Tools makes the <strong>model</strong> the document -
+          views are derived from it, always consistent.
+        </p>
+        <div class="hero-meta">
+          <a href="#concepts">How it works ↓</a>
+          <a href="#install">Run locally ↓</a>
+        </div>
+      </div>
+    </div>
+    <div class="hero-gradient"></div>
+  </section>
+
+  <!-- ── CONCEPTS ── -->
+  <section class="concepts" id="concepts">
+    <div class="section-inner">
+      <div class="section-header">
+        <span class="kicker">How it works</span>
+        <h2>Four layers. One source of truth.</h2>
+        <p>Metamodel defines the rules. Model holds the truth. Views render slices. Milestones track history.</p>
+      </div>
+      <div class="concepts-grid">
+
+        <div class="concept-card">
+          <div class="concept-num">01</div>
+          <h3>Metamodel</h3>
+          <p class="concept-lead">The vocabulary of your architecture.</p>
+          <p>
+            Defines what kinds of things can exist: node types, relation types, allowed properties.
+            C4 ships by default - Person, Software System, Container, Component.
+            Extend it or replace it entirely. More metamodels are coming.
+          </p>
+          <div class="concept-example">
+            <code>Person → uses → Software System</code>
+            <span class="ce-label">metamodel rule</span>
+          </div>
+        </div>
+
+        <div class="concept-card">
+          <div class="concept-num">02</div>
+          <h3>Model</h3>
+          <p class="concept-lead">The single source of truth.</p>
+          <p>
+            A graph of concrete nodes and relations that conforms to the metamodel.
+            Add an element once - it's available in every view.
+            No copy-pasting between diagrams. No drift between levels.
+          </p>
+          <div class="concept-example">
+            <code>PaymentService → calls → StripeAPI</code>
+            <span class="ce-label">model instance</span>
+          </div>
+        </div>
+
+        <div class="concept-card">
+          <div class="concept-num">03</div>
+          <h3>View</h3>
+          <p class="concept-lead">A filtered window onto the model.</p>
+          <p>
+            Different audiences need different levels of detail.
+            Static views show structure - System Context, Containers, Components.
+            Dynamic views show interaction sequences with numbered steps on the edges.
+            Each view has its own layout, the model stays shared.
+          </p>
+          <div class="concept-example">
+            <code>Dynamic View → Login flow: 1 → 2 → 3</code>
+            <span class="ce-label">view instance</span>
+          </div>
+        </div>
+
+        <div class="concept-card">
+          <div class="concept-num">04</div>
+          <h3>Milestone</h3>
+          <p class="concept-lead">A named snapshot of the model.</p>
+          <p>
+            Tag any state of the model with a name and date.
+            Browse history, diff two milestones side by side, and restore any previous state.
+            Architecture decisions get a timeline.
+          </p>
+          <div class="concept-example">
+            <code>v2 → v3 diff: +3 nodes, -1 relation</code>
+            <span class="ce-label">milestone diff</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURES ── -->
+  <section class="features" id="features">
+    <div class="section-inner">
+      <div class="section-header">
+        <span class="kicker">Features</span>
+        <h2>Beyond the model itself.</h2>
+      </div>
+      <div class="features-grid">
+
+        <div class="feature-card">
+          <div class="fc-icon fc-teal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/><path d="M3.6 9h2M18.4 9h2M12 3.6v2"/></svg>
+          </div>
+          <h3>Milestones &amp; History</h3>
+          <p>Name a snapshot at any moment. Browse history, diff two versions side by side, and restore a previous state with one click.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="fc-icon fc-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><circle cx="12" cy="12" r="2"/><path d="M7 5h5M12 7v5M7 19h5M17 19h-5M5 7v5M19 7v5"/></svg>
+          </div>
+          <h3>Smart Layout</h3>
+          <p>Three layout engines: ELK (hierarchical), WebCola (live force-directed), and a simulated-annealing pipeline tuned for crossing minimisation.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="fc-icon fc-green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a9 9 0 1 0 9 9"/><path d="M16 2l3 3-3 3"/><path d="M19 5H13"/><path d="M9 9h6M9 13h4"/></svg>
+          </div>
+          <h3>AI Analysis</h3>
+          <p>Ask the model questions, detect gaps, or describe a change in plain language and let an LLM apply it as a structured patch. Works with Claude, OpenAI, Gemini, and local Ollama - your key, your API, nothing proxied.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="fc-icon fc-orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>
+          </div>
+          <h3>Desktop &amp; Web</h3>
+          <p>Electron desktop app or browser - same codebase, same file format. No account, no cloud, no telemetry.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="fc-icon fc-red">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h2M11 8h6M7 12h10"/></svg>
+          </div>
+          <h3>Presentation Mode</h3>
+          <p>Sequence views into a slide deck. Dynamic views replay interaction flows step by step. Fullscreen walkthrough turns any model review into a structured session.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="fc-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
+          </div>
+          <h3>Plain JSON, No Lock-in</h3>
+          <p>Models are JSON files on your disk. Diff in git, edit in any text editor, automate with any script.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SCREENSHOTS ── -->
+  <section class="screenshots" id="screenshots">
+    <div class="section-inner">
+      <div class="section-header">
+        <span class="kicker">Screenshots</span>
+        <h2>What it looks like.</h2>
+      </div>
+
+      <div class="shots-primary">
+        <figure class="shot shot-main">
+          <img src="screenshots/canvas.png" alt="Radical.Tools main canvas - C4 banking architecture diagram with 27 nodes, left panel showing element types, right panel showing node tree" />
+          <figcaption>
+            <span class="shot-label">Designer</span>
+            Full C4 model on the canvas. Element palette on the left, node tree on the right. Smart Layout arranges everything automatically.
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="shots-secondary">
+        <figure class="shot">
+          <img src="screenshots/milestones.png" alt="Milestones panel showing v1 through v4 history of the architecture with node counts and dates" />
+          <figcaption>
+            <span class="shot-label">Milestones</span>
+            Named snapshots with dates and node counts. Diff any two versions visually, restore with one click.
+          </figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="screenshots/viewer.png" alt="Viewer / presentation mode showing views list and slide deck at the bottom with Present button" />
+          <figcaption>
+            <span class="shot-label">Viewer</span>
+            Sequence views into a slide deck. Hit Present for a fullscreen, presenter-ready walkthrough.
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── INSTALL ── -->
+  <section class="install" id="install">
+    <div class="section-inner install-inner">
+      <div class="section-header">
+        <span class="kicker">Install</span>
+        <h2>Run it locally.</h2>
+        <p>Node.js ≥ 18, npm ≥ 9.</p>
+      </div>
+      <div class="code-block">
+        <div class="code-title">Terminal</div>
+        <pre><code><span class="cm"># Clone the repository</span>
+git clone https://github.com/tomasz-zajac-opensource/radical.tools.git
+cd radical.tools
+
+<span class="cm"># Install dependencies</span>
+npm install
+
+<span class="cm"># Start in development mode</span>
+npm run dev
+
+<span class="cm"># Build for production</span>
+npm run build &amp;&amp; npm start</code></pre>
+      </div>
+      <div class="install-cta">
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener" class="btn btn-primary">
+          View on GitHub
+        </a>
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools/releases" target="_blank" rel="noopener" class="btn btn-outline">
+          Releases
+        </a>
+      </div>
+    </div>
+    <footer class="footer">
+      <div class="footer-inner">
+        <span class="nav-logo">Radical<span class="dot">.</span>Tools</span>
+        <span class="footer-links">
+          <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://c4model.com" target="_blank" rel="noopener">C4 Model</a>
+        </span>
+        <span class="footer-copy">© 2026 Radical.Tools</span>
+      </div>
+    </footer>
+  </section>
+
+  </div><!-- /.slides -->
+
+</body>
+</html>

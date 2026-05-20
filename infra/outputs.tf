@@ -33,3 +33,20 @@ output "route53_nameservers" {
   description = "Set these as nameservers in domeny.tv for the radical.tools domain."
   value       = local.use_www ? aws_route53_zone.apex[0].name_servers : []
 }
+
+# ── Marketing website (radical.tools + www) ──────────────────────────────────
+
+output "web_s3_bucket_name" {
+  description = "S3 bucket name for the marketing website. Set as GitHub secret: WEB_S3_BUCKET"
+  value       = local.use_web ? aws_s3_bucket.web[0].id : null
+}
+
+output "web_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for the marketing website. Set as GitHub secret: WEB_CLOUDFRONT_DISTRIBUTION_ID"
+  value       = local.use_web ? aws_cloudfront_distribution.web[0].id : null
+}
+
+output "web_cloudfront_url" {
+  description = "Marketing-site URL via CloudFront (available immediately after apply)."
+  value       = local.use_web ? "https://${aws_cloudfront_distribution.web[0].domain_name}" : null
+}
