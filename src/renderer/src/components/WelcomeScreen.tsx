@@ -59,7 +59,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
                 <circle cx="2"  cy="14" r="2" fill="#3b6fe6" opacity="0.45"/>
                 <circle cx="26" cy="14" r="2" fill="#3b6fe6" opacity="0.45"/>
             </svg>
-            <span className="welcome-wordmark-text">radical<em>.model</em></span>
+            <span className="welcome-wordmark-text">radical<em>.tools</em></span>
           </div>
 
           <h1 className="welcome-heading">
