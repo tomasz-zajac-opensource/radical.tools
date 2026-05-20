@@ -12,10 +12,6 @@ import { QuickSearch } from './components/QuickSearch'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { useDiagramStore } from './store/diagramStore'
 
-const DevSampleToolbar = import.meta.env.DEV
-  ? React.lazy(() => import('./components/DevSampleToolbar').then(m => ({ default: m.DevSampleToolbar })))
-  : null
-
 const LS_LEFT = 'radical-leftpanel-collapsed'
 const LS_RIGHT = 'radical-rightpanel-collapsed'
 
@@ -89,11 +85,6 @@ function AppInner(): React.ReactElement {
       <NotificationHost />
       {isMetamodel && !isPresenting && <MetamodelEditor />}
       {showWelcome && <WelcomeScreen onDismiss={() => setShowWelcome(false)} />}
-      {DevSampleToolbar && (
-        <React.Suspense fallback={null}>
-          <DevSampleToolbar onSampleLoaded={() => setShowWelcome(false)} />
-        </React.Suspense>
-      )}
     </div>
   )
 }

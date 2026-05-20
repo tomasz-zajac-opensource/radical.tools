@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual — Radical.Tools</title>
+  <meta name="description" content="How to use Radical.Tools — step-by-step guide to modelling, views, milestones, layout and AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="doc-page">
+
+  <!-- ── NAVBAR ── -->
+  <header class="navbar" id="top">
+    <div class="nav-inner">
+      <a href="index.html" class="nav-logo">Radical<span class="dot">.</span>Tools</a>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="index.html#concepts">How it works</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#screenshots">Screenshots</a>
+        <a href="manual.html" class="nav-active">Manual</a>
+        <a href="index.html#install">Install</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener" class="btn btn-outline">GitHub</a>
+        <a href="https://app.radical.tools" target="_blank" rel="noopener" class="btn btn-primary">Launch</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── LAYOUT ── -->
+  <div class="doc-layout">
+
+    <!-- Sidebar / TOC -->
+    <aside class="doc-sidebar">
+      <nav class="doc-toc">
+        <div class="toc-label">Contents</div>
+        <ul>
+          <li><a href="#getting-started">Getting started</a></li>
+          <li><a href="#adding-elements">Adding elements</a></li>
+          <li><a href="#connecting">Connecting elements</a></li>
+          <li><a href="#editing">Editing &amp; properties</a></li>
+          <li><a href="#views">Views</a></li>
+          <li><a href="#milestones">Milestones</a></li>
+          <li><a href="#layout">Layout engines</a></li>
+          <li><a href="#presentation">Presentation mode</a></li>
+          <li><a href="#ai">AI integration</a></li>
+          <li><a href="#metamodel">Metamodel editor</a></li>
+          <li><a href="#files">Files &amp; documents</a></li>
+          <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main content -->
+    <main class="doc-main">
+
+      <div class="doc-hero">
+        <span class="kicker">Manual</span>
+        <h1>How to use Radical.Tools</h1>
+        <p class="doc-hero-sub">
+          A complete guide to building architecture models, creating views,
+          tracking history with milestones, and using the AI assistant.
+        </p>
+      </div>
+
+      <!-- Getting started -->
+      <section class="doc-section" id="getting-started">
+        <h2>Getting started</h2>
+        <p>
+          When you launch the app for the first time you'll see the <strong>Welcome screen</strong>.
+          Choose a metamodel (C4 is the default), optionally load the sample <em>Fintech Banking Platform</em>
+          model, or import an existing <code>.json</code> file. The app opens into <strong>Designer mode</strong>
+          with an empty canvas.
+        </p>
+        <p>
+          The UI has three main zones:
+        </p>
+        <ul>
+          <li><strong>Left panel</strong> — element palette (drag to add) and the full node tree.</li>
+          <li><strong>Canvas</strong> — the main editing area, powered by React Flow.</li>
+          <li><strong>Right panel</strong> — properties of the selected element, plus the view/milestone panel and the AI chat.</li>
+        </ul>
+        <p>
+          The <strong>toolbar</strong> at the top controls layout, undo/redo, and the Designer ↔ Viewer mode switch.
+          The <strong>Radical menu</strong> (top-left logo button) gives access to model management, metamodel editor,
+          theme, Smart Fit, AI settings, and the connection-key preference.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/welcome.png" alt="Welcome screen with 'Your recent models' dialog offering Open last, New model, and Open file buttons" />
+          <figcaption>The Welcome screen appears on first launch. Open your last model with one click, create a blank canvas, or load a <code>.json</code> file from disk.</figcaption>
+        </figure>
+        <figure class="doc-shot">
+          <img src="screenshots/canvas-overview.png" alt="Radical.Tools in Designer mode — full canvas showing the Fintech Banking Platform sample model with 27 nodes arranged hierarchically" />
+          <figcaption>Designer mode: element palette (left), canvas (centre), properties panel (right). The toolbar gives access to Fit All, Smart Layout, Undo/Redo and the mode switch.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Adding elements -->
+      <section class="doc-section" id="adding-elements">
+        <h2>Adding elements</h2>
+        <p>There are two ways to add a new node:</p>
+        <ol>
+          <li>
+            <strong>Drag from the palette</strong> — grab any type from the left panel and drop it
+            anywhere on the canvas. The node is created at the drop position.
+          </li>
+          <li>
+            <strong>Double-click the canvas background</strong> — double-clicking an empty area
+            creates a new <em>System</em> node at that exact position. Rename it immediately in the
+            right panel.
+          </li>
+        </ol>
+        <h3>Nesting (parent–child)</h3>
+        <p>
+          Elements can be nested to represent containment (e.g. Containers inside a System).
+          Drop a child element <em>on top of</em> a parent node — the parent highlights to confirm
+          the drop target. You can also change the parent via the <em>Parent</em> field in the
+          properties panel. Nested children can be collapsed/expanded by clicking the triangle icon
+          on the parent node or the toggle in the tree view.
+        </p>
+      </section>
+
+      <!-- Connecting -->
+      <section class="doc-section" id="connecting">
+        <h2>Connecting elements</h2>
+        <p>
+          Relations are created by <strong>drag-to-connect</strong>:
+        </p>
+        <ol>
+          <li>Hold the <strong>connection modifier key</strong> (default: <kbd>Alt</kbd>).</li>
+          <li>Press and hold the mouse button on the <strong>source</strong> node.</li>
+          <li>Drag to the <strong>target</strong> node and release.</li>
+        </ol>
+        <p>
+          A preview line is drawn while you drag. The relation is validated against the
+          active metamodel — only allowed source→target type combinations produce a connection.
+        </p>
+        <div class="doc-tip">
+          <strong>Tip:</strong> The connection modifier is configurable. Open
+          <em>Radical menu → Editing → Connect key</em> to switch between
+          <kbd>Alt</kbd>, <kbd>Shift</kbd>, <kbd>Ctrl</kbd>, and <kbd>⌘ Cmd</kbd>.
+        </div>
+        <p>
+          Click a relation to select it and edit its label, technology, and description in the right panel.
+          The edge label is rendered on the canvas and updates live.
+        </p>
+      </section>
+
+      <!-- Editing -->
+      <section class="doc-section" id="editing">
+        <h2>Editing &amp; properties</h2>
+        <p>
+          Click any node or edge to select it. Its properties appear in the <strong>right panel</strong>:
+        </p>
+        <ul>
+          <li><strong>Label</strong> — the display name shown on the canvas.</li>
+          <li><strong>Technology / description</strong> — secondary text rendered inside the node.</li>
+          <li><strong>Type</strong> — change the element type (e.g. Container → Database). The node
+              re-renders with the new shape and colour.</li>
+          <li><strong>Parent</strong> — reparent the element by picking a different parent from the dropdown.</li>
+        </ul>
+        <p>
+          To <strong>delete</strong> a selected element press <kbd>Delete</kbd> or <kbd>⌫ Backspace</kbd>.
+          A confirmation dialog appears if the node has children or connected relations.
+        </p>
+        <p>
+          <strong>Undo / Redo</strong> — every action (add, edit, move, delete, layout) is tracked.
+          Use <kbd>⌘Z</kbd> / <kbd>Ctrl+Z</kbd> to undo and <kbd>⌘⇧Z</kbd> / <kbd>Ctrl+Y</kbd> to redo.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/properties.png" alt="Canvas with a node selected; right panel shows Label, Description, External checkbox, and Delete node button" />
+          <figcaption>Properties panel with a node selected. Edit the label, add a description, mark the element as external, or delete it. A selection action bar also appears at the bottom of the canvas.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Views -->
+      <section class="doc-section" id="views">
+        <h2>Views</h2>
+        <p>
+          A <strong>view</strong> is a filtered window onto the shared model. Every element lives in the
+          model once; views decide which subset is visible. This means you can create a high-level
+          System Context view and a detailed Container view without duplicating any data.
+        </p>
+        <h3>Creating and managing views</h3>
+        <ol>
+          <li>Switch to <strong>Viewer mode</strong> (toolbar, top-right).</li>
+          <li>Click <em>+ New view</em> in the view list on the right panel.</li>
+          <li>Give the view a name (e.g. "System Context", "Payment flow").</li>
+          <li>Use the <strong>eye icons</strong> in the node tree to include or exclude elements for this view.</li>
+          <li>Each view stores its own layout — rearrange nodes here without affecting other views.</li>
+        </ol>
+        <h3>Dynamic views</h3>
+        <p>
+          Set a view's type to <em>Dynamic</em> to add <strong>sequence numbers</strong> to relations.
+          Each edge gets a step number (1, 2, 3…) that appears on the canvas. In presentation mode,
+          dynamic views replay the steps one at a time — ideal for showing an interaction flow.
+        </p>
+        <h3>View layout mode</h3>
+        <p>
+          Each view can independently use <em>Auto</em> (Smart Layout) or <em>Tree</em> layout.
+          Switch via the view's settings panel. In tree mode the Smart Layout button changes to
+          <em>Tree Layout</em>.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/views.png" alt="Views panel showing All elements, System Context, Core Banking Containers and Payments Domain views with a '+ New view' button" />
+          <figcaption>The views panel in Designer mode. Three named views are defined; the active view is highlighted. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Milestones -->
+      <section class="doc-section" id="milestones">
+        <h2>Milestones</h2>
+        <p>
+          A <strong>milestone</strong> is a named snapshot of the entire model state — nodes,
+          relations, views, and layout positions.
+        </p>
+        <h3>Creating a milestone</h3>
+        <ol>
+          <li>Click the camera icon in the toolbar (or open the milestones panel in the right panel).</li>
+          <li>Enter a name (e.g. "v1 — initial draft", "After sprint 3") and an optional date.</li>
+          <li>Click <em>Save milestone</em>.</li>
+        </ol>
+        <h3>Browsing and restoring</h3>
+        <p>
+          All milestones are listed in the right panel with their names, dates, and node/relation
+          counts. Click any milestone to <strong>preview</strong> it. Click <em>Restore</em> to
+          revert the live model to that snapshot (a new undo entry is created, so you can undo the restore).
+        </p>
+        <div class="doc-tip">
+          <strong>Tip:</strong> Milestones are stored inside the model JSON file —
+          they travel with the file when you export or share it.
+        </div>
+        <figure class="doc-shot">
+          <img src="screenshots/milestones-panel.png" alt="Milestones panel expanded in Designer mode showing Current (live), v4 Full Platform, v3 Cards &amp; Fraud, v2 Payments &amp; Events, and v1 Core &amp; Accounts snapshots with dates and node counts" />
+          <figcaption>The milestones panel lists every named snapshot with its date and node count. Click any entry to preview that state; the currently active snapshot is highlighted.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Layout -->
+      <section class="doc-section" id="layout">
+        <h2>Layout engines</h2>
+        <p>Radical.Tools ships three layout engines, each with a different trade-off:</p>
+
+        <div class="doc-table-wrap">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Engine</th>
+                <th>Style</th>
+                <th>Best for</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Smart Layout</strong> <span class="badge-accent">default</span></td>
+                <td>Simulated annealing + ELK ensemble</td>
+                <td>General diagrams — picks the cleanest result automatically with edge-crossing minimisation and aspect-ratio penalty.</td>
+              </tr>
+              <tr>
+                <td><strong>Tree Layout</strong></td>
+                <td>Hierarchical nested-tree (ELK)</td>
+                <td>Diagrams with a clear parent–child hierarchy. Enable per-view via the view settings panel.</td>
+              </tr>
+              <tr>
+                <td><strong>WebCola (live)</strong></td>
+                <td>Force-directed physics</td>
+                <td>Exploratory editing — nodes repel/attract in real time as you drag. Settles to a stable position. Toggled from the ELK/Cola button in the toolbar.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Smart Fit</h3>
+        <p>
+          Enable <em>Smart Fit</em> (Radical menu → View → Smart Fit) to automatically zoom and
+          pan the viewport to fit all visible nodes after every layout run or model change.
+        </p>
+
+        <h3>Fit All</h3>
+        <p>
+          The <em>Fit All</em> button in the toolbar instantly fits all visible nodes into the
+          current viewport without triggering a re-layout.
+        </p>
+      </section>
+
+      <!-- Presentation -->
+      <section class="doc-section" id="presentation">
+        <h2>Presentation mode</h2>
+        <p>
+          Presentation mode turns your views into a fullscreen slide deck.
+        </p>
+        <ol>
+          <li>Switch to <strong>Viewer mode</strong>.</li>
+          <li>Drag views into the desired order in the slide deck at the bottom of the screen.</li>
+          <li>Click <strong>Present</strong> or press <kbd>F5</kbd> to go fullscreen.</li>
+          <li>Navigate between slides with the on-screen arrow buttons or keyboard.</li>
+          <li>Dynamic views replay their sequence steps one at a time — each press of the forward
+              arrow reveals the next numbered relation.</li>
+          <li>Press <kbd>Esc</kbd> or <kbd>F5</kbd> again to exit presentation mode.</li>
+        </ol>
+        <figure class="doc-shot">
+          <img src="screenshots/viewer-mode.png" alt="Viewer mode with views list on the left showing All elements, System Context, Core Banking Containers, Payments Domain; slide deck at the bottom with 4 slides; Present button bottom-left" />
+          <figcaption>Viewer mode: the views list (left) acts as your slide library. Drag views to reorder them in the deck at the bottom. Hit <em>Present</em> to go fullscreen.</figcaption>
+        </figure>
+      </section>
+
+      <!-- AI -->
+      <section class="doc-section" id="ai">
+        <h2>AI integration</h2>
+        <p>
+          The built-in AI assistant can answer questions about the model, detect gaps, and apply
+          natural-language changes as structured patches.
+        </p>
+        <h3>Opening the AI chat</h3>
+        <p>
+          Press <kbd>⌘P</kbd> / <kbd>Ctrl+P</kbd> to focus the quick-search bar.
+          Type <code>&gt;</code> (right angle bracket) to switch into <strong>AI mode</strong>.
+          The bar expands into a chat thread.
+        </p>
+        <h3>Example prompts</h3>
+        <ul>
+          <li><em>"Add a Redis cache container between the API Gateway and the User Service"</em></li>
+          <li><em>"What components talk directly to the database?"</em></li>
+          <li><em>"Rename Payment Service to Payment Processor and update all its relations"</em></li>
+          <li><em>"List all containers that have no outgoing relations"</em></li>
+        </ul>
+        <p>
+          Destructive changes are shown as a diff before being applied. Press <kbd>⌘↵</kbd> /
+          <kbd>Ctrl+Enter</kbd> to send a message to the AI without applying any pending patch.
+        </p>
+        <h3>Configuring providers</h3>
+        <p>
+          Go to <em>Radical menu → AI → AI providers…</em> to configure your preferred LLM.
+          Supported providers:
+        </p>
+        <ul>
+          <li><strong>Ollama</strong> — local models, no API key required.</li>
+          <li><strong>OpenAI</strong> — GPT-4o and other OpenAI models.</li>
+          <li><strong>Anthropic Claude</strong> — Claude 3 / Claude 4 family.</li>
+          <li><strong>Google Gemini</strong> — Gemini 1.5 / 2.0 models.</li>
+        </ul>
+        <div class="doc-tip">
+          Your API key is stored locally in the browser's <code>localStorage</code>.
+          Nothing is proxied — all requests go directly from the app to the provider.
+        </div>
+        <figure class="doc-shot">
+          <img src="screenshots/search.png" alt="Quick search bar open with 'Payment' query showing NODE and REL result badges with path context and view filter chips" />
+          <figcaption>The quick-search bar (<kbd>⌘P</kbd>) finds nodes and relations by name. Type <code>&gt;</code> first to switch into AI mode and send a natural-language prompt instead.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Metamodel -->
+      <section class="doc-section" id="metamodel">
+        <h2>Metamodel editor</h2>
+        <p>
+          The <strong>metamodel</strong> defines which element types and relation types exist in
+          your diagram, along with their colours, icons, and allowed connections.
+        </p>
+        <p>
+          Open it via <em>Radical menu → Schema → Metamodel editor…</em> The canvas is replaced
+          by the metamodel editor. Changes take effect immediately — new types appear in the palette
+          and existing nodes re-render with any updated colours.
+        </p>
+        <h3>Built-in metamodels</h3>
+        <ul>
+          <li><strong>C4</strong> — Person, Software System, Container, Component, Database, Web App, Queue, Domain.</li>
+        </ul>
+        <p>
+          You can add custom node types (with a custom label, icon path, and colour) or remove types
+          that don't apply to your architecture. Relation types let you define which source and target
+          combinations are valid.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/metamodel.png" alt="Metamodel editor showing C4 built-in preset with 7 node types (Person, Software System, Container, Component, Database, Web App, Queue) and 2 relation types (Uses, Delivers to), with Add node type and Add relation type buttons" />
+          <figcaption>The metamodel editor. Expand any type to edit its label, icon, and colour. Click <em>+ Add node type</em> to define custom element types specific to your domain.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Files -->
+      <section class="doc-section" id="files">
+        <h2>Files &amp; documents</h2>
+        <p>
+          Radical.Tools stores models as plain <strong>JSON files</strong>. You can diff them in
+          git, edit them in a text editor, and automate transformations with any script.
+        </p>
+        <h3>Document manager</h3>
+        <p>
+          Open <em>Radical menu → Models → Manage models…</em> to create, rename, duplicate, or
+          delete models. Each model is either:
+        </p>
+        <ul>
+          <li><strong>LOCAL</strong> — stored in browser <code>localStorage</code> (survives page
+              reloads, tied to the browser profile).</li>
+          <li><strong>FILE</strong> — an explicit <code>.json</code> file opened from the filesystem
+              via the Electron file dialog.</li>
+        </ul>
+        <h3>Import / Export</h3>
+        <p>
+          In the document manager, use <em>Export</em> to save the active model as a
+          <code>.json</code> file, or <em>Import</em> to load one. In the desktop (Electron) app
+          this opens a native file dialog; in the browser it uses a file input / download.
+        </p>
+      </section>
+
+      <!-- Shortcuts -->
+      <section class="doc-section" id="shortcuts">
+        <h2>Keyboard shortcuts</h2>
+        <div class="doc-table-wrap">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Mac</th>
+                <th>Windows / Linux</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Quick search / AI chat</td><td><kbd>⌘P</kbd></td><td><kbd>Ctrl+P</kbd></td></tr>
+              <tr><td>Undo</td><td><kbd>⌘Z</kbd></td><td><kbd>Ctrl+Z</kbd></td></tr>
+              <tr><td>Redo</td><td><kbd>⌘⇧Z</kbd></td><td><kbd>Ctrl+Y</kbd></td></tr>
+              <tr><td>Delete selected element</td><td><kbd>Delete</kbd> / <kbd>⌫</kbd></td><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td></tr>
+              <tr><td>Start / stop presentation</td><td><kbd>F5</kbd></td><td><kbd>F5</kbd></td></tr>
+              <tr><td>Send to AI (no patch)</td><td><kbd>⌘↵</kbd></td><td><kbd>Ctrl+Enter</kbd></td></tr>
+              <tr><td>Close / cancel / exit</td><td><kbd>Esc</kbd></td><td><kbd>Esc</kbd></td></tr>
+              <tr><td>Add System node at position</td><td colspan="2">double-click canvas background</td></tr>
+              <tr><td>Create relation</td><td colspan="2">hold <kbd>Alt</kbd> + drag (configurable)</td></tr>
+              <tr><td>Collapse/expand parent node</td><td colspan="2">click triangle icon on node</td></tr>
+              <tr><td>Fit all nodes in viewport</td><td colspan="2"><em>Fit All</em> button in toolbar</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer doc-footer">
+    <div class="footer-inner">
+      <span class="nav-logo">Radical<span class="dot">.</span>Tools</span>
+      <span class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://c4model.com" target="_blank" rel="noopener">C4 Model</a>
+      </span>
+      <span class="footer-copy">© 2026 Radical.Tools</span>
+    </div>
+  </footer>
+
+</body>
+</html>
