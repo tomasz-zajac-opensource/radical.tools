@@ -65,8 +65,9 @@ export interface DiagramView {
   /**
    * 'static' (default) = ordinary filtered view.
    * 'dynamic' = shows step-number badges on edges from the linked sequence.
+   * 'treemap' = renders the element hierarchy as nested coloured rectangles.
    */
-  kind?: 'static' | 'dynamic'
+  kind?: 'static' | 'dynamic' | 'treemap'
   /** ID of the DiagramSequence to visualise when kind='dynamic' */
   sequenceId?: string
   /** C4 node IDs included in this view. Ancestors are auto-included. */
@@ -95,6 +96,33 @@ export interface DiagramView {
    * containment-tree visualisation is preferable to a force/layered graph.
    */
   layoutMode?: 'auto' | 'tree'
+  /**
+   * Treemap-only: id of the node currently used as the drill-down root.
+   * `null`/`undefined` = top of the hierarchy ("All").
+   * Persisted so reopening the view restores the user's location.
+   */
+  treemapFocusId?: string | null
+  /**
+   * Treemap-only: how to size rectangles.
+   *  - 'leaves'    (default) — every leaf counts as 1; parents = sum of leaves.
+   *                Pure hierarchy: rectangle area ∝ number of descendants.
+   *  - 'uniform'   — siblings always equal-sized.
+   *  - 'relations' — legacy behaviour: leaf value = relation count + 1.
+   */
+  treemapSizeBy?: 'leaves' | 'uniform' | 'relations'
+  /**
+   * Treemap-only: maximum number of descendant levels rendered below the
+   * current focus. `1` = direct children only, `2` = + grandchildren, …
+   * `null`/`undefined` = unlimited (whole subtree). Persisted per view.
+   * Nodes that have children hidden by this limit still render as drillable.
+   */
+  treemapMaxDepth?: number | null
+  /**
+   * Treemap-only: node ids the user explicitly expanded inline (overriding
+   * `treemapMaxDepth`). Each id forces its entire subtree to render in full,
+   * without changing the focus root. Persisted per view.
+   */
+  treemapExpandedIds?: string[]
 }
 
 /** Named snapshot (version) of the diagram state */

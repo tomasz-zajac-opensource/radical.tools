@@ -119,6 +119,9 @@ function StructuralCanvas(): React.ReactElement {
   const activeSequenceId = useDiagramStore((s) => s.activeSequenceId)
   const activeSequenceName = useDiagramStore((s) => s.activeSequenceId ? s.sequences[s.activeSequenceId]?.name : undefined)
   const setActiveSequence = useDiagramStore((s) => s.setActiveSequence)
+  const activeViewName = useDiagramStore((s) =>
+    s.activeViewId ? s.views[s.activeViewId]?.name : 'All elements'
+  )
 
   // Track whether the modifier key is currently held — use BOTH ref (sync)
   // and state (triggers re-render for visual feedback).
@@ -852,6 +855,27 @@ function StructuralCanvas(): React.ReactElement {
           }}
         >
           Connecting from "{rfNodes.find((n) => n.id === connectSource)?.data?.label ?? connectSource}" — release on target
+        </div>
+      )}
+
+      {/* View name caption — bottom-left, same style as SequenceView */}
+      {activeViewName && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: 12,
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-color)',
+            padding: '4px 8px',
+            borderRadius: 4,
+            pointerEvents: 'none',
+            zIndex: 10,
+          }}
+        >
+          Structure: <strong style={{ color: 'var(--text-primary)' }}>{activeViewName}</strong>
         </div>
       )}
     </div>

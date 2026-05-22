@@ -369,6 +369,9 @@ export function Toolbar(): React.ReactElement {
   const activeViewLayoutMode = useDiagramStore((s) =>
     s.activeViewId ? s.views[s.activeViewId]?.layoutMode ?? 'auto' : 'auto'
   )
+  const activeViewKind = useDiagramStore((s) =>
+    s.activeViewId ? s.views[s.activeViewId]?.kind ?? 'static' : 'static'
+  )
   const connectionModifier = useDiagramStore((s) => s.connectionModifier)
   const setConnectionModifier = useDiagramStore((s) => s.setConnectionModifier)
 
@@ -460,7 +463,7 @@ export function Toolbar(): React.ReactElement {
         <IconFitAll /> Fit All
       </button>
 
-      <button
+      {activeViewKind !== 'treemap' && activeViewKind !== 'dynamic' && <button
         className="toolbar-btn toolbar-btn-accent"
         onClick={() => { void runSmartLayout() }}
         disabled={isLayoutRunning || appMode === 'metamodel'}
@@ -475,7 +478,7 @@ export function Toolbar(): React.ReactElement {
         ) : (
           <><IconSmartLayout /> Smart Layout</>
         )}
-      </button>
+      </button>}
 
       <div className="toolbar-sep" />
 

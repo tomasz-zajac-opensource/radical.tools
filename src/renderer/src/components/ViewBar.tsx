@@ -9,6 +9,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
   const removeView = useDiagramStore((s) => s.removeView)
   const renameView = useDiagramStore((s) => s.renameView)
   const setViewLayoutMode = useDiagramStore((s) => s.setViewLayoutMode)
+  const setViewKind = useDiagramStore((s) => s.setViewKind)
 
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -94,11 +95,53 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
           className="view-layout-mode"
           title={
             activeView
+              ? 'Visualization type for this view.'
+              : 'Select a view to choose its visualization type.'
+          }
+          style={{
+            marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            padding: '0 8px',
+            whiteSpace: 'nowrap',
+            opacity: activeView ? 1 : 0.5,
+          }}
+        >
+          <span>Viz:</span>
+          <select
+            value={activeView?.kind ?? 'static'}
+            disabled={!activeView}
+            onChange={(e) =>
+              activeView && setViewKind(activeView.id, e.target.value as 'static' | 'dynamic' | 'treemap')
+            }
+            style={{
+              fontSize: 11,
+              padding: '2px 4px',
+              background: 'var(--input-bg, transparent)',
+              color: 'inherit',
+              border: '1px solid var(--border-color)',
+              borderRadius: 3,
+              cursor: activeView ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <option value="static">Structure</option>
+            <option value="dynamic">Flow</option>
+            <option value="treemap">Hierarchy</option>
+          </select>
+        </label>
+      )}
+      {!readOnly && (activeView?.kind ?? 'static') !== 'treemap' && (
+        <label
+          className="view-layout-mode"
+          title={
+            activeView
               ? 'Auto-layout strategy applied when running Smart Layout for this view.'
               : 'Select a view to choose its auto-layout strategy.'
           }
           style={{
-            marginLeft: 'auto',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,

@@ -293,6 +293,16 @@ const Icon = {
       <path d="M9.5 2 L4 9 h4 L6.5 14 L13 7 H9 Z"/>
     </svg>
   ),
+  TreemapGrid: () => (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.4">
+      <rect x="1" y="1" width="9" height="9" rx="1"/>
+      <rect x="11" y="1" width="4" height="4" rx="0.5"/>
+      <rect x="11" y="6" width="4" height="4" rx="0.5"/>
+      <rect x="1" y="11" width="4" height="4" rx="0.5"/>
+      <rect x="6" y="11" width="4" height="4" rx="0.5"/>
+      <rect x="11" y="11" width="4" height="4" rx="0.5"/>
+    </svg>
+  ),
   ArrowUp: () => (
     <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 12 V4 M4.5 7.5 L8 4 L11.5 7.5"/>
@@ -598,6 +608,8 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
 
   if (!view) return null
   const isDynamic = view.kind === 'dynamic'
+  const isTreemap = view.kind === 'treemap'
+  const isStatic  = !isDynamic && !isTreemap
 
   const commitName = () => {
     if (nameVal.trim()) renameView(view.id, nameVal.trim())
@@ -606,8 +618,9 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
 
   return (
     <div className="props-content">
-      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : '#334155', color: isDynamic ? '#fff' : '#94a3b8' }}>
-        {isDynamic ? <Icon.Bolt /> : <Icon.Layers />} &nbsp;{isDynamic ? 'DYNAMIC VIEW' : 'VIEW'}
+      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : isTreemap ? '#2a3a5a' : '#334155', color: '#fff' }}>
+        {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : <Icon.Layers />}
+        &nbsp;{isDynamic ? 'FLOW VIEW' : isTreemap ? 'HIERARCHY VIEW' : 'STRUCTURE VIEW'}
       </div>
       <div>
         <div className="props-section-title">Name</div>
@@ -635,33 +648,47 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
       {!readOnly && (
         <div>
           <div className="props-section-title">Type</div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 4 }}>
             <button
               onClick={() => setViewKind(view.id, 'static')}
               style={{
-                flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                background: !isDynamic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
-                color: !isDynamic ? '#fff' : 'var(--text-muted)',
-                border: !isDynamic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
-                fontWeight: !isDynamic ? 600 : 400,
+                flex: 1, padding: '5px 3px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                minWidth: 0, overflow: 'hidden',
+                background: isStatic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: isStatic ? '#fff' : 'var(--text-muted)',
+                border: isStatic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: isStatic ? 600 : 400,
               }}
-            ><Icon.Layers /> Static</button>
+            ><Icon.Layers /> Structure</button>
             <button
               onClick={() => setViewKind(view.id, 'dynamic')}
               style={{
-                flex: 1, padding: '5px 0', fontSize: 11, borderRadius: 6, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                flex: 1, padding: '5px 3px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                minWidth: 0, overflow: 'hidden',
                 background: isDynamic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
                 color: isDynamic ? '#fff' : 'var(--text-muted)',
                 border: isDynamic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
                 fontWeight: isDynamic ? 600 : 400,
               }}
-            ><Icon.Bolt /> Dynamic</button>
+            ><Icon.Bolt /> Flow</button>
+            <button
+              onClick={() => setViewKind(view.id, 'treemap')}
+              style={{
+                flex: 1, padding: '5px 3px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                minWidth: 0, overflow: 'hidden',
+                background: isTreemap ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: isTreemap ? '#fff' : 'var(--text-muted)',
+                border: isTreemap ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: isTreemap ? 600 : 400,
+              }}
+            ><Icon.TreemapGrid /> Hierarchy</button>
           </div>
         </div>
       )}
-      {!readOnly && (
+      {!readOnly && !isTreemap && !isDynamic && (
         <div>
           <div className="props-section-title">Auto-layout</div>
           <select
@@ -810,13 +837,17 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
       >
         <div className="lp-view-icon"><Icon.Globe /></div>
         <div className="lp-card-body">
-          <div className="lp-card-title">All elements</div>
-          <div className="lp-card-meta"><span>{totalNodes} {totalNodes === 1 ? 'node' : 'nodes'}</span></div>
+          <div className="lp-card-title">Structure view</div>
+          <div className="lp-card-meta">
+            <span>{totalNodes} {totalNodes === 1 ? 'node' : 'nodes'}</span>
+            <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>structure</span>
+          </div>
         </div>
       </div>
       {viewList.map((v) => {
         const isActive = activeViewId === v.id
         const isDynamic = v.kind === 'dynamic'
+        const isTreemap = v.kind === 'treemap'
         return (
           <div key={v.id}>
             <div
@@ -824,13 +855,15 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
               onClick={() => setActiveView(v.id)}
             >
               <div className="lp-view-icon" style={{ color: isDynamic ? 'var(--accent)' : undefined }}>
-                {isDynamic ? <Icon.Bolt /> : <Icon.Layers />}
+                {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : <Icon.Layers />}
               </div>
               <div className="lp-card-body">
                 <div className="lp-card-title">{v.name}</div>
                 <div className="lp-card-meta">
                   <span>{v.nodeIds.length} {v.nodeIds.length === 1 ? 'node' : 'nodes'}</span>
-                  {isDynamic && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>dynamic</span>}
+                  {isDynamic && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>flow</span>}
+                  {isTreemap && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>hierarchy</span>}
+                  {!isDynamic && !isTreemap && <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>structure</span>}
                 </div>
               </div>
               {!readOnly && onOpenProps && (
@@ -1137,9 +1170,9 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
                   borderRadius: 6, color: 'var(--accent)', cursor: 'pointer', fontWeight: 600,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
-                title="Create a dynamic view showing only nodes and relations from this sequence"
+                title="Create a Flow view showing only nodes and relations from this sequence"
               >
-                <Icon.Plus /> Create view from sequence
+                <Icon.Plus /> Create Flow view from sequence
               </button>
             )
           })()}

@@ -838,8 +838,14 @@ interface DiagramStore {
   hideRelationFromView: (viewId: string, relationId: string) => void
   /** Reverse `hideRelationFromView`. */
   unhideRelationInView: (viewId: string, relationId: string) => void
-  /** Switch a view between 'static' and 'dynamic'. */
-  setViewKind: (viewId: string, kind: 'static' | 'dynamic') => void
+  /** Switch a view between 'static', 'dynamic', and 'treemap'. */
+  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap') => void
+  /** Persist treemap drill-down focus (null = top "All"). */
+  setTreemapFocus: (viewId: string, focusId: string | null) => void
+  /** Choose how treemap rectangles are sized for a view. */
+  setTreemapSizeBy: (viewId: string, mode: 'leaves' | 'uniform' | 'relations') => void
+  setTreemapMaxDepth: (viewId: string, depth: number | null) => void
+  toggleTreemapExpand: (viewId: string, nodeId: string) => void
   /** Choose the auto-layout strategy used for this view. */
   setViewLayoutMode: (viewId: string, mode: 'auto' | 'tree') => void
   /** Link/unlink a sequence to a dynamic view. */
@@ -2085,6 +2091,48 @@ export const useDiagramStore = create<DiagramStore>()(
           const view = state.views[viewId]
           if (!view) return
           view.kind = kind
+        })
+        get()._sync()
+      },
+
+      setTreemapFocus(viewId, focusId) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.treemapFocusId = focusId
+        })
+        get()._sync()
+      },
+
+      setTreemapSizeBy(viewId, mode) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.treemapSizeBy = mode
+        })
+        get()._sync()
+      },
+
+      setTreemapMaxDepth(viewId, depth) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.treemapMaxDepth = depth
+        })
+        get()._sync()
+      },
+
+      toggleTreemapExpand(viewId, nodeId) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          const list = view.treemapExpandedIds ?? []
+          const idx = list.indexOf(nodeId)
+          if (idx >= 0) {
+            view.treemapExpandedIds = list.filter((_, i) => i !== idx)
+          } else {
+            view.treemapExpandedIds = [...list, nodeId]
+          }
         })
         get()._sync()
       },

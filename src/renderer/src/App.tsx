@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { ReactFlowProvider } from 'reactflow'
 import { Toolbar } from './components/Toolbar'
 import { Canvas } from './components/Canvas'
+import { TreemapView } from './components/TreemapView'
+import { SequenceView } from './components/SequenceView'
 import { PresentationBar, PresenterDock } from './components/PresentationBar'
 import { RightPanel, LeftPanel } from './components/RightPanel'
 import { MetamodelEditor } from './components/MetamodelEditor'
@@ -19,6 +21,12 @@ function AppInner(): React.ReactElement {
   const runRadicalLayout = useDiagramStore((s) => s.runRadicalLayout)
   const appMode = useDiagramStore((s) => s.appMode)
   const presentationActive = useDiagramStore((s) => s.presentationActive)
+  const activeViewKind = useDiagramStore((s) =>
+    s.activeViewId ? (s.views[s.activeViewId]?.kind ?? 'static') : 'static'
+  )
+  const isTreemapView  = activeViewKind === 'treemap'
+  const isSequenceView = activeViewKind === 'dynamic'
+  const isCanvasView   = !isTreemapView && !isSequenceView
 
   const isPresenting = presentationActive
   const isDesigner = appMode === 'designer'
@@ -74,14 +82,14 @@ function AppInner(): React.ReactElement {
       {!isPresenting && <Toolbar />}
       {!isPresenting && isDesigner && <LeftPanel mode="designer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {!isPresenting && isViewer && <LeftPanel mode="viewer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
-      <Canvas />
+      {isTreemapView ? <TreemapView /> : isSequenceView ? <SequenceView /> : <Canvas />}
       {!isPresenting && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
       {!isPresenting && !isDesigner && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
       {!isPresenting && isViewer && <PresenterDock />}
       <PresentationBar />
-      {!isPresenting && <SelectionActionBar />}
-      {!isPresenting && <EdgeActionBar />}
-      <QuickSearch />
+      {!isPresenting && isCanvasView && <SelectionActionBar />}
+      {!isPresenting && isCanvasView && <EdgeActionBar />}
+      {isCanvasView && <QuickSearch />}
       <NotificationHost />
       {isMetamodel && !isPresenting && <MetamodelEditor />}
       {showWelcome && <WelcomeScreen onDismiss={() => setShowWelcome(false)} />}
