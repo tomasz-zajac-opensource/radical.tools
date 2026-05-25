@@ -81,7 +81,18 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
   const hasChildren = children.length > 0
   const isSelected = selectedNodeId === nodeId
   const canCollapse = (node.type === 'system' || node.type === 'container') && hasChildren
-  const inView = !activeView || activeView.nodeIds.includes(nodeId)
+  // For hierarchy views: empty nodeIds means "show all" (no filter), so all nodes are "in view".
+  // For other view kinds: empty nodeIds means "nothing selected", so nodes are dimmed.
+  const isHierarchy = activeView?.kind === 'treemap'
+  const inView = !activeView
+    || (isHierarchy && activeView.nodeIds.length === 0)
+    || activeView.nodeIds.includes(nodeId)
+  // Effective collapsed: per-view if a named view is active, else model-level.
+  // A model-collapsed node can be overridden in this view via expandedNodeIds.
+  const isEffectivelyCollapsed = activeViewId
+    ? ((node.collapsed && !(activeView?.expandedNodeIds?.includes(nodeId) ?? false))
+        || (activeView?.collapsedNodeIds?.includes(nodeId) ?? false))
+    : node.collapsed
 
   return (
     <>
@@ -99,7 +110,7 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
           }}
           style={{ cursor: canCollapse ? 'pointer' : 'default', opacity: canCollapse ? 1 : 0.3 }}
         >
-          {canCollapse ? (node.collapsed ? '▶' : '▼') : '·'}
+          {canCollapse ? (isEffectivelyCollapsed ? '▶' : '▼') : '·'}
         </span>
         <span
           className="tree-badge"
@@ -123,7 +134,7 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
           </span>
         )}
       </div>
-      {!node.collapsed &&
+      {!isEffectivelyCollapsed &&
         children.map((c) => (
           <TreeNodeItem key={c.id} nodeId={c.id} depth={depth + 1} />
         ))}

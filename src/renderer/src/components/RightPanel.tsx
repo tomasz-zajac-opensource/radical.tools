@@ -75,7 +75,16 @@ function TreeNodeItem({ nodeId, depth }: { nodeId: string; depth: number }) {
   const hasChildren = children.length > 0
   const isSelected = selectedNodeId === nodeId
   const canCollapse = isContainerType(node.type) && hasChildren
-  const inView = !activeView || activeView.nodeIds.includes(nodeId)
+  const isHierarchy = activeView?.kind === 'treemap'
+  const inView = !activeView
+    || (isHierarchy && activeView.nodeIds.length === 0)
+    || activeView.nodeIds.includes(nodeId)
+  // Effective collapsed: per-view if a named view is active, else model-level.
+  // A model-collapsed node can be overridden in this view via expandedNodeIds.
+  const isEffectivelyCollapsed = activeViewId
+    ? ((node.collapsed && !(activeView?.expandedNodeIds?.includes(nodeId) ?? false))
+        || (activeView?.collapsedNodeIds?.includes(nodeId) ?? false))
+    : node.collapsed
 
   return (
     <>
@@ -89,7 +98,7 @@ function TreeNodeItem({ nodeId, depth }: { nodeId: string; depth: number }) {
           onClick={(e) => { if (!canCollapse) return; e.stopPropagation(); toggleCollapse(nodeId) }}
           style={{ cursor: canCollapse ? 'pointer' : 'default', opacity: canCollapse ? 1 : 0.3 }}
         >
-          {canCollapse ? (node.collapsed ? '▶' : '▼') : '·'}
+          {canCollapse ? (isEffectivelyCollapsed ? '▶' : '▼') : '·'}
         </span>
         <span className="tree-badge"><C4Icon type={node.type} size={10} /></span>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -109,7 +118,7 @@ function TreeNodeItem({ nodeId, depth }: { nodeId: string; depth: number }) {
           </span>
         )}
       </div>
-      {!node.collapsed && children.map((c) => (
+      {!isEffectivelyCollapsed && children.map((c) => (
         <TreeNodeItem key={c.id} nodeId={c.id} depth={depth + 1} />
       ))}
     </>

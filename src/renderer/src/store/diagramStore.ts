@@ -227,11 +227,15 @@ function computeViewCollapsedSet(
   return result
 }
 
-/** Is the node effectively collapsed (model-collapsed OR view-collapsed)? */
+/** Is the node effectively collapsed (model-collapsed OR view-collapsed)?
+ *  Pass `expandedSet` (from `view.expandedNodeIds`) to allow a named view to
+ *  override a model-level collapse. */
 function isEffectivelyCollapsed(
   node: C4Node,
-  viewCollapsedSet?: Set<string>
+  viewCollapsedSet?: Set<string>,
+  expandedSet?: Set<string>
 ): boolean {
+  if (expandedSet?.has(node.id)) return false  // view-level explicit expansion
   return node.collapsed || (viewCollapsedSet?.has(node.id) ?? false)
 }
 
@@ -264,14 +268,15 @@ function filterForView(
 function isNodeHidden(
   nodeId: string,
   nodes: Record<string, C4Node>,
-  viewCollapsedSet?: Set<string>
+  viewCollapsedSet?: Set<string>,
+  expandedSet?: Set<string>
 ): boolean {
   const node = nodes[nodeId]
   if (!node || !node.parentId) return false
   const parent = nodes[node.parentId]
   if (!parent) return false
-  if (isEffectivelyCollapsed(parent, viewCollapsedSet)) return true
-  return isNodeHidden(node.parentId, nodes, viewCollapsedSet)
+  if (isEffectivelyCollapsed(parent, viewCollapsedSet, expandedSet)) return true
+  return isNodeHidden(node.parentId, nodes, viewCollapsedSet, expandedSet)
 }
 
 /**
@@ -281,12 +286,13 @@ function isNodeHidden(
 function getVisibleAncestor(
   nodeId: string,
   nodes: Record<string, C4Node>,
-  viewCollapsedSet?: Set<string>
+  viewCollapsedSet?: Set<string>,
+  expandedSet?: Set<string>
 ): string {
-  if (!isNodeHidden(nodeId, nodes, viewCollapsedSet)) return nodeId
+  if (!isNodeHidden(nodeId, nodes, viewCollapsedSet, expandedSet)) return nodeId
   const node = nodes[nodeId]
   if (!node || !node.parentId) return nodeId
-  return getVisibleAncestor(node.parentId, nodes, viewCollapsedSet)
+  return getVisibleAncestor(node.parentId, nodes, viewCollapsedSet, expandedSet)
 }
 
 /**
@@ -298,20 +304,21 @@ function getViewVisibleAncestor(
   nodeId: string,
   nodes: Record<string, C4Node>,
   viewFilter: Set<string> | undefined,
-  viewCollapsedSet?: Set<string>
+  viewCollapsedSet?: Set<string>,
+  expandedSet?: Set<string>
 ): string {
   // Without a view filter, fall back to normal collapse logic
-  if (!viewFilter) return getVisibleAncestor(nodeId, nodes, viewCollapsedSet)
+  if (!viewFilter) return getVisibleAncestor(nodeId, nodes, viewCollapsedSet, expandedSet)
   // Walk up until we find a node in the view that isn't hidden
   let cur = nodeId
   while (cur) {
-    if (viewFilter.has(cur) && !isNodeHidden(cur, nodes, viewCollapsedSet)) return cur
+    if (viewFilter.has(cur) && !isNodeHidden(cur, nodes, viewCollapsedSet, expandedSet)) return cur
     const node = nodes[cur]
     if (!node?.parentId) break
     cur = node.parentId
   }
   // Fallback: return whatever getVisibleAncestor gives
-  return getVisibleAncestor(nodeId, nodes, viewCollapsedSet)
+  return getVisibleAncestor(nodeId, nodes, viewCollapsedSet, expandedSet)
 }
 
 /** True if `ancestorId` is a (transitive) ancestor of `nodeId`. */
@@ -339,16 +346,16 @@ function getDescendants(nodeId: string, nodes: Record<string, C4Node>): string[]
 }
 
 /** Effective rendered height of a node (respects collapse + view collapse). */
-function effectiveNodeHeight(n: C4Node, viewCollapsedSet?: Set<string>): number {
-  if (isContainerType(n.type) && isEffectivelyCollapsed(n, viewCollapsedSet)) {
+function effectiveNodeHeight(n: C4Node, viewCollapsedSet?: Set<string>, expandedSet?: Set<string>): number {
+  if (isContainerType(n.type) && isEffectivelyCollapsed(n, viewCollapsedSet, expandedSet)) {
     return COLLAPSED_HEIGHT[n.type]
   }
   return n.height
 }
 
 /** Effective rendered width of a node (respects collapse + view collapse). */
-function effectiveNodeWidth(n: C4Node, viewCollapsedSet?: Set<string>): number {
-  if (isContainerType(n.type) && isEffectivelyCollapsed(n, viewCollapsedSet)) {
+function effectiveNodeWidth(n: C4Node, viewCollapsedSet?: Set<string>, expandedSet?: Set<string>): number {
+  if (isContainerType(n.type) && isEffectivelyCollapsed(n, viewCollapsedSet, expandedSet)) {
     return COLLAPSED_WIDTH[n.type]
   }
   return n.width
@@ -511,6 +518,7 @@ function deriveRFNodes(
   viewCollapsedSet?: Set<string>,
   ghostIds?: Set<string>,
   locked?: boolean,
+  expandedSet?: Set<string>,
 ): Node<C4NodeRFData>[] {
   const rfNodes: Node<C4NodeRFData>[] = []
 
@@ -554,9 +562,9 @@ function deriveRFNodes(
   const PARENT_LABEL_PAD = 110
 
   for (const n of sorted) {
-    const hidden = isNodeHidden(n.id, nodes, viewCollapsedSet)
+    const hidden = isNodeHidden(n.id, nodes, viewCollapsedSet, expandedSet)
     const hasChildren = parentSet.has(n.id)
-    const collapsed = isEffectivelyCollapsed(n, viewCollapsedSet)
+    const collapsed = isEffectivelyCollapsed(n, viewCollapsedSet, expandedSet)
     const isGhost = ghostIds?.has(n.id) ?? false
     const effHeight =
       isContainerType(n.type) && (collapsed || !hasChildren)
@@ -576,12 +584,13 @@ function deriveRFNodes(
       const parentExpanded =
         parent &&
         isContainerType(parent.type) &&
-        !isEffectivelyCollapsed(parent, viewCollapsedSet) &&
+        !isEffectivelyCollapsed(parent, viewCollapsedSet, expandedSet) &&
         parentSet.has(parent.id)
       if (parentExpanded && renderY < PARENT_LABEL_PAD) {
         renderY = PARENT_LABEL_PAD
       }
     }
+
 
     rfNodes.push({
       id: n.id,
@@ -632,6 +641,7 @@ function deriveRFEdges(
   viewFilter?: Set<string>,
   viewCollapsedSet?: Set<string>,
   hiddenRelationIds?: Set<string>,
+  expandedSet?: Set<string>,
 ): Edge<C4EdgeRFData>[] {
   const rfEdges: Edge<C4EdgeRFData>[] = []
   // Track virtual edges already emitted to avoid duplicates
@@ -641,8 +651,8 @@ function deriveRFEdges(
     if (!nodes[rel.sourceId] || !nodes[rel.targetId]) continue
     if (hiddenRelationIds && hiddenRelationIds.has(rel.id)) continue
 
-    const visSource = getViewVisibleAncestor(rel.sourceId, nodes, viewFilter, viewCollapsedSet)
-    const visTarget = getViewVisibleAncestor(rel.targetId, nodes, viewFilter, viewCollapsedSet)
+    const visSource = getViewVisibleAncestor(rel.sourceId, nodes, viewFilter, viewCollapsedSet, expandedSet)
+    const visTarget = getViewVisibleAncestor(rel.targetId, nodes, viewFilter, viewCollapsedSet, expandedSet)
 
     if (visSource === visTarget) continue // collapsed to same ancestor → self-loop, skip
 
@@ -876,7 +886,7 @@ interface DiagramStore {
   // ── actions: React Flow sync ──
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
-  fitParentToChildren: (parentId: string, viewFilter?: Set<string>, viewCollapsedSet?: Set<string>) => void
+  fitParentToChildren: (parentId: string, viewFilter?: Set<string>, viewCollapsedSet?: Set<string>, expandedSet?: Set<string>) => void
   resolveOverlaps: (draggedId: string) => void
 
   // ── actions: layout ──
@@ -1181,6 +1191,14 @@ export const useDiagramStore = create<DiagramStore>()(
           const mergedRels: Record<string, C4Relation> = hasGhosts ? { ...ghostRels, ...liveRels } : liveRels
           const filter = computeViewNodeSet(view as DiagramView | undefined, mergedNodes)
           const vcs = computeViewCollapsedSet(filter, mergedNodes)
+          // Also include nodes the user explicitly collapsed in this named view
+          if (view?.collapsedNodeIds?.length) {
+            for (const nid of view.collapsedNodeIds) vcs.add(nid)
+          }
+          // Nodes explicitly expanded in this view override model-level collapse
+          const expandedSet = view?.expandedNodeIds?.length
+            ? new Set(view.expandedNodeIds)
+            : undefined
           const ghostIdSet = hasGhosts ? new Set(Object.keys(ghostNodes)) : undefined
           // "locked" disables drag + selection. Metamodel mode is the only
           // truly read-only mode; designer is always editable; viewer and
@@ -1189,11 +1207,11 @@ export const useDiagramStore = create<DiagramStore>()(
           // While a presentation is active we also lock — slides are
           // static and must not drift from accidental drags.
           const locked = state.appMode === 'metamodel' || state.presentationActive
-          state.rfNodes = deriveRFNodes(mergedNodes, filter, vcs, ghostIdSet, locked) as any
+          state.rfNodes = deriveRFNodes(mergedNodes, filter, vcs, ghostIdSet, locked, expandedSet) as any
           const hiddenRels = view?.hiddenRelationIds && view.hiddenRelationIds.length
             ? new Set(view.hiddenRelationIds)
             : undefined
-          const derivedEdges = deriveRFEdges(mergedNodes, mergedRels, filter, vcs, hiddenRels)
+          const derivedEdges = deriveRFEdges(mergedNodes, mergedRels, filter, vcs, hiddenRels, expandedSet)
           // Annotate edges with step numbers:
           // 1. When actively editing a sequence (activeSequenceId set) — always show numbers
           // 2. When view is dynamic and linked to a sequence — show numbers in view mode
@@ -1362,11 +1380,20 @@ export const useDiagramStore = create<DiagramStore>()(
         // disk. We therefore only push to undo history while editing.
         const inDesigner = get().appMode === 'designer'
         if (inDesigner) get()._pushUndo()
-        const prevCollapsed = get().c4Nodes[id]?.collapsed === true
+        const activeViewId = get().activeViewId
+        const modelCollapsed = get().c4Nodes[id]?.collapsed === true
+        // Effective collapsed: model-level OR per-view collapse for named views.
+        // A model-collapsed node can be view-expanded via view.expandedNodeIds.
+        const prevCollapsed = activeViewId
+          ? ((modelCollapsed && !(get().views[activeViewId]?.expandedNodeIds?.includes(id) ?? false))
+              || (get().views[activeViewId]?.collapsedNodeIds?.includes(id) ?? false))
+          : modelCollapsed
+        // Apply to model temporarily — layout helpers below (separateSiblings /
+        // fitParentToChildren) query node.collapsed to compute effective sizes.
         set((state) => {
           const node = state.c4Nodes[id]
           if (!node) return
-          node.collapsed = !node.collapsed
+          node.collapsed = !prevCollapsed
         })
 
         // ── Expand origin: ensure children "spawn from the parent" ─────
@@ -1439,6 +1466,33 @@ export const useDiagramStore = create<DiagramStore>()(
         // then snap to. The loop below only reads/writes the model; we sync
         // once at the end so the viewport sees a single consistent change.
 
+        // When inside a named view, fitParentToChildren must only consider
+        // the nodes that are actually visible in this view. Without the view
+        // filter it would resize the parent to fit ALL model children
+        // (including those not in the view), keeping the parent far too large.
+        // We also pass the current view-collapsed set so previously-collapsed
+        // siblings are measured at their collapsed size.
+        let loopViewFilter: Set<string> | undefined
+        let loopVcs: Set<string> | undefined
+        let loopExpandedSet: Set<string> | undefined
+        if (activeViewId) {
+          const view = get().views[activeViewId]
+          if (view) {
+            loopViewFilter = computeViewNodeSet(view as any, get().c4Nodes)
+            loopVcs = computeViewCollapsedSet(loopViewFilter, get().c4Nodes)
+            if (view.collapsedNodeIds?.length) {
+              for (const nid of view.collapsedNodeIds) loopVcs.add(nid)
+            }
+            // Build the expanded set so fitParentToChildren measures view-expanded
+            // nodes at their full size, not their model-collapsed size.
+            // Note: the toggled node itself has node.collapsed = !prevCollapsed set
+            // temporarily, so we don't need to add `id` to loopExpandedSet here.
+            if (view.expandedNodeIds?.length) {
+              loopExpandedSet = new Set(view.expandedNodeIds)
+            }
+          }
+        }
+
         // Walk up the ancestor chain:
         // At each level: separate siblings of current node, then refit the parent.
         // This propagates size changes upward so grandparent containers also shrink/grow.
@@ -1456,11 +1510,42 @@ export const useDiagramStore = create<DiagramStore>()(
 
           const current: C4Node | undefined = get().c4Nodes[currentId]
           if (current?.parentId) {
-            get().fitParentToChildren(current.parentId)
+            get().fitParentToChildren(current.parentId, loopViewFilter, loopVcs, loopExpandedSet)
             currentId = current.parentId
           } else {
             break
           }
+        }
+
+        // If in a named view: revert the temporary model change and persist
+        // collapse state per-view instead, so toggling in one view does not
+        // affect other views or the default (all-nodes) view.
+        if (activeViewId) {
+          set((state) => {
+            const node = state.c4Nodes[id]
+            if (node) node.collapsed = modelCollapsed  // restore original model state
+            const v = state.views[activeViewId]
+            if (!v) return
+            if (!v.collapsedNodeIds) v.collapsedNodeIds = []
+            if (!v.expandedNodeIds) v.expandedNodeIds = []
+            if (!prevCollapsed) {
+              // Collapsing: add to this view's collapsed list; remove any expansion override
+              if (!v.collapsedNodeIds.includes(id)) v.collapsedNodeIds.push(id)
+              v.expandedNodeIds = v.expandedNodeIds.filter((nid) => nid !== id)
+            } else {
+              // Expanding: remove from collapsed list
+              v.collapsedNodeIds = v.collapsedNodeIds.filter((nid) => nid !== id)
+              // If this node is model-collapsed, we need to remember it was
+              // explicitly expanded in this view so _sync() can override the
+              // model-level collapse when rendering.
+              if (modelCollapsed) {
+                if (!v.expandedNodeIds.includes(id)) v.expandedNodeIds.push(id)
+              } else {
+                // Not model-collapsed — no expansion override needed
+                v.expandedNodeIds = v.expandedNodeIds.filter((nid) => nid !== id)
+              }
+            }
+          })
         }
 
         get()._sync()
@@ -2043,7 +2128,15 @@ export const useDiagramStore = create<DiagramStore>()(
       removeNodeFromView(viewId, nodeId) {
         set((state) => {
           const view = state.views[viewId]
-          if (view) view.nodeIds = view.nodeIds.filter((id) => id !== nodeId)
+          if (!view) return
+          if (view.kind === 'treemap' && view.nodeIds.length === 0) {
+            // Hierarchy view with empty nodeIds means "show all". First removal
+            // transitions to "show all except this node" by explicitly listing every
+            // other node so subsequent removals work correctly.
+            view.nodeIds = Object.keys(state.c4Nodes).filter(id => id !== nodeId)
+          } else {
+            view.nodeIds = view.nodeIds.filter((id) => id !== nodeId)
+          }
         })
         get()._sync()
       },
@@ -2392,12 +2485,12 @@ export const useDiagramStore = create<DiagramStore>()(
         get()._sync()
       },
 
-      fitParentToChildren(parentId, viewFilter, viewCollapsedSet) {
+      fitParentToChildren(parentId, viewFilter, viewCollapsedSet, expandedSet) {
         const { c4Nodes } = get()
         const parent = c4Nodes[parentId]
         if (!parent || !isContainerType(parent.type)) return
         // Don't resize a collapsed node (model-collapsed or view-collapsed)
-        if (isEffectivelyCollapsed(parent, viewCollapsedSet)) return
+        if (isEffectivelyCollapsed(parent, viewCollapsedSet, expandedSet)) return
 
         let children = Object.values(c4Nodes).filter((c) => c.parentId === parentId)
         // When a view filter is active, only consider children in the view
@@ -2411,8 +2504,8 @@ export const useDiagramStore = create<DiagramStore>()(
         let maxRight = 0
         let maxBottom = 0
         for (const child of children) {
-          const h = effectiveNodeHeight(child, viewCollapsedSet)
-          const w = effectiveNodeWidth(child, viewCollapsedSet)
+          const h = effectiveNodeHeight(child, viewCollapsedSet, expandedSet)
+          const w = effectiveNodeWidth(child, viewCollapsedSet, expandedSet)
           maxRight  = Math.max(maxRight,  child.x + w)
           maxBottom = Math.max(maxBottom, child.y + h)
         }

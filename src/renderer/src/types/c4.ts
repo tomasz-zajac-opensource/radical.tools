@@ -123,6 +123,18 @@ export interface DiagramView {
    * without changing the focus root. Persisted per view.
    */
   treemapExpandedIds?: string[]
+  /**
+   * Node IDs explicitly collapsed by the user in this named view.
+   * Independent of the model-level `node.collapsed` flag — collapsing in one
+   * view does not affect other views or the default "all nodes" view.
+   */
+  collapsedNodeIds?: string[]
+  /**
+   * Node IDs explicitly expanded in this named view, overriding a model-level
+   * `node.collapsed = true`. Lets the user expand a node in one view without
+   * affecting other views or the default "all nodes" view.
+   */
+  expandedNodeIds?: string[]
 }
 
 /** Named snapshot (version) of the diagram state */
