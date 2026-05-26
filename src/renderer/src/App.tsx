@@ -12,6 +12,7 @@ import { SelectionActionBar } from './components/SelectionActionBar'
 import { EdgeActionBar } from './components/EdgeActionBar'
 import { QuickSearch } from './components/QuickSearch'
 import { WelcomeScreen } from './components/WelcomeScreen'
+import { MilestoneEditOverlay } from './components/MilestoneEditOverlay'
 import { useDiagramStore } from './store/diagramStore'
 
 const LS_LEFT = 'radical-leftpanel-collapsed'
@@ -94,6 +95,7 @@ function AppInner(): React.ReactElement {
       {!isPresenting && isCanvasView && <EdgeActionBar />}
       {isCanvasView && <QuickSearch />}
       <NotificationHost />
+      <MilestoneEditOverlay />
       {isMetamodel && !isPresenting && <MetamodelEditor />}
       {showWelcome && <WelcomeScreen onDismiss={() => setShowWelcome(false)} />}
     </div>

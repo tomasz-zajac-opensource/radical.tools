@@ -14,7 +14,6 @@ import ReactFlow, {
 import { useDiagramStore } from '../store/diagramStore'
 import { PersonNode, SystemNode, ContainerNode, ComponentNode, DatabaseNode, WebAppNode, QueueNode, DomainNode } from './nodes/C4Nodes'
 import { RelationEdge } from './edges/RelationEdge'
-import { MilestoneEditOverlay } from './MilestoneEditOverlay'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { C4ElementType, NODE_SIZES, COLLAPSED_HEIGHT } from '../types/c4'
 import { isParentAllowed, isRelationAllowed } from '../types/metamodel'
@@ -119,6 +118,26 @@ function StructuralCanvas(): React.ReactElement {
   const activeSequenceId = useDiagramStore((s) => s.activeSequenceId)
   const activeSequenceName = useDiagramStore((s) => s.activeSequenceId ? s.sequences[s.activeSequenceId]?.name : undefined)
   const setActiveSequence = useDiagramStore((s) => s.setActiveSequence)
+
+  // Milestone view mode
+  const activeSnapshotId = useDiagramStore((s) => s.activeSnapshotId)
+  const snapshotName = useDiagramStore((s) =>
+    s.activeSnapshotId ? s.snapshots.find((sn) => sn.id === s.activeSnapshotId)?.name : undefined
+  )
+  const milestoneDirty = useDiagramStore((s) => s.milestoneDirty)
+  const commitMilestoneChanges = useDiagramStore((s) => s.commitMilestoneChanges)
+  const discardMilestoneChanges = useDiagramStore((s) => s.discardMilestoneChanges)
+  const [milestoneNewName, setMilestoneNewName] = useState<string | null>(null)
+  const diffHighlight = useDiagramStore((s) => s.diffHighlight)
+  const milestoneStats = useMemo(() => {
+    let added = 0, changed = 0, removed = 0
+    for (const k of Object.values(diffHighlight)) {
+      if (k === 'new') added++
+      else if (k === 'changed') changed++
+      else if (k === 'removed') removed++
+    }
+    return { added, changed, removed }
+  }, [diffHighlight])
   const activeViewName = useDiagramStore((s) =>
     s.activeViewId ? s.views[s.activeViewId]?.name : 'All elements'
   )
@@ -444,6 +463,14 @@ function StructuralCanvas(): React.ReactElement {
         instance.fitView({ padding: 0.12 })
       }
     }, 100)
+
+    // Register global zoom helpers used by the Toolbar zoom buttons.
+    ;(window as any).__radicalZoomIn  = () => instance.zoomIn({ duration: 300 })
+    ;(window as any).__radicalZoomOut = () => instance.zoomOut({ duration: 300 })
+    return () => {
+      delete (window as any).__radicalZoomIn
+      delete (window as any).__radicalZoomOut
+    }
   }, [setFitViewFn, setViewportFns, smoothFitView])
 
   // Double-click on the canvas background → add a new System at that position
@@ -781,7 +808,82 @@ function StructuralCanvas(): React.ReactElement {
           >✕</button>
         </div>
       )}
-      <MilestoneEditOverlay />
+      {activeSnapshotId && snapshotName && (
+        <div
+          className="nodrag nopan"
+          style={{
+            position: 'absolute',
+            top: 8,
+            left: 12,
+            fontSize: 11,
+            color: 'var(--text-muted)',
+            background: 'var(--bg-panel)',
+            border: `1px solid ${milestoneDirty ? 'var(--accent)' : 'var(--border-color)'}`,
+            padding: '4px 8px',
+            borderRadius: 4,
+            pointerEvents: milestoneDirty ? 'all' : 'none',
+            zIndex: 10,
+            display: 'flex',
+            gap: 6,
+            alignItems: 'center',
+          }}
+        >
+          <span style={{ color: 'var(--accent)', fontSize: 10 }}>●</span>
+          <span>
+            Milestone: <strong style={{ color: 'var(--text-primary)' }}>{snapshotName}</strong>
+            {milestoneDirty && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>· unsaved</span>}
+          </span>
+          {(milestoneStats.added + milestoneStats.changed + milestoneStats.removed) > 0 && (
+            <span style={{ marginLeft: 2, opacity: 0.9 }}>
+              <span style={{ color: '#4ade80' }}>+{milestoneStats.added}</span>
+              {' '}
+              <span style={{ color: '#fb923c' }}>~{milestoneStats.changed}</span>
+              {' '}
+              <span style={{ color: '#f87171' }}>−{milestoneStats.removed}</span>
+            </span>
+          )}
+          {milestoneDirty && (
+            <>
+              <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--border-color)', margin: '0 2px' }} />
+              <button
+                title="Apply changes to this and all later milestones"
+                onClick={() => commitMilestoneChanges('propagate')}
+                style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 3 }}
+              >Propagate</button>
+              {milestoneNewName !== null ? (
+                <>
+                  <input
+                    autoFocus
+                    value={milestoneNewName}
+                    onChange={e => setMilestoneNewName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { commitMilestoneChanges('new', milestoneNewName); setMilestoneNewName(null) }
+                      if (e.key === 'Escape') setMilestoneNewName(null)
+                    }}
+                    placeholder="New milestone name…"
+                    style={{ fontSize: 11, padding: '2px 6px', borderRadius: 3, border: '1px solid var(--border-color)', background: 'var(--bg-input, var(--bg-surface))', color: 'var(--text-primary)', width: 160 }}
+                  />
+                  <button
+                    onClick={() => { commitMilestoneChanges('new', milestoneNewName); setMilestoneNewName(null) }}
+                    style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 3, color: 'var(--text-primary)' }}
+                  >Save</button>
+                </>
+              ) : (
+                <button
+                  title="Save as new milestone"
+                  onClick={() => setMilestoneNewName(`${snapshotName} (edited)`)}
+                  style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 3, color: 'var(--text-primary)' }}
+                >New milestone</button>
+              )}
+              <button
+                title="Discard changes and return to live"
+                onClick={discardMilestoneChanges}
+                style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'none', border: '1px solid var(--border-color)', borderRadius: 3, color: 'var(--text-muted)' }}
+              >Discard</button>
+            </>
+          )}
+        </div>
+      )}
       <DeleteConfirmDialog />
       <ReactFlow
         nodes={annotatedNodes}
@@ -816,15 +918,6 @@ function StructuralCanvas(): React.ReactElement {
           gap={24}
           size={1}
           color="var(--canvas-dots)"
-        />
-        <Controls
-          showFitView={false}
-          showInteractive={false}
-          style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 6,
-          }}
         />
       </ReactFlow>
 

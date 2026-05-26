@@ -151,6 +151,8 @@ export interface DiagramSnapshot {
   timestamp: number
   nodes: Record<string, C4Node>
   relations: Record<string, C4Relation>
+  /** Sequences captured at this point in time (optional for backward compat). */
+  sequences?: Record<string, DiagramSequence>
 }
 
 /** Saved positions + collapsed state for every node on the canvas */

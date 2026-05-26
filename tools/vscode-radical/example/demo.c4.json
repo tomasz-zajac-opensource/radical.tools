@@ -6,34 +6,34 @@
       "label": "Platform",
       "description": "Main system",
       "collapsed": false,
-      "x": 682.6040774900009,
-      "y": 252.35100354969455,
-      "width": 420,
-      "height": 639.9184780742014
+      "x": 157.65951721874177,
+      "y": 104.71282667552515,
+      "width": 800.0000010000001,
+      "height": 320
     },
     {
       "id": "ctn1",
       "type": "container",
-      "label": "Frontend",
+      "label": "Frontenddddddddddddd",
       "technology": "React",
-      "description": "Web UI",
+      "description": "Web UIddddd",
       "parentId": "sys1",
       "collapsed": false,
-      "x": 60.00050105054436,
-      "y": 60.007711731846825,
+      "x": 59.97967685863745,
+      "y": 59.999995604607705,
       "width": 300,
       "height": 200
     },
     {
       "id": "ctn2",
       "type": "container",
-      "label": "Backend",
-      "technology": "Node.js / GraphQL",
-      "description": "GraphQL API",
+      "label": "API",
+      "technology": "Node.js",
+      "description": "REST API",
       "parentId": "sys1",
       "collapsed": false,
-      "x": 60.00050105054436,
-      "y": 379.9006461912721,
+      "x": 439.97967785863744,
+      "y": 59.999995604607705,
       "width": 300,
       "height": 200
     },
@@ -43,8 +43,8 @@
       "label": "End User",
       "description": "Uses web app",
       "collapsed": false,
-      "x": 412.59727968579745,
-      "y": 77.82262559925493,
+      "x": -138.16327260850284,
+      "y": 179.9326261213975,
       "width": 150,
       "height": 170
     },
@@ -56,34 +56,8 @@
       "description": "Data storage",
       "parentId": "sys1",
       "collapsed": false,
-      "x": 477.0368771557954,
-      "y": 800.7687258886557,
-      "width": 300,
-      "height": 200
-    },
-    {
-      "id": "ctn4",
-      "type": "container",
-      "label": "Cache",
-      "technology": "Redis",
-      "description": "Session cache",
-      "parentId": "sys1",
-      "collapsed": false,
-      "x": 59.98676760635715,
-      "y": 800.7687258886557,
-      "width": 300,
-      "height": 200
-    },
-    {
-      "id": "ctn5",
-      "type": "container",
-      "label": "Auth Service",
-      "technology": "Keycloak",
-      "description": "Identity provider",
-      "parentId": "sys1",
-      "collapsed": false,
-      "x": 477.0368771557954,
-      "y": 59.99755498577167,
+      "x": 580,
+      "y": 70,
       "width": 300,
       "height": 200
     }
@@ -109,20 +83,6 @@
       "targetId": "ctn3",
       "label": "Reads/writes",
       "technology": "SQL"
-    },
-    {
-      "id": "r03",
-      "sourceId": "ctn2",
-      "targetId": "ctn4",
-      "label": "Caches",
-      "technology": "Redis protocol"
-    },
-    {
-      "id": "r04",
-      "sourceId": "ctn1",
-      "targetId": "ctn5",
-      "label": "Auth",
-      "technology": "OAuth2"
     }
   ],
   "sequences": [
@@ -136,20 +96,26 @@
         "r01",
         "r01",
         "r01",
+        "r04",
         "r01",
-        "r01",
-        "r04"
+        "r01"
       ],
       "stepDescriptions": [
-        null,
+        "ddsdsdsddd",
         null,
         "ddddddd",
         "dddd",
         "dddddd",
         "dddddd",
+        null,
         "ddd",
         "ddddd"
       ]
+    },
+    {
+      "id": "20ccea4f-8601-43fe-a54d-f0f351c71720",
+      "name": "Sequence 2",
+      "relationIds": []
     }
   ],
   "views": [
@@ -165,103 +131,73 @@
       ],
       "positions": {
         "sys1": {
-          "x": 682.6040774900009,
-          "y": 252.35100354969455,
-          "width": 420,
-          "height": 639.9184780742014
+          "x": 157.65951721874177,
+          "y": 104.71282667552515,
+          "width": 800.0000010000001,
+          "height": 320
         },
         "ctn1": {
-          "x": 60.00050105054436,
-          "y": 60.007711731846825,
+          "x": 59.97967685863745,
+          "y": 59.999995604607705,
           "width": 300,
           "height": 200
         },
         "ctn2": {
-          "x": 60.00050105054436,
-          "y": 379.9006461912721,
+          "x": 439.97967785863744,
+          "y": 59.999995604607705,
           "width": 300,
           "height": 200
         },
         "usr1": {
-          "x": 412.59727968579745,
-          "y": 77.82262559925493,
+          "x": -138.16327260850284,
+          "y": 179.9326261213975,
           "width": 150,
           "height": 170
         },
         "ctn3": {
-          "x": 477.0368771557954,
-          "y": 800.7687258886557,
-          "width": 300,
-          "height": 200
-        },
-        "ctn4": {
-          "x": 59.98676760635715,
-          "y": 800.7687258886557,
-          "width": 300,
-          "height": 200
-        },
-        "ctn5": {
-          "x": 477.0368771557954,
-          "y": 59.99755498577167,
+          "x": 580,
+          "y": 70,
           "width": 300,
           "height": 200
         }
       },
       "viewport": {
-        "x": 21.501764399439196,
-        "y": 98.18643058701724,
-        "zoom": 0.46604120514466024
+        "x": 225.70469001854758,
+        "y": 260.4948804972123,
+        "zoom": 0.5666709006182069
       }
     }
   ],
   "defaultPositions": {
     "sys1": {
-      "x": 657.7807383171573,
-      "y": 219.37867538013427,
-      "width": 836.3618604884391,
-      "height": 1063.1695981788057
+      "x": 157.65951721874177,
+      "y": 104.71282667552515,
+      "width": 800.0000010000001,
+      "height": 320
     },
     "ctn1": {
-      "x": 60.006736965882624,
-      "y": 59.98715109875394,
+      "x": 59.97967685863745,
+      "y": 59.999995604607705,
       "width": 300,
       "height": 200
     },
     "ctn2": {
-      "x": 170.49206423140834,
-      "y": 482.64170891432593,
+      "x": 439.97967785863744,
+      "y": 59.999995604607705,
       "width": 300,
       "height": 200
     },
     "usr1": {
-      "x": 387.6576830576778,
-      "y": 64.17199902113956,
+      "x": -138.16327260850284,
+      "y": 179.9326261213975,
       "width": 150,
       "height": 170
-    },
-    "ctn3": {
-      "x": 476.3554482124273,
-      "y": 803.1631322247873,
-      "width": 300,
-      "height": 200
-    },
-    "ctn4": {
-      "x": 60.006736965882624,
-      "y": 803.1631322247873,
-      "width": 300,
-      "height": 200
-    },
-    "ctn5": {
-      "x": 476.3554482124273,
-      "y": 59.98672812537308,
-      "width": 300,
-      "height": 200
     }
   },
   "defaultViewport": {
-    "x": 21.501764399439196,
-    "y": 98.18643058701724,
-    "zoom": 0.46604120514466024
+    "x": 225.70469001854758,
+    "y": 260.4948804972123,
+    "zoom": 0.5666709006182069
   },
   "snapshots": [
     {
@@ -275,21 +211,21 @@
           "label": "Platform",
           "description": "Main system",
           "collapsed": false,
-          "x": 200,
-          "y": 100,
-          "width": 700,
-          "height": 400
+          "x": 161.39027292290933,
+          "y": 107.35997796517154,
+          "width": 800.0000009999999,
+          "height": 320
         },
         "ctn1": {
           "id": "ctn1",
           "type": "container",
-          "label": "Frontend",
+          "label": "Frontenddddddddddddd",
           "technology": "React",
-          "description": "Web UI",
+          "description": "Web UIddddd",
           "parentId": "sys1",
           "collapsed": false,
-          "x": 40,
-          "y": 70,
+          "x": 59.980086497166724,
+          "y": 60.00005063488959,
           "width": 300,
           "height": 200
         },
@@ -301,8 +237,8 @@
           "description": "REST API",
           "parentId": "sys1",
           "collapsed": false,
-          "x": 360,
-          "y": 70,
+          "x": 439.9800874971667,
+          "y": 60.00005063488959,
           "width": 300,
           "height": 200
         },
@@ -312,8 +248,8 @@
           "label": "End User",
           "description": "Uses web app",
           "collapsed": false,
-          "x": -100,
-          "y": 180,
+          "x": -134.47182892829585,
+          "y": 179.93233222764633,
           "width": 150,
           "height": 170
         }
@@ -333,6 +269,39 @@
           "label": "Uses",
           "technology": "Browser"
         }
+      },
+      "sequences": {
+        "bf073422-7bc1-4f0a-8b41-bd8229b729ef": {
+          "id": "bf073422-7bc1-4f0a-8b41-bd8229b729ef",
+          "name": "Sequence 1",
+          "relationIds": [
+            "r00",
+            "r00",
+            "r00",
+            "r01",
+            "r01",
+            "r01",
+            "r04",
+            "r01",
+            "r01"
+          ],
+          "stepDescriptions": [
+            "ddsdsdsddd",
+            null,
+            "ddddddd",
+            "dddd",
+            "dddddd",
+            "dddddd",
+            null,
+            "ddd",
+            "ddddd"
+          ]
+        },
+        "20ccea4f-8601-43fe-a54d-f0f351c71720": {
+          "id": "20ccea4f-8601-43fe-a54d-f0f351c71720",
+          "name": "Sequence 2",
+          "relationIds": []
+        }
       }
     },
     {
@@ -346,21 +315,21 @@
           "label": "Platform",
           "description": "Main system",
           "collapsed": false,
-          "x": 200,
-          "y": 100,
-          "width": 900,
-          "height": 400
+          "x": 161.39027292290933,
+          "y": 107.35997796517154,
+          "width": 800.0000009999999,
+          "height": 320
         },
         "ctn1": {
           "id": "ctn1",
           "type": "container",
-          "label": "Frontend",
+          "label": "Frontenddddddddddddd",
           "technology": "React",
-          "description": "Web UI",
+          "description": "Web UIddddd",
           "parentId": "sys1",
           "collapsed": false,
-          "x": 40,
-          "y": 70,
+          "x": 59.980086497166724,
+          "y": 60.00005063488959,
           "width": 300,
           "height": 200
         },
@@ -372,8 +341,8 @@
           "description": "REST API",
           "parentId": "sys1",
           "collapsed": false,
-          "x": 360,
-          "y": 70,
+          "x": 439.9800874971667,
+          "y": 60.00005063488959,
           "width": 300,
           "height": 200
         },
@@ -383,8 +352,8 @@
           "label": "End User",
           "description": "Uses web app",
           "collapsed": false,
-          "x": -100,
-          "y": 180,
+          "x": -134.47182892829585,
+          "y": 179.93233222764633,
           "width": 150,
           "height": 170
         },
@@ -424,6 +393,39 @@
           "label": "Reads/writes",
           "technology": "SQL"
         }
+      },
+      "sequences": {
+        "bf073422-7bc1-4f0a-8b41-bd8229b729ef": {
+          "id": "bf073422-7bc1-4f0a-8b41-bd8229b729ef",
+          "name": "Sequence 1",
+          "relationIds": [
+            "r00",
+            "r00",
+            "r00",
+            "r01",
+            "r01",
+            "r01",
+            "r04",
+            "r01",
+            "r01"
+          ],
+          "stepDescriptions": [
+            "ddsdsdsddd",
+            null,
+            "ddddddd",
+            "dddd",
+            "dddddd",
+            "dddddd",
+            null,
+            "ddd",
+            "ddddd"
+          ]
+        },
+        "20ccea4f-8601-43fe-a54d-f0f351c71720": {
+          "id": "20ccea4f-8601-43fe-a54d-f0f351c71720",
+          "name": "Sequence 2",
+          "relationIds": []
+        }
       }
     },
     {
@@ -437,21 +439,21 @@
           "label": "Platform",
           "description": "Main system",
           "collapsed": false,
-          "x": 200,
-          "y": 100,
-          "width": 1100,
-          "height": 500
+          "x": 161.39027292290933,
+          "y": 107.35997796517154,
+          "width": 800.0000009999999,
+          "height": 320
         },
         "ctn1": {
           "id": "ctn1",
           "type": "container",
-          "label": "Frontend",
+          "label": "Frontenddddddddddddd",
           "technology": "React",
-          "description": "Web UI",
+          "description": "Web UIddddd",
           "parentId": "sys1",
           "collapsed": false,
-          "x": 40,
-          "y": 70,
+          "x": 59.980086497166724,
+          "y": 60.00005063488959,
           "width": 300,
           "height": 200
         },
@@ -463,8 +465,8 @@
           "description": "GraphQL API",
           "parentId": "sys1",
           "collapsed": false,
-          "x": 360,
-          "y": 70,
+          "x": 439.9800874971667,
+          "y": 60.00005063488959,
           "width": 300,
           "height": 200
         },
@@ -474,8 +476,8 @@
           "label": "End User",
           "description": "Uses web app",
           "collapsed": false,
-          "x": -100,
-          "y": 180,
+          "x": -134.47182892829585,
+          "y": 179.93233222764633,
           "width": 150,
           "height": 170
         },
@@ -554,6 +556,203 @@
           "targetId": "ctn5",
           "label": "Auth",
           "technology": "OAuth2"
+        }
+      },
+      "sequences": {
+        "bf073422-7bc1-4f0a-8b41-bd8229b729ef": {
+          "id": "bf073422-7bc1-4f0a-8b41-bd8229b729ef",
+          "name": "Sequence 1",
+          "relationIds": [
+            "r00",
+            "r00",
+            "r00",
+            "r01",
+            "r01",
+            "r01",
+            "r04",
+            "r01",
+            "r01"
+          ],
+          "stepDescriptions": [
+            "ddsdsdsddd",
+            null,
+            "ddddddd",
+            "dddd",
+            "dddddd",
+            "dddddd",
+            null,
+            "ddd",
+            "ddddd"
+          ]
+        },
+        "20ccea4f-8601-43fe-a54d-f0f351c71720": {
+          "id": "20ccea4f-8601-43fe-a54d-f0f351c71720",
+          "name": "Sequence 2",
+          "relationIds": []
+        }
+      }
+    },
+    {
+      "id": "c5a5e317-18d2-4967-a74c-96517825aaef",
+      "name": "v4",
+      "timestamp": 1779817359520,
+      "nodes": {
+        "sys1": {
+          "id": "sys1",
+          "type": "system",
+          "label": "Platform",
+          "description": "Main system",
+          "collapsed": false,
+          "x": 161.39027292290933,
+          "y": 107.35997796517154,
+          "width": 800.0000009999999,
+          "height": 320
+        },
+        "ctn1": {
+          "id": "ctn1",
+          "type": "container",
+          "label": "Frontenddddddddddddd",
+          "technology": "React",
+          "description": "Web UIddddd",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 59.980086497166724,
+          "y": 60.00005063488959,
+          "width": 300,
+          "height": 200
+        },
+        "ctn2": {
+          "id": "ctn2",
+          "type": "container",
+          "label": "Backend",
+          "technology": "Node.js / GraphQL",
+          "description": "GraphQL API",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 439.9800874971667,
+          "y": 60.00005063488959,
+          "width": 300,
+          "height": 200
+        },
+        "usr1": {
+          "id": "usr1",
+          "type": "person",
+          "label": "End User",
+          "description": "Uses web app",
+          "collapsed": false,
+          "x": -134.47182892829585,
+          "y": 179.93233222764633,
+          "width": 150,
+          "height": 170
+        },
+        "ctn3": {
+          "id": "ctn3",
+          "type": "container",
+          "label": "Database",
+          "technology": "Postgres",
+          "description": "Data storage",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 59.98767585226528,
+          "y": 683.0867620834335,
+          "width": 300,
+          "height": 200
+        },
+        "ctn4": {
+          "id": "ctn4",
+          "type": "container",
+          "label": "Cache",
+          "technology": "Redis",
+          "description": "Session cache",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 59.98767585226528,
+          "y": 963.0867630834337,
+          "width": 300,
+          "height": 200
+        },
+        "ctn5": {
+          "id": "ctn5",
+          "type": "container",
+          "label": "Auth Service",
+          "technology": "Keycloak",
+          "description": "Identity provider",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 451.4514606626102,
+          "y": 60.09962022860981,
+          "width": 300,
+          "height": 200
+        }
+      },
+      "relations": {
+        "r01": {
+          "id": "r01",
+          "sourceId": "ctn1",
+          "targetId": "ctn2",
+          "label": "Calls",
+          "technology": "HTTPS"
+        },
+        "r00": {
+          "id": "r00",
+          "sourceId": "usr1",
+          "targetId": "ctn1",
+          "label": "Uses",
+          "technology": "Browser"
+        },
+        "r02": {
+          "id": "r02",
+          "sourceId": "ctn2",
+          "targetId": "ctn3",
+          "label": "Reads/writes",
+          "technology": "SQL"
+        },
+        "r03": {
+          "id": "r03",
+          "sourceId": "ctn2",
+          "targetId": "ctn4",
+          "label": "Caches",
+          "technology": "Redis protocol"
+        },
+        "r04": {
+          "id": "r04",
+          "sourceId": "ctn1",
+          "targetId": "ctn5",
+          "label": "Auth",
+          "technology": "OAuth2"
+        }
+      },
+      "sequences": {
+        "bf073422-7bc1-4f0a-8b41-bd8229b729ef": {
+          "id": "bf073422-7bc1-4f0a-8b41-bd8229b729ef",
+          "name": "Sequence 1",
+          "relationIds": [
+            "r00",
+            "r00",
+            "r00",
+            "r01",
+            "r01",
+            "r01",
+            "r04",
+            "r01",
+            "r01"
+          ],
+          "stepDescriptions": [
+            "ddsdsdsddd",
+            null,
+            "ddddddd",
+            "dddd",
+            "dddddd",
+            "dddddd",
+            null,
+            "ddd",
+            "ddddd"
+          ]
+        },
+        "20ccea4f-8601-43fe-a54d-f0f351c71720": {
+          "id": "20ccea4f-8601-43fe-a54d-f0f351c71720",
+          "name": "Sequence 2",
+          "relationIds": []
         }
       }
     }

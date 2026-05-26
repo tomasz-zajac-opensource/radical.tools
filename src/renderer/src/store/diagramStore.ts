@@ -159,6 +159,43 @@ function computeSnapDiff(
 }
 
 /**
+ * Compute sequence-level diff: which relation IDs were added to or removed
+ * from sequences between two snapshots. Only covers membership changes —
+ * structural node/relation changes are handled by computeSnapDiff.
+ * Structural diff entries always win; this fills the gaps.
+ */
+function computeSeqDiff(
+  prevSeqs: Record<string, DiagramSequence> | undefined,
+  currSeqs: Record<string, DiagramSequence> | undefined,
+): Record<string, 'new' | 'changed' | 'removed'> {
+  const result: Record<string, 'new' | 'changed' | 'removed'> = {}
+  const prev = prevSeqs ?? {}
+  const curr = currSeqs ?? {}
+  const allSeqIds = new Set([...Object.keys(prev), ...Object.keys(curr)])
+  for (const seqId of allSeqIds) {
+    const prevSeq = prev[seqId]
+    const currSeq = curr[seqId]
+    const prevIds = new Set(prevSeq?.relationIds ?? [])
+    const currIds = new Set(currSeq?.relationIds ?? [])
+    for (const rid of currIds) if (!prevIds.has(rid)) result[rid] = 'new'
+    for (const rid of prevIds) if (!currIds.has(rid) && !result[rid]) result[rid] = 'removed'
+    // Check step-description changes for relations present in both sequences at the same position.
+    if (prevSeq && currSeq) {
+      const len = Math.min(prevSeq.relationIds.length, currSeq.relationIds.length)
+      for (let i = 0; i < len; i++) {
+        const rid = currSeq.relationIds[i]
+        if (rid !== prevSeq.relationIds[i]) continue  // position shifted – skip
+        if (result[rid]) continue                     // already 'new' or 'removed'
+        const prevDesc = prevSeq.stepDescriptions?.[i] ?? ''
+        const currDesc = currSeq.stepDescriptions?.[i] ?? ''
+        if (prevDesc !== currDesc) result[rid] = 'changed'
+      }
+    }
+  }
+  return result
+}
+
+/**
  * Build the ghost maps for a diff: nodes/relations that existed in the base
  * but are not present in the current state. Returned as plain dictionaries
  * so they can be merged into the canvas at render time without polluting
@@ -957,7 +994,7 @@ interface DiagramStore {
   /** ID of the milestone currently loaded onto the canvas (null = live HEAD). */
   activeSnapshotId: string | null
   /** Backup of the live HEAD state, kept while a milestone is loaded. */
-  liveBackup: { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> } | null
+  liveBackup: { nodes: Record<string, C4Node>; relations: Record<string, C4Relation>; sequences: Record<string, DiagramSequence> } | null
   /** True after the user makes a structural edit while viewing a milestone. */
   milestoneDirty: boolean
   /** Open the propagate/new prompt modal. */
@@ -1049,6 +1086,8 @@ interface DiagramStore {
   setFitViewFn: (fn: (() => void) | null, instantFn?: (() => void) | null) => void
   fitAll: () => void
   toggleAutoFit: () => void
+  zoomIn: () => void
+  zoomOut: () => void
 
   // ── internal ──
   _sync: () => void
@@ -2334,6 +2373,7 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.sequences[id] = { id, name, relationIds: [] }
         })
+        get()._markMilestoneEdit()
         return id
       },
 
@@ -2348,6 +2388,7 @@ export const useDiagramStore = create<DiagramStore>()(
           }
           if (state.activeSequenceId === id) state.activeSequenceId = null
         })
+        get()._markMilestoneEdit()
         get()._sync()
       },
 
@@ -2355,6 +2396,7 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           if (state.sequences[id]) state.sequences[id].name = name
         })
+        get()._markMilestoneEdit()
       },
 
       setActiveSequence(id) {
@@ -2371,6 +2413,7 @@ export const useDiagramStore = create<DiagramStore>()(
           // individual occurrences via the step list in the right panel.
           seq.relationIds.push(relationId)
         })
+        get()._markMilestoneEdit()
         get()._sync()
       },
 
@@ -2381,6 +2424,7 @@ export const useDiagramStore = create<DiagramStore>()(
           seq.relationIds.splice(idx, 1)
           if (seq.stepDescriptions) seq.stepDescriptions.splice(idx, 1)
         })
+        get()._markMilestoneEdit()
         get()._sync()
       },
 
@@ -2397,6 +2441,7 @@ export const useDiagramStore = create<DiagramStore>()(
             seq.stepDescriptions.splice(toIdx, 0, desc)
           }
         })
+        get()._markMilestoneEdit()
         get()._sync()
       },
 
@@ -2407,6 +2452,7 @@ export const useDiagramStore = create<DiagramStore>()(
           seq.relationIds = []
           seq.stepDescriptions = []
         })
+        get()._markMilestoneEdit()
         get()._sync()
       },
 
@@ -2419,6 +2465,7 @@ export const useDiagramStore = create<DiagramStore>()(
           while (seq.stepDescriptions.length <= idx) seq.stepDescriptions.push(undefined)
           seq.stepDescriptions[idx] = description || undefined
         })
+        get()._markMilestoneEdit()
         get()._sync()
       },
 
@@ -3140,6 +3187,7 @@ export const useDiagramStore = create<DiagramStore>()(
           timestamp: Date.now(),
           nodes: JSON.parse(JSON.stringify(get().c4Nodes)),
           relations: JSON.parse(JSON.stringify(get().c4Relations)),
+          sequences: JSON.parse(JSON.stringify(get().sequences)),
         }
         set((state) => { state.snapshots.push(snap as any) })
         return id
@@ -3152,6 +3200,9 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.c4Nodes = JSON.parse(JSON.stringify(snap.nodes)) as any
           state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
+          if (snap.sequences) {
+            state.sequences = JSON.parse(JSON.stringify(snap.sequences)) as any
+          }
           state.canUndo = _undoStack.length > 0
           state.canRedo = _redoStack.length > 0
           state.activeSnapshotId = id
@@ -3168,6 +3219,9 @@ export const useDiagramStore = create<DiagramStore>()(
             if (state.liveBackup) {
               state.c4Nodes = JSON.parse(JSON.stringify(state.liveBackup.nodes)) as any
               state.c4Relations = JSON.parse(JSON.stringify(state.liveBackup.relations)) as any
+              if ((state.liveBackup as any).sequences) {
+                state.sequences = JSON.parse(JSON.stringify((state.liveBackup as any).sequences)) as any
+              }
             }
             state.activeSnapshotId = null
             state.liveBackup = null
@@ -3192,7 +3246,7 @@ export const useDiagramStore = create<DiagramStore>()(
 
       // ── Milestone editing workflow ───────────────────────────────────────
       selectMilestone(id) {
-        const { snapshots, activeSnapshotId, milestoneDirty, c4Nodes, c4Relations } = get()
+        const { snapshots, activeSnapshotId, milestoneDirty, c4Nodes, c4Relations, sequences } = get()
         // If selecting the already-active milestone, just close any open prompt.
         if (activeSnapshotId === id) {
           set((state) => { state.milestonePromptOpen = false })
@@ -3208,7 +3262,7 @@ export const useDiagramStore = create<DiagramStore>()(
         // Backup live HEAD if we don't already have one.
         const backup = activeSnapshotId
           ? get().liveBackup
-          : { nodes: JSON.parse(JSON.stringify(c4Nodes)), relations: JSON.parse(JSON.stringify(c4Relations)) }
+          : { nodes: JSON.parse(JSON.stringify(c4Nodes)), relations: JSON.parse(JSON.stringify(c4Relations)), sequences: JSON.parse(JSON.stringify(sequences)) }
 
         // In viewer (explore mode) keep the user's currently-arranged
         // positions for any node that still exists in the new milestone
@@ -3238,6 +3292,16 @@ export const useDiagramStore = create<DiagramStore>()(
               snap.relations as Record<string, C4Relation>,
             )
           : {}
+        // Augment with sequence membership changes (structural diff takes priority).
+        if (prev) {
+          const seqDiff = computeSeqDiff(
+            prev.sequences as Record<string, DiagramSequence> | undefined,
+            snap.sequences as Record<string, DiagramSequence> | undefined,
+          )
+          for (const [rid, action] of Object.entries(seqDiff)) {
+            if (!diff[rid]) diff[rid] = action
+          }
+        }
         const ghosts = prev
           ? computeDiffGhosts(
               prev.nodes as Record<string, C4Node>,
@@ -3261,6 +3325,9 @@ export const useDiagramStore = create<DiagramStore>()(
           }
           state.c4Nodes = nextNodes as any
           state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
+          if (snap.sequences) {
+            state.sequences = JSON.parse(JSON.stringify(snap.sequences)) as any
+          }
           state.activeSnapshotId = id
           state.liveBackup = backup as any
           state.milestoneDirty = false
@@ -3290,6 +3357,9 @@ export const useDiagramStore = create<DiagramStore>()(
           if (state.liveBackup) {
             state.c4Nodes = JSON.parse(JSON.stringify(state.liveBackup.nodes)) as any
             state.c4Relations = JSON.parse(JSON.stringify(state.liveBackup.relations)) as any
+            if ((state.liveBackup as any).sequences) {
+              state.sequences = JSON.parse(JSON.stringify((state.liveBackup as any).sequences)) as any
+            }
           }
           state.activeSnapshotId = null
           state.liveBackup = null
@@ -3306,7 +3376,7 @@ export const useDiagramStore = create<DiagramStore>()(
       },
 
       commitMilestoneChanges(mode, newName) {
-        const { activeSnapshotId, snapshots, c4Nodes, c4Relations, liveBackup } = get()
+        const { activeSnapshotId, snapshots, c4Nodes, c4Relations, sequences, liveBackup } = get()
         if (!activeSnapshotId) return
         const idx = snapshots.findIndex(s => s.id === activeSnapshotId)
         if (idx < 0) return
@@ -3314,10 +3384,12 @@ export const useDiagramStore = create<DiagramStore>()(
         // Deep clones of the current (edited) canvas state.
         const editedNodes: Record<string, C4Node> = JSON.parse(JSON.stringify(c4Nodes))
         const editedRels: Record<string, C4Relation> = JSON.parse(JSON.stringify(c4Relations))
+        const editedSeqs: Record<string, DiagramSequence> = JSON.parse(JSON.stringify(sequences))
         // Snapshot of the milestone BEFORE edits — used to compute the diff.
         const baseSnap = snapshots[idx]
         const baseNodes = baseSnap.nodes as Record<string, C4Node>
         const baseRels = baseSnap.relations as Record<string, C4Relation>
+        const baseSeqs = (baseSnap.sequences ?? {}) as Record<string, DiagramSequence>
 
         if (mode === 'new') {
           // Insert a new milestone immediately after the active one with the edited state.
@@ -3329,6 +3401,7 @@ export const useDiagramStore = create<DiagramStore>()(
             timestamp: Date.now(),
             nodes: editedNodes,
             relations: editedRels,
+            sequences: editedSeqs,
           }
           set((state) => {
             state.snapshots.splice(idx + 1, 0, newSnap as any)
@@ -3386,10 +3459,26 @@ export const useDiagramStore = create<DiagramStore>()(
           if (!editedRels[id]) removedRelIds.push(id)
         }
 
+        // Sequence diff for propagation.
+        const addedSeqs: DiagramSequence[] = []
+        const updatedSeqs: { id: string; seq: DiagramSequence }[] = []
+        const removedSeqIds: string[] = []
+        for (const id of Object.keys(editedSeqs)) {
+          if (!baseSeqs[id]) {
+            addedSeqs.push(editedSeqs[id])
+          } else if (JSON.stringify(editedSeqs[id]) !== JSON.stringify(baseSeqs[id])) {
+            updatedSeqs.push({ id, seq: editedSeqs[id] })
+          }
+        }
+        for (const id of Object.keys(baseSeqs)) {
+          if (!editedSeqs[id]) removedSeqIds.push(id)
+        }
+
         // Apply diff to active milestone + every later milestone + live HEAD backup.
         const applyDiff = (
           targetNodes: Record<string, C4Node>,
           targetRels: Record<string, C4Relation>,
+          targetSeqs: Record<string, DiagramSequence>,
         ) => {
           for (const n of addedNodes) targetNodes[n.id] = JSON.parse(JSON.stringify(n))
           for (const { id, updates } of updatedNodes) {
@@ -3401,6 +3490,9 @@ export const useDiagramStore = create<DiagramStore>()(
             if (targetRels[id]) Object.assign(targetRels[id], updates)
           }
           for (const id of removedRelIds) delete targetRels[id]
+          for (const seq of addedSeqs) targetSeqs[seq.id] = JSON.parse(JSON.stringify(seq))
+          for (const { id, seq } of updatedSeqs) targetSeqs[id] = JSON.parse(JSON.stringify(seq))
+          for (const id of removedSeqIds) delete targetSeqs[id]
         }
 
         set((state) => {
@@ -3410,15 +3502,18 @@ export const useDiagramStore = create<DiagramStore>()(
             if (i === idx) {
               snap.nodes = JSON.parse(JSON.stringify(editedNodes))
               snap.relations = JSON.parse(JSON.stringify(editedRels))
+              snap.sequences = JSON.parse(JSON.stringify(editedSeqs))
             } else {
-              applyDiff(snap.nodes, snap.relations)
+              if (!snap.sequences) snap.sequences = {}
+              applyDiff(snap.nodes, snap.relations, snap.sequences)
             }
           }
           // Apply to the live HEAD backup so it picks up future-facing changes too,
           // but DO NOT swap the canvas to live HEAD — keep showing the milestone the
           // user just edited (otherwise the canvas appears to "jump back" to current).
           if (state.liveBackup) {
-            applyDiff(state.liveBackup.nodes as any, state.liveBackup.relations as any)
+            if (!(state.liveBackup as any).sequences) (state.liveBackup as any).sequences = {}
+            applyDiff(state.liveBackup.nodes as any, state.liveBackup.relations as any, (state.liveBackup as any).sequences)
           }
           state.milestoneDirty = false
           state.milestonePromptOpen = false
@@ -3472,6 +3567,17 @@ export const useDiagramStore = create<DiagramStore>()(
         }
         void liveBackup
         const diff = computeSnapDiff(baseNodes, c4Nodes as Record<string, C4Node>, baseRels, c4Relations as Record<string, C4Relation>)
+        // Augment with sequence membership changes.
+        const baseSnap2 = snapshots.find(s => s.id === resolvedBaseId)
+        if (baseSnap2) {
+          const seqDiff = computeSeqDiff(
+            baseSnap2.sequences as Record<string, DiagramSequence> | undefined,
+            get().sequences,
+          )
+          for (const [rid, action] of Object.entries(seqDiff)) {
+            if (!diff[rid]) diff[rid] = action
+          }
+        }
         const ghosts = computeDiffGhosts(baseNodes, c4Nodes as Record<string, C4Node>, baseRels, c4Relations as Record<string, C4Relation>)
         set((state) => {
           state.diffHighlight = diff as any
@@ -4098,10 +4204,22 @@ export const useDiagramStore = create<DiagramStore>()(
         }
       },
       fitAll() {
+        // Sequence view (dynamic) has its own fit registered via __radicalSeqFitFn.
+        const activeView = get().activeViewId ? get().views[get().activeViewId!] : null
+        if (activeView?.kind === 'dynamic') {
+          ;(window as any).__radicalSeqFitFn?.()
+          return
+        }
         // Explicit one-shot fit-all: use the *animated* (force) fn so the
         // user always sees the camera move, even if smart-fit decided
         // nothing changed since the last tick.
         _getFitViewFn()?.()
+      },
+      zoomIn() {
+        ;(window as any).__radicalZoomIn?.()
+      },
+      zoomOut() {
+        ;(window as any).__radicalZoomOut?.()
       },
       toggleAutoFit() {
         // Always cancel any existing timer first

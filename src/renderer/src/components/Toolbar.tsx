@@ -75,6 +75,20 @@ const IconFitAll = () => (
   </svg>
 )
 
+const IconZoomIn = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <circle cx="7" cy="7" r="5" />
+    <path d="M7 5v4M5 7h4M12 12l2 2" />
+  </svg>
+)
+
+const IconZoomOut = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <circle cx="7" cy="7" r="5" />
+    <path d="M5 7h4M12 12l2 2" />
+  </svg>
+)
+
 // Sparkle / wand icon — indicates the "smart" auto-arrange action.
 const IconSmartLayout = () => (
   <svg className="toolbar-btn-accent-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
@@ -364,6 +378,8 @@ export function Toolbar(): React.ReactElement {
   const autoFitActive = useDiagramStore((s) => s.autoFitActive)
   const toggleAutoFit = useDiagramStore((s) => s.toggleAutoFit)
   const fitAll = useDiagramStore((s) => s.fitAll)
+  const zoomIn = useDiagramStore((s) => s.zoomIn)
+  const zoomOut = useDiagramStore((s) => s.zoomOut)
   const runSmartLayout = useDiagramStore((s) => s.runSmartLayout)
   const isLayoutRunning = useDiagramStore((s) => s.isLayoutRunning)
   const activeViewLayoutMode = useDiagramStore((s) =>
@@ -461,6 +477,20 @@ export function Toolbar(): React.ReactElement {
         title="Fit all visible nodes to viewport"
       >
         <IconFitAll /> Fit All
+      </button>
+      <button
+        className="toolbar-btn"
+        onClick={zoomOut}
+        title="Zoom out (⌘−)"
+      >
+        <IconZoomOut />
+      </button>
+      <button
+        className="toolbar-btn"
+        onClick={zoomIn}
+        title="Zoom in (⌘+)"
+      >
+        <IconZoomIn />
       </button>
 
       {activeViewKind !== 'treemap' && activeViewKind !== 'dynamic' && <button

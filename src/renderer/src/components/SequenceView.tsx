@@ -33,6 +33,7 @@ interface Step {
   label:      string
   description?: string     // per-occurrence override (from stepDescriptions)
   index:      number       // 1-based step number
+  ghost?:     boolean      // true = removed from sequence vs. previous milestone
 }
 
 export function SequenceView(): React.ReactElement {
@@ -41,10 +42,23 @@ export function SequenceView(): React.ReactElement {
   const sequences    = useDiagramStore((s) => s.sequences)
   const nodes        = useDiagramStore((s) => s.c4Nodes)
   const relations    = useDiagramStore((s) => s.c4Relations)
+  const diffHighlight   = useDiagramStore((s) => s.diffHighlight)
+  const ghostNodes      = useDiagramStore((s) => s.diffGhostNodes)
+  const ghostRelations  = useDiagramStore((s) => s.diffGhostRelations)
   const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
   const selectedEdgeId = useDiagramStore((s) => s.selectedEdgeId)
   const selectNode   = useDiagramStore((s) => s.selectNode)
   const selectEdge   = useDiagramStore((s) => s.selectEdge)
+  const activeSnapshotId     = useDiagramStore((s) => s.activeSnapshotId)
+  const snapshotName         = useDiagramStore((s) =>
+    s.activeSnapshotId ? s.snapshots.find((sn) => sn.id === s.activeSnapshotId)?.name : undefined
+  )
+  const snapshots            = useDiagramStore((s) => s.snapshots)
+  const diffBaseSnapshotId   = useDiagramStore((s) => s.diffBaseSnapshotId)
+  const milestoneDirty           = useDiagramStore((s) => s.milestoneDirty)
+  const commitMilestoneChanges   = useDiagramStore((s) => s.commitMilestoneChanges)
+  const discardMilestoneChanges  = useDiagramStore((s) => s.discardMilestoneChanges)
+  const [milestoneNewName, setMilestoneNewName] = useState<string | null>(null)
 
   const sequence = view?.sequenceId ? sequences[view.sequenceId] : undefined
 
@@ -55,10 +69,10 @@ export function SequenceView(): React.ReactElement {
     const seen = new Map<string, C4Node>()
     const out: Step[] = []
     sequence.relationIds.forEach((rid, i) => {
-      const r = relations[rid]
+      const r = relations[rid] ?? ghostRelations[rid]
       if (!r) return
-      const src = nodes[r.sourceId]
-      const tgt = nodes[r.targetId]
+      const src = nodes[r.sourceId] ?? ghostNodes[r.sourceId]
+      const tgt = nodes[r.targetId] ?? ghostNodes[r.targetId]
       if (!src || !tgt) return
       if (!seen.has(src.id)) seen.set(src.id, src)
       if (!seen.has(tgt.id)) seen.set(tgt.id, tgt)
@@ -71,10 +85,39 @@ export function SequenceView(): React.ReactElement {
         index:      i + 1,
       })
     })
+    // Add ghost steps: relation IDs removed from this sequence vs. the diff base.
+    if (diffBaseSnapshotId && view?.sequenceId) {
+      const baseSnap = snapshots.find(s => s.id === diffBaseSnapshotId)
+      const baseSeq  = (baseSnap?.sequences as any)?.[view.sequenceId] as { relationIds: string[]; stepDescriptions?: (string | undefined)[] } | undefined
+      if (baseSeq) {
+        const currSet = new Set(sequence.relationIds)
+        baseSeq.relationIds.forEach((rid, i) => {
+          if (currSet.has(rid)) return  // still in sequence
+          if (diffHighlight[rid] !== 'removed') return  // only show seq-removed steps
+          // Prefer live relation data (still in model) → ghost (model-deleted)
+          const r = relations[rid] ?? ghostRelations[rid] ?? (baseSnap?.relations as any)?.[rid]
+          if (!r) return
+          const src = nodes[r.sourceId] ?? ghostNodes[r.sourceId] ?? (baseSnap?.nodes as any)?.[r.sourceId]
+          const tgt = nodes[r.targetId] ?? ghostNodes[r.targetId] ?? (baseSnap?.nodes as any)?.[r.targetId]
+          if (!src || !tgt) return
+          if (!seen.has(src.id)) seen.set(src.id, src)
+          if (!seen.has(tgt.id)) seen.set(tgt.id, tgt)
+          out.push({
+            relationId: rid,
+            sourceId:   src.id,
+            targetId:   tgt.id,
+            label:      r.label || r.technology || '',
+            description: baseSeq.stepDescriptions?.[i] || undefined,
+            index:      i + 1,
+            ghost:      true,
+          })
+        })
+      }
+    }
     result.participants = Array.from(seen.values())
     result.steps = out
     return result
-  }, [sequence, relations, nodes])
+  }, [sequence, relations, nodes, ghostRelations, ghostNodes, diffHighlight, diffBaseSnapshotId, snapshots, view])
 
   const xOf = useCallback(
     (id: string) => {
@@ -101,16 +144,37 @@ export function SequenceView(): React.ReactElement {
   const [zoom, setZoom] = useState(1)
   const wrapRef = useRef<HTMLElement | null>(null)
   const clampZoom = useCallback((z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z)), [])
-  const zoomBy = useCallback((factor: number) => {
-    setZoom((z) => clampZoom(z * factor))
-  }, [clampZoom])
-  const zoomReset = useCallback(() => setZoom(1), [])
   const onWheel = useCallback((e: WheelEvent) => {
     e.preventDefault()
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
     setZoom((z) => clampZoom(z * factor))
   }, [clampZoom])
-  // Listen for keyboard zoom (Cmd/Ctrl + + / - / 0) while pointer is over canvas
+
+  // Ref that always points to the current fit-to-container function so we can
+  // register it once but have it read the latest svgW / svgH on each call.
+  const fitFnRef = useRef<() => void>(() => { setZoom(1) })
+  fitFnRef.current = () => {
+    const el = wrapRef.current as HTMLElement | null
+    if (!el) { setZoom(1); return }
+    const z = clampZoom(Math.min(el.clientWidth / svgW, el.clientHeight / svgH) * 0.92)
+    setZoom(z)
+    el.scrollTo({ top: 0, left: 0 })
+  }
+
+  // Register sequence-specific fit + zoom globals on mount.
+  // The Toolbar "Fit All" and Zoom +/− buttons delegate to these.
+  useEffect(() => {
+    ;(window as any).__radicalSeqFitFn  = () => fitFnRef.current()
+    ;(window as any).__radicalZoomIn    = () => setZoom((z) => clampZoom(z * 1.2))
+    ;(window as any).__radicalZoomOut   = () => setZoom((z) => clampZoom(z / 1.2))
+    return () => {
+      delete (window as any).__radicalSeqFitFn
+      delete (window as any).__radicalZoomIn
+      delete (window as any).__radicalZoomOut
+    }
+  }, [clampZoom])
+
+  // Listen for wheel + keyboard zoom while pointer is over the canvas
   useEffect(() => {
     const el = wrapRef.current
     if (!el) return
@@ -119,7 +183,7 @@ export function SequenceView(): React.ReactElement {
       if (!(e.ctrlKey || e.metaKey)) return
       if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom((z) => clampZoom(z * 1.2)) }
       else if (e.key === '-' || e.key === '_') { e.preventDefault(); setZoom((z) => clampZoom(z / 1.2)) }
-      else if (e.key === '0') { e.preventDefault(); setZoom(1) }
+      else if (e.key === '0') { e.preventDefault(); fitFnRef.current() }
     }
     el.addEventListener('keydown', handler)
     return () => {
@@ -170,10 +234,13 @@ export function SequenceView(): React.ReactElement {
       const cx = xOf(p.id)
       const [fill, border, fg] = TYPE_COLORS[p.type] ?? FALLBACK
       const isSel = p.id === selectedNodeId
+      const dk = diffHighlight[p.id]
+      const diffColor = dk === 'new' ? '#4ade80' : dk === 'removed' ? '#f87171' : dk === 'changed' ? '#fb923c' : null
+      const diffLabel = dk === 'new' ? 'NEW' : dk === 'removed' ? 'REMOVED' : dk === 'changed' ? 'CHANGED' : null
       return (
         <g
           key={`hd-${yTop}-${p.id}`}
-          style={{ cursor: 'pointer' }}
+          style={{ cursor: 'pointer', opacity: dk === 'removed' ? 0.65 : 1 }}
           onClick={(e) => { e.stopPropagation(); selectNode(p.id) }}
         >
           <rect
@@ -183,8 +250,9 @@ export function SequenceView(): React.ReactElement {
             height={HEAD_H}
             rx={6}
             fill={fill}
-            stroke={isSel ? '#ffd84d' : border}
-            strokeWidth={isSel ? 2 : 1}
+            stroke={isSel ? '#ffd84d' : diffColor ?? border}
+            strokeWidth={isSel ? 2 : diffColor ? 2.5 : 1}
+            strokeDasharray={dk === 'removed' ? '6 3' : undefined}
           />
           <text
             x={cx} y={yTop + HEAD_H / 2 - 4}
@@ -204,6 +272,17 @@ export function SequenceView(): React.ReactElement {
           >
             «{p.type}»
           </text>
+          {diffLabel && (
+            <text
+              x={cx + HEAD_W / 2 - 5} y={yTop + 9}
+              fill={diffColor!} fontSize={8} fontWeight={800}
+              textAnchor="end" dominantBaseline="middle"
+              fontFamily="system-ui, -apple-system, sans-serif"
+              pointerEvents="none"
+            >
+              {diffLabel}
+            </text>
+          )}
         </g>
       )
     })
@@ -247,6 +326,33 @@ export function SequenceView(): React.ReactElement {
           >
             <path d="M0,0 L10,5 L0,10 z" fill="#ffd84d" />
           </marker>
+          <marker
+            id="seq-arrow-new"
+            viewBox="0 0 10 10"
+            refX="9" refY="5"
+            markerWidth="9" markerHeight="9"
+            orient="auto-start-reverse"
+          >
+            <path d="M0,0 L10,5 L0,10 z" fill="#4ade80" />
+          </marker>
+          <marker
+            id="seq-arrow-removed"
+            viewBox="0 0 10 10"
+            refX="9" refY="5"
+            markerWidth="9" markerHeight="9"
+            orient="auto-start-reverse"
+          >
+            <path d="M0,0 L10,5 L0,10 z" fill="#f87171" />
+          </marker>
+          <marker
+            id="seq-arrow-changed"
+            viewBox="0 0 10 10"
+            refX="9" refY="5"
+            markerWidth="9" markerHeight="9"
+            orient="auto-start-reverse"
+          >
+            <path d="M0,0 L10,5 L0,10 z" fill="#fb923c" />
+          </marker>
         </defs>
 
         {/* Lifelines (dashed verticals) */}
@@ -279,9 +385,17 @@ export function SequenceView(): React.ReactElement {
           const xt     = xOf(s.targetId)
           const isSel  = s.relationId === selectedEdgeId
           const isHov  = hoveredStep === idx
-          const stroke = isSel ? '#ffd84d' : isHov ? 'var(--accent)' : 'currentColor'
-          const sw     = isSel ? 2 : isHov ? 1.6 : 1.2
-          const marker = isSel ? 'url(#seq-arrow-hl)' : 'url(#seq-arrow)'
+          const dk       = diffHighlight[s.relationId]
+          const diffColor = dk === 'new' ? '#4ade80' : dk === 'removed' ? '#f87171' : dk === 'changed' ? '#fb923c' : null
+          const stroke = isSel ? '#ffd84d' : diffColor ?? (isHov ? 'var(--accent)' : 'currentColor')
+          const sw     = isSel || diffColor ? 2 : isHov ? 1.6 : 1.2
+          const strokeDash = dk === 'removed' ? '6 4' : undefined
+          const stepOpacity = dk === 'removed' ? 0.65 : 1
+          const marker = isSel ? 'url(#seq-arrow-hl)'
+            : dk === 'new' ? 'url(#seq-arrow-new)'
+            : dk === 'removed' ? 'url(#seq-arrow-removed)'
+            : dk === 'changed' ? 'url(#seq-arrow-changed)'
+            : 'url(#seq-arrow)'
 
           // Compute label position for non-self messages
           const midX = (xs + xt) / 2
@@ -292,7 +406,7 @@ export function SequenceView(): React.ReactElement {
           return (
             <g
               key={`step-${s.relationId}-${idx}`}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', opacity: stepOpacity }}
               onMouseEnter={() => setHoveredStep(idx)}
               onMouseLeave={() => setHoveredStep((h) => (h === idx ? null : h))}
               onClick={(e) => { e.stopPropagation(); selectEdge(s.relationId) }}
@@ -308,6 +422,7 @@ export function SequenceView(): React.ReactElement {
                     fill="none"
                     stroke={stroke}
                     strokeWidth={sw}
+                    strokeDasharray={strokeDash}
                     markerEnd={marker}
                   />
                   {displayLabel && (
@@ -330,6 +445,7 @@ export function SequenceView(): React.ReactElement {
                     y1={y} y2={y}
                     stroke={stroke}
                     strokeWidth={sw}
+                    strokeDasharray={strokeDash}
                     markerEnd={marker}
                   />
                   {displayLabel && (
@@ -350,7 +466,7 @@ export function SequenceView(): React.ReactElement {
                 cx={xs + (isSelf ? 0 : (xt > xs ? STEP_RADIUS : -STEP_RADIUS))}
                 cy={y}
                 r={STEP_RADIUS}
-                fill={isSel ? '#ffd84d' : 'var(--accent)'}
+                fill={isSel ? '#ffd84d' : diffColor ?? 'var(--accent)'}
                 stroke="var(--border-color-strong)"
                 strokeWidth={0.8}
               />
@@ -370,7 +486,7 @@ export function SequenceView(): React.ReactElement {
         })}
       </svg>
 
-      {/* Floating caption */}
+      {/* Floating caption / milestone badge */}
       <div
         style={{
           position: 'absolute',
@@ -379,16 +495,72 @@ export function SequenceView(): React.ReactElement {
           fontSize: 11,
           color: 'var(--text-muted)',
           background: 'var(--bg-panel)',
-          border: '1px solid var(--border-color)',
+          border: `1px solid ${(activeSnapshotId && milestoneDirty) ? 'var(--accent)' : 'var(--border-color)'}`,
           padding: '4px 8px',
           borderRadius: 4,
-          pointerEvents: 'none',
+          pointerEvents: (activeSnapshotId && milestoneDirty) ? 'all' : 'none',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          zIndex: 10,
         }}
       >
-        Flow: <strong style={{ color: 'var(--text-primary)' }}>{sequence.name}</strong>
-        <span style={{ marginLeft: 8, opacity: 0.7 }}>
-          {steps.length} step{steps.length === 1 ? '' : 's'} · {participants.length} participant{participants.length === 1 ? '' : 's'}
-        </span>
+        {activeSnapshotId && snapshotName ? (
+          <>
+            <span style={{ color: 'var(--accent)', fontSize: 10 }}>●</span>
+            <span>
+              Milestone: <strong style={{ color: 'var(--text-primary)' }}>{snapshotName}</strong>
+              {milestoneDirty && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>· unsaved</span>}
+            </span>
+            {milestoneDirty && (
+              <>
+                <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--border-color)', margin: '0 2px' }} />
+                <button
+                  title="Apply changes to this and all later milestones"
+                  onClick={() => commitMilestoneChanges('propagate')}
+                  style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 3 }}
+                >Propagate</button>
+                {milestoneNewName !== null ? (
+                  <>
+                    <input
+                      autoFocus
+                      value={milestoneNewName}
+                      onChange={e => setMilestoneNewName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { commitMilestoneChanges('new', milestoneNewName); setMilestoneNewName(null) }
+                        if (e.key === 'Escape') setMilestoneNewName(null)
+                      }}
+                      placeholder="New milestone name…"
+                      style={{ fontSize: 11, padding: '2px 6px', borderRadius: 3, border: '1px solid var(--border-color)', background: 'var(--bg-input, var(--bg-surface))', color: 'var(--text-primary)', width: 160 }}
+                    />
+                    <button
+                      onClick={() => { commitMilestoneChanges('new', milestoneNewName); setMilestoneNewName(null) }}
+                      style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 3, color: 'var(--text-primary)' }}
+                    >Save</button>
+                  </>
+                ) : (
+                  <button
+                    title="Save as new milestone"
+                    onClick={() => setMilestoneNewName(`${snapshotName} (edited)`)}
+                    style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 3, color: 'var(--text-primary)' }}
+                  >New milestone</button>
+                )}
+                <button
+                  title="Discard changes and return to live"
+                  onClick={discardMilestoneChanges}
+                  style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: 'none', border: '1px solid var(--border-color)', borderRadius: 3, color: 'var(--text-muted)' }}
+                >Discard</button>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            Flow: <strong style={{ color: 'var(--text-primary)' }}>{sequence.name}</strong>
+            <span style={{ marginLeft: 8, opacity: 0.7 }}>
+              {steps.length} step{steps.length === 1 ? '' : 's'} · {participants.length} participant{participants.length === 1 ? '' : 's'}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Zoom controls */}
@@ -397,37 +569,17 @@ export function SequenceView(): React.ReactElement {
           position: 'absolute',
           bottom: 12,
           right: 16,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '4px 6px',
-          background: 'var(--bg-panel)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 6,
           fontSize: 11,
           color: 'var(--text-muted)',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-color)',
+          padding: '3px 8px',
+          borderRadius: 4,
+          pointerEvents: 'none',
           userSelect: 'none',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={() => zoomBy(1 / 1.2)}
-          disabled={zoom <= ZOOM_MIN + 0.001}
-          title="Zoom out (Ctrl/Cmd + −)"
-          style={zoomBtnStyle}
-        >−</button>
-        <button
-          onClick={zoomReset}
-          title="Reset zoom (Ctrl/Cmd + 0)"
-          style={{ ...zoomBtnStyle, minWidth: 46 }}
-        >{Math.round(zoom * 100)}%</button>
-        <button
-          onClick={() => zoomBy(1.2)}
-          disabled={zoom >= ZOOM_MAX - 0.001}
-          title="Zoom in (Ctrl/Cmd + +)"
-          style={zoomBtnStyle}
-        >+</button>
+        {Math.round(zoom * 100)}%
       </div>
     </main>
   )
@@ -455,17 +607,4 @@ const emptyMsgStyle: React.CSSProperties = {
   alignItems: 'center',
   fontSize: 14,
   padding: 24,
-}
-
-const zoomBtnStyle: React.CSSProperties = {
-  background: 'transparent',
-  color: 'var(--text-primary)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 4,
-  padding: '2px 8px',
-  cursor: 'pointer',
-  fontSize: 12,
-  fontWeight: 600,
-  minWidth: 24,
-  lineHeight: '18px',
 }
