@@ -223,8 +223,9 @@ export interface C4EdgeRFData {
   label?: string
   technology?: string
   isVirtual: boolean
-  /** 1-based step index when this edge is part of the active dynamic view sequence */
-  sequenceStep?: number
+  /** 1-based step indices when this edge is part of the active dynamic view sequence.
+   *  Array because the same relation can appear multiple times in one sequence. */
+  sequenceStep?: number[]
 }
 
 // ─── Layout position map ─────────────────────────────────────────────────────

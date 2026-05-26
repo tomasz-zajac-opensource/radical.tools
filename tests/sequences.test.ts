@@ -7,8 +7,8 @@
  *   - removeSequence deletes the sequence; unlinks views that reference it;
  *     clears activeSequenceId if it was the active one
  *   - setActiveSequence / toggle (set to null)
- *   - toggleRelationInSequence adds a relation the first time,
- *     removes it the second time
+ *   - toggleRelationInSequence always appends a relation (same relation can
+ *     appear multiple times in one sequence); removal is done via removeFromSequence
  *   - removeFromSequence removes a step by index
  *   - reorderSequence swaps two steps
  *   - clearSequence removes all steps
@@ -123,12 +123,12 @@ describe('toggleRelationInSequence', () => {
     expect(useDiagramStore.getState().sequences[seqId].relationIds).toContain(relId)
   })
 
-  it('removes the relation on second toggle', () => {
+  it('appends the same relation again on second click (no toggle-off)', () => {
     const seqId = useDiagramStore.getState().addSequence('S')
     const relId = Object.keys(useDiagramStore.getState().c4Relations)[0]
     useDiagramStore.getState().toggleRelationInSequence(seqId, relId)
     useDiagramStore.getState().toggleRelationInSequence(seqId, relId)
-    expect(useDiagramStore.getState().sequences[seqId].relationIds).not.toContain(relId)
+    expect(useDiagramStore.getState().sequences[seqId].relationIds).toEqual([relId, relId])
   })
 })
 

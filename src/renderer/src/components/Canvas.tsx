@@ -773,7 +773,7 @@ function StructuralCanvas(): React.ReactElement {
           pointerEvents: 'all',
           userSelect: 'none',
         }}>
-          Editing: {activeSequenceName ?? activeSequenceId} — click relations to add/remove steps
+          Editing: {activeSequenceName ?? activeSequenceId} — click relations to add steps (remove via step list)
           <button
             onClick={() => setActiveSequence(null)}
             style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 2px', fontSize: 13, lineHeight: 1, opacity: 0.85 }}

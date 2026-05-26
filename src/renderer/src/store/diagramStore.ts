@@ -58,6 +58,7 @@ function uid(): string {
 interface HistoryEntry {
   c4Nodes: Record<string, C4Node>
   c4Relations: Record<string, C4Relation>
+  views: Record<string, DiagramView>
 }
 
 const MAX_HISTORY = 100
@@ -68,6 +69,7 @@ function _captureState(state: DiagramStore): HistoryEntry {
   return {
     c4Nodes: JSON.parse(JSON.stringify(state.c4Nodes)),
     c4Relations: JSON.parse(JSON.stringify(state.c4Relations)),
+    views: JSON.parse(JSON.stringify(state.views)),
   }
 }
 
@@ -237,6 +239,27 @@ function isEffectivelyCollapsed(
 ): boolean {
   if (expandedSet?.has(node.id)) return false  // view-level explicit expansion
   return node.collapsed || (viewCollapsedSet?.has(node.id) ?? false)
+}
+
+/**
+ * Compute whether a node is effectively collapsed in a given named view.
+ * Used by tree-panel components (Sidebar, RightPanel) to show ▶/▼ correctly
+ * without duplicating the logic in each component.
+ *
+ * @param node          The C4Node to check.
+ * @param activeViewId  The currently active view ID (or null/undefined for the default view).
+ * @param view          The DiagramView object (pass `undefined` when no view is active).
+ */
+export function nodeEffectivelyCollapsedInView(
+  node: C4Node,
+  activeViewId: string | null | undefined,
+  view: DiagramView | undefined,
+): boolean {
+  if (!activeViewId) return node.collapsed
+  return (
+    (node.collapsed && !(view?.expandedNodeIds?.includes(node.id) ?? false)) ||
+    (view?.collapsedNodeIds?.includes(node.id) ?? false)
+  )
 }
 
 /** Return the subset of nodes/relations visible in the active view (or all if no view). */
@@ -647,6 +670,18 @@ function deriveRFEdges(
   // Track virtual edges already emitted to avoid duplicates
   const seen = new Set<string>()
 
+  // Depth-based zIndex — mirrors deriveRFNodes so edges always render above
+  // their parent group nodes and are reachable by pointer events.
+  const depthCache = new Map<string, number>()
+  const depthOf = (id: string): number => {
+    const cached = depthCache.get(id)
+    if (cached !== undefined) return cached
+    const n = nodes[id]
+    const d = n?.parentId ? depthOf(n.parentId) + 1 : 0
+    depthCache.set(id, d)
+    return d
+  }
+
   for (const rel of Object.values(relations)) {
     if (!nodes[rel.sourceId] || !nodes[rel.targetId]) continue
     if (hiddenRelationIds && hiddenRelationIds.has(rel.id)) continue
@@ -685,14 +720,11 @@ function deriveRFEdges(
     seen.add(key)
 
     // Edge must render above the parent containers of its endpoints so it's
-    // not hidden behind them. Compute zIndex as max node zIndex + 1.
-    const nodeZIndexMap: Record<string, number> = {
-      person: 0, system: 0, container: 1, component: 2,
-    }
-    const srcType = nodes[visSource]?.type ?? 'person'
-    const tgtType = nodes[visTarget]?.type ?? 'person'
-    const edgeZIndex =
-      Math.max(nodeZIndexMap[srcType] ?? 0, nodeZIndexMap[tgtType] ?? 0) + 1
+    // not hidden behind them. Use the same depth * 10 formula as deriveRFNodes
+    // so edges inside nested structures always exceed their parent's zIndex.
+    const srcDepth = depthOf(visSource)
+    const tgtDepth = depthOf(visTarget)
+    const edgeZIndex = Math.max(srcDepth, tgtDepth) * 10 + 5
 
     rfEdges.push({
       id: isVirtual ? `virtual-${key}` : rel.id,
@@ -1223,10 +1255,17 @@ export const useDiagramStore = create<DiagramStore>()(
             : undefined
           const annotateSeq = editingSeq ?? viewSeq
           if (annotateSeq && annotateSeq.relationIds.length > 0) {
-            const seqIndex = new Map(annotateSeq.relationIds.map((id, i) => [id, i + 1]))
+            // Build a map from relationId → all 1-based step indices (same
+            // relation can appear multiple times in one sequence).
+            const seqIndex = new Map<string, number[]>()
+            annotateSeq.relationIds.forEach((id, i) => {
+              const arr = seqIndex.get(id)
+              if (arr) arr.push(i + 1)
+              else seqIndex.set(id, [i + 1])
+            })
             for (const edge of derivedEdges) {
-              const step = seqIndex.get(edge.id)
-              if (step !== undefined && edge.data) edge.data.sequenceStep = step
+              const steps = seqIndex.get(edge.id)
+              if (steps !== undefined && edge.data) edge.data.sequenceStep = steps
             }
           }
           state.rfEdges = derivedEdges as any
@@ -1359,9 +1398,13 @@ export const useDiagramStore = create<DiagramStore>()(
               delete state.c4Relations[rid]
             }
           }
-          // Remove from all views
+          // Remove from all views (nodeIds and per-view collapse state)
           for (const view of Object.values(state.views)) {
             view.nodeIds = view.nodeIds.filter((nid) => !toRemove.has(nid))
+            if (view.collapsedNodeIds?.length)
+              view.collapsedNodeIds = view.collapsedNodeIds.filter((nid) => !toRemove.has(nid))
+            if (view.expandedNodeIds?.length)
+              view.expandedNodeIds = view.expandedNodeIds.filter((nid) => !toRemove.has(nid))
           }
         })
         get()._sync()
@@ -1485,10 +1528,14 @@ export const useDiagramStore = create<DiagramStore>()(
             }
             // Build the expanded set so fitParentToChildren measures view-expanded
             // nodes at their full size, not their model-collapsed size.
-            // Note: the toggled node itself has node.collapsed = !prevCollapsed set
-            // temporarily, so we don't need to add `id` to loopExpandedSet here.
+            // When we are COLLAPSING the toggled node (!prevCollapsed = true → now
+            // collapsing), it must be excluded from the expanded set even if it was
+            // previously in view.expandedNodeIds — otherwise fitParentToChildren
+            // would still measure it at full height (stale override).
             if (view.expandedNodeIds?.length) {
               loopExpandedSet = new Set(view.expandedNodeIds)
+              if (!prevCollapsed) loopExpandedSet.delete(id) // we are collapsing `id`
+              if (loopExpandedSet.size === 0) loopExpandedSet = undefined
             }
           }
         }
@@ -2137,6 +2184,11 @@ export const useDiagramStore = create<DiagramStore>()(
           } else {
             view.nodeIds = view.nodeIds.filter((id) => id !== nodeId)
           }
+          // Also clean up per-view collapse state for the removed node
+          if (view.collapsedNodeIds?.length)
+            view.collapsedNodeIds = view.collapsedNodeIds.filter((nid) => nid !== nodeId)
+          if (view.expandedNodeIds?.length)
+            view.expandedNodeIds = view.expandedNodeIds.filter((nid) => nid !== nodeId)
         })
         get()._sync()
       },
@@ -2312,12 +2364,10 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           const seq = state.sequences[sequenceId]
           if (!seq) return
-          const idx = seq.relationIds.indexOf(relationId)
-          if (idx === -1) {
-            seq.relationIds.push(relationId)
-          } else {
-            seq.relationIds.splice(idx, 1)
-          }
+          // Always append — the same relation may appear multiple times in a
+          // sequence (e.g. step 2 and step 9). Use removeFromSequence to delete
+          // individual occurrences via the step list in the right panel.
+          seq.relationIds.push(relationId)
         })
         get()._sync()
       },
@@ -3037,6 +3087,7 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.c4Nodes = entry.c4Nodes as any
           state.c4Relations = entry.c4Relations as any
+          state.views = entry.views as any
           state.canUndo = _undoStack.length > 0
           state.canRedo = true
         })
@@ -3052,6 +3103,7 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           state.c4Nodes = entry.c4Nodes as any
           state.c4Relations = entry.c4Relations as any
+          state.views = entry.views as any
           state.canUndo = true
           state.canRedo = _redoStack.length > 0
         })
@@ -4186,6 +4238,44 @@ if (typeof window !== 'undefined') {
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') flushSync()
+    })
+  }
+
+  // ── CLI-specified watched file ────────────────────────────────────────────
+  // When Radical.Tools is launched with --file /path/to/model.c4.json (or the
+  // RADICAL_FILE env var), Electron's main process watches the file and pushes
+  // a 'file:external-change' IPC message whenever it changes on disk.
+  //
+  //   1. On boot: ensure the file is registered as an FS-backed doc and
+  //      activate it. The existing switch-doc subscriber (above) will load it.
+  //   2. On external change: suspend auto-persist, reload the model from the
+  //      new content, then re-enable persist. This lets the user edit the file
+  //      in any external editor and see changes reflected in real-time.
+  //
+  // Writing back from the app is handled by the existing auto-persist path
+  // (saveDocument → file:write IPC), which already targets FS-backed docs.
+  if (window.electronAPI?.getWatchedPath) {
+    void window.electronAPI.getWatchedPath().then((watchedPath) => {
+      if (!watchedPath) return
+      const meta = documents.createFSDocument(watchedPath)
+      // Activate (triggers the switch-doc subscriber above → loads the file).
+      documents.setActiveId(meta.id)
+    })
+  }
+
+  if (window.electronAPI?.onFileChanged) {
+    window.electronAPI.onFileChanged(({ content }) => {
+      _suspended = true
+      try {
+        const data = JSON.parse(content) as DiagramData
+        useDiagramStore.getState().loadDiagram(data)
+      } catch (e) {
+        console.warn('[diagramStore] external file change — invalid JSON, ignored:', e)
+      } finally {
+        // Brief delay so the store's _sync() and React render cycle can
+        // complete before auto-persist is re-enabled.
+        setTimeout(() => { _suspended = false }, 300)
+      }
     })
   }
 }

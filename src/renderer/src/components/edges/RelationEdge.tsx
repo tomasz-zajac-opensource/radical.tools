@@ -362,7 +362,7 @@ export const RelationEdge = memo(
             </div>
           </EdgeLabelRenderer>
         )}
-        {data?.sequenceStep !== undefined && (
+        {data?.sequenceStep !== undefined && data.sequenceStep.length > 0 && (
           <EdgeLabelRenderer>
             <div
               style={{
@@ -370,9 +370,10 @@ export const RelationEdge = memo(
                 transform:     `translate(-50%, -50%) translate(${sp.x + (tp.x - sp.x) * 0.18}px,${sp.y + (tp.y - sp.y) * 0.18}px)`,
                 background:    'var(--accent)',
                 color:         '#fff',
-                borderRadius:  '50%',
-                width:         20,
+                borderRadius:  data.sequenceStep.length === 1 ? '50%' : 8,
+                minWidth:      20,
                 height:        20,
+                padding:       data.sequenceStep.length === 1 ? 0 : '0 5px',
                 display:       'flex',
                 alignItems:    'center',
                 justifyContent:'center',
@@ -382,10 +383,11 @@ export const RelationEdge = memo(
                 zIndex:        1001,
                 boxShadow:     '0 1px 4px rgba(0,0,0,0.4)',
                 lineHeight:    1,
+                whiteSpace:    'nowrap',
               }}
               className="nodrag nopan"
             >
-              {data.sequenceStep}
+              {data.sequenceStep.join(',')}
             </div>
           </EdgeLabelRenderer>
         )}
