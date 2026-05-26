@@ -914,6 +914,8 @@ interface DiagramStore {
   reorderSequence: (sequenceId: string, fromIdx: number, toIdx: number) => void
   /** Clear all steps from a sequence. */
   clearSequence: (sequenceId: string) => void
+  /** Set (or clear) the description for a specific step by index. */
+  updateStepDescription: (sequenceId: string, idx: number, description: string) => void
 
   // ── actions: React Flow sync ──
   onNodesChange: (changes: NodeChange[]) => void
@@ -2377,6 +2379,7 @@ export const useDiagramStore = create<DiagramStore>()(
           const seq = state.sequences[sequenceId]
           if (!seq) return
           seq.relationIds.splice(idx, 1)
+          if (seq.stepDescriptions) seq.stepDescriptions.splice(idx, 1)
         })
         get()._sync()
       },
@@ -2389,6 +2392,10 @@ export const useDiagramStore = create<DiagramStore>()(
           if (fromIdx < 0 || fromIdx >= arr.length || toIdx < 0 || toIdx >= arr.length) return
           const [item] = arr.splice(fromIdx, 1)
           arr.splice(toIdx, 0, item)
+          if (seq.stepDescriptions) {
+            const [desc] = seq.stepDescriptions.splice(fromIdx, 1)
+            seq.stepDescriptions.splice(toIdx, 0, desc)
+          }
         })
         get()._sync()
       },
@@ -2398,6 +2405,19 @@ export const useDiagramStore = create<DiagramStore>()(
           const seq = state.sequences[sequenceId]
           if (!seq) return
           seq.relationIds = []
+          seq.stepDescriptions = []
+        })
+        get()._sync()
+      },
+
+      updateStepDescription(sequenceId, idx, description) {
+        set((state) => {
+          const seq = state.sequences[sequenceId]
+          if (!seq) return
+          if (!seq.stepDescriptions) seq.stepDescriptions = []
+          // Pad with undefined if necessary
+          while (seq.stepDescriptions.length <= idx) seq.stepDescriptions.push(undefined)
+          seq.stepDescriptions[idx] = description || undefined
         })
         get()._sync()
       },

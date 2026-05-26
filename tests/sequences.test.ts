@@ -183,3 +183,54 @@ describe('clearSequence', () => {
     expect(useDiagramStore.getState().sequences[seqId].relationIds).toEqual([])
   })
 })
+
+describe('updateStepDescription', () => {
+  it('sets a description for a specific step', () => {
+    const seqId = useDiagramStore.getState().addSequence('S')
+    const relIds = Object.keys(useDiagramStore.getState().c4Relations).slice(0, 2)
+    for (const r of relIds) useDiagramStore.getState().toggleRelationInSequence(seqId, r)
+    useDiagramStore.getState().updateStepDescription(seqId, 0, 'First step note')
+    const seq = useDiagramStore.getState().sequences[seqId]
+    expect(seq.stepDescriptions?.[0]).toBe('First step note')
+    expect(seq.stepDescriptions?.[1]).toBeUndefined()
+  })
+
+  it('clears a description when empty string is provided', () => {
+    const seqId = useDiagramStore.getState().addSequence('S')
+    const relIds = Object.keys(useDiagramStore.getState().c4Relations).slice(0, 1)
+    for (const r of relIds) useDiagramStore.getState().toggleRelationInSequence(seqId, r)
+    useDiagramStore.getState().updateStepDescription(seqId, 0, 'some note')
+    useDiagramStore.getState().updateStepDescription(seqId, 0, '')
+    const seq = useDiagramStore.getState().sequences[seqId]
+    expect(seq.stepDescriptions?.[0]).toBeUndefined()
+  })
+
+  it('preserves descriptions when removing a step', () => {
+    const seqId = useDiagramStore.getState().addSequence('S')
+    const relIds = Object.keys(useDiagramStore.getState().c4Relations).slice(0, 3)
+    for (const r of relIds) useDiagramStore.getState().toggleRelationInSequence(seqId, r)
+    useDiagramStore.getState().updateStepDescription(seqId, 0, 'step A')
+    useDiagramStore.getState().updateStepDescription(seqId, 2, 'step C')
+    // Remove step 1 (middle, no description)
+    useDiagramStore.getState().removeFromSequence(seqId, 1)
+    const seq = useDiagramStore.getState().sequences[seqId]
+    expect(seq.stepDescriptions?.[0]).toBe('step A')
+    expect(seq.stepDescriptions?.[1]).toBe('step C')
+  })
+
+  it('preserves descriptions when reordering steps', () => {
+    const seqId = useDiagramStore.getState().addSequence('S')
+    const relIds = Object.keys(useDiagramStore.getState().c4Relations).slice(0, 3)
+    for (const r of relIds) useDiagramStore.getState().toggleRelationInSequence(seqId, r)
+    useDiagramStore.getState().updateStepDescription(seqId, 0, 'first')
+    useDiagramStore.getState().updateStepDescription(seqId, 2, 'third')
+    // Move index 0 to index 2
+    useDiagramStore.getState().reorderSequence(seqId, 0, 2)
+    const seq = useDiagramStore.getState().sequences[seqId]
+    // After move: [relIds[1], relIds[2], relIds[0]]
+    // descriptions follow: [undefined, 'third', 'first']
+    expect(seq.stepDescriptions?.[0]).toBeUndefined()
+    expect(seq.stepDescriptions?.[1]).toBe('third')
+    expect(seq.stepDescriptions?.[2]).toBe('first')
+  })
+})

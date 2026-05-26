@@ -1,0 +1,103 @@
+{
+  "name": "vscode-radical",
+  "displayName": "Radical.Tools",
+  "description": "C4 architecture diagram support — open .c4.json files in Radical.Tools with live two-way sync, JSON Schema validation and autocomplete.",
+  "version": "0.1.0",
+  "publisher": "radical-tools",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Visualization", "Other"],
+  "activationEvents": [
+    "workspaceContains:**/*.c4.json",
+    "workspaceContains:**/*.radical",
+    "onLanguage:json",
+    "onLanguage:radical"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "radical.openFile",
+        "title": "Radical.Tools: Open current file",
+        "icon": "$(circuit-board)"
+      },
+      {
+        "command": "radical.openApp",
+        "title": "Radical.Tools: Open app"
+      },
+      {
+        "command": "radical.stop",
+        "title": "Radical.Tools: Stop"
+      },
+      {
+        "command": "radical.showOutput",
+        "title": "Radical.Tools: Show output log"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "*.c4.json",
+        "url": "./schemas/c4.schema.json"
+      },
+      {
+        "fileMatch": "*.radical",
+        "url": "./schemas/c4.schema.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "json",
+        "extensions": [".c4.json"],
+        "aliases": ["C4 Diagram (JSON)"]
+      },
+      {
+        "id": "radical",
+        "extensions": [".radical"],
+        "aliases": ["Radical.Tools Diagram"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "title": "Radical.Tools",
+      "properties": {
+        "radical.projectRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the radical.diagram project root. Leave empty to use the first workspace folder."
+        },
+        "radical.npmPath": {
+          "type": "string",
+          "default": "npm",
+          "description": "Path to the npm executable. Use the full path (e.g. /opt/homebrew/bin/npm) if VS Code cannot find npm in PATH."
+        }
+      }
+    },
+    "customEditors": [
+      {
+        "viewType": "radical.editor",
+        "displayName": "Radical.Tools",
+        "selector": [{ "filenamePattern": "*.radical" }],
+        "priority": "default"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "radical.openFile",
+          "when": "resourceExtname == .json && resourceFilename =~ /\\.c4\\.json$/",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --format=cjs --sourcemap",
+    "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --format=cjs --sourcemap --watch",
+    "package": "npm run compile && npx @vscode/vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.20.0"
+  }
+}

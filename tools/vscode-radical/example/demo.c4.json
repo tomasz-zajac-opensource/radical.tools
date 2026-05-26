@@ -1,0 +1,939 @@
+{
+  "nodes": [
+    {
+      "id": "sys1",
+      "type": "system",
+      "label": "Platform",
+      "description": "Main system",
+      "collapsed": false,
+      "x": 682.6040774900009,
+      "y": 252.35100354969455,
+      "width": 420,
+      "height": 639.9184780742014
+    },
+    {
+      "id": "ctn1",
+      "type": "container",
+      "label": "Frontend",
+      "technology": "React",
+      "description": "Web UI",
+      "parentId": "sys1",
+      "collapsed": false,
+      "x": 60.00050105054436,
+      "y": 60.007711731846825,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "ctn2",
+      "type": "container",
+      "label": "Backend",
+      "technology": "Node.js / GraphQL",
+      "description": "GraphQL API",
+      "parentId": "sys1",
+      "collapsed": false,
+      "x": 60.00050105054436,
+      "y": 379.9006461912721,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "usr1",
+      "type": "person",
+      "label": "End User",
+      "description": "Uses web app",
+      "collapsed": false,
+      "x": 412.59727968579745,
+      "y": 77.82262559925493,
+      "width": 150,
+      "height": 170
+    },
+    {
+      "id": "ctn3",
+      "type": "container",
+      "label": "Database",
+      "technology": "Postgres",
+      "description": "Data storage",
+      "parentId": "sys1",
+      "collapsed": false,
+      "x": 477.0368771557954,
+      "y": 800.7687258886557,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "ctn4",
+      "type": "container",
+      "label": "Cache",
+      "technology": "Redis",
+      "description": "Session cache",
+      "parentId": "sys1",
+      "collapsed": false,
+      "x": 59.98676760635715,
+      "y": 800.7687258886557,
+      "width": 300,
+      "height": 200
+    },
+    {
+      "id": "ctn5",
+      "type": "container",
+      "label": "Auth Service",
+      "technology": "Keycloak",
+      "description": "Identity provider",
+      "parentId": "sys1",
+      "collapsed": false,
+      "x": 477.0368771557954,
+      "y": 59.99755498577167,
+      "width": 300,
+      "height": 200
+    }
+  ],
+  "relations": [
+    {
+      "id": "r01",
+      "sourceId": "ctn1",
+      "targetId": "ctn2",
+      "label": "Calls",
+      "technology": "HTTPS"
+    },
+    {
+      "id": "r00",
+      "sourceId": "usr1",
+      "targetId": "ctn1",
+      "label": "Uses",
+      "technology": "Browser"
+    },
+    {
+      "id": "r02",
+      "sourceId": "ctn2",
+      "targetId": "ctn3",
+      "label": "Reads/writes",
+      "technology": "SQL"
+    },
+    {
+      "id": "r03",
+      "sourceId": "ctn2",
+      "targetId": "ctn4",
+      "label": "Caches",
+      "technology": "Redis protocol"
+    },
+    {
+      "id": "r04",
+      "sourceId": "ctn1",
+      "targetId": "ctn5",
+      "label": "Auth",
+      "technology": "OAuth2"
+    }
+  ],
+  "sequences": [
+    {
+      "id": "bf073422-7bc1-4f0a-8b41-bd8229b729ef",
+      "name": "Sequence 1",
+      "relationIds": [
+        "r00",
+        "r00",
+        "r00",
+        "r01",
+        "r01",
+        "r01",
+        "r01",
+        "r01",
+        "r04"
+      ],
+      "stepDescriptions": [
+        null,
+        null,
+        "ddddddd",
+        "dddd",
+        "dddddd",
+        "dddddd",
+        "ddd",
+        "ddddd"
+      ]
+    }
+  ],
+  "views": [
+    {
+      "id": "5bb962e0-d0b3-4f06-a359-1d097dc7c994",
+      "name": "Sequence 1 view",
+      "kind": "dynamic",
+      "sequenceId": "bf073422-7bc1-4f0a-8b41-bd8229b729ef",
+      "nodeIds": [
+        "usr1",
+        "ctn1",
+        "ctn2"
+      ],
+      "positions": {
+        "sys1": {
+          "x": 682.6040774900009,
+          "y": 252.35100354969455,
+          "width": 420,
+          "height": 639.9184780742014
+        },
+        "ctn1": {
+          "x": 60.00050105054436,
+          "y": 60.007711731846825,
+          "width": 300,
+          "height": 200
+        },
+        "ctn2": {
+          "x": 60.00050105054436,
+          "y": 379.9006461912721,
+          "width": 300,
+          "height": 200
+        },
+        "usr1": {
+          "x": 412.59727968579745,
+          "y": 77.82262559925493,
+          "width": 150,
+          "height": 170
+        },
+        "ctn3": {
+          "x": 477.0368771557954,
+          "y": 800.7687258886557,
+          "width": 300,
+          "height": 200
+        },
+        "ctn4": {
+          "x": 59.98676760635715,
+          "y": 800.7687258886557,
+          "width": 300,
+          "height": 200
+        },
+        "ctn5": {
+          "x": 477.0368771557954,
+          "y": 59.99755498577167,
+          "width": 300,
+          "height": 200
+        }
+      },
+      "viewport": {
+        "x": 21.501764399439196,
+        "y": 98.18643058701724,
+        "zoom": 0.46604120514466024
+      }
+    }
+  ],
+  "defaultPositions": {
+    "sys1": {
+      "x": 657.7807383171573,
+      "y": 219.37867538013427,
+      "width": 836.3618604884391,
+      "height": 1063.1695981788057
+    },
+    "ctn1": {
+      "x": 60.006736965882624,
+      "y": 59.98715109875394,
+      "width": 300,
+      "height": 200
+    },
+    "ctn2": {
+      "x": 170.49206423140834,
+      "y": 482.64170891432593,
+      "width": 300,
+      "height": 200
+    },
+    "usr1": {
+      "x": 387.6576830576778,
+      "y": 64.17199902113956,
+      "width": 150,
+      "height": 170
+    },
+    "ctn3": {
+      "x": 476.3554482124273,
+      "y": 803.1631322247873,
+      "width": 300,
+      "height": 200
+    },
+    "ctn4": {
+      "x": 60.006736965882624,
+      "y": 803.1631322247873,
+      "width": 300,
+      "height": 200
+    },
+    "ctn5": {
+      "x": 476.3554482124273,
+      "y": 59.98672812537308,
+      "width": 300,
+      "height": 200
+    }
+  },
+  "defaultViewport": {
+    "x": 21.501764399439196,
+    "y": 98.18643058701724,
+    "zoom": 0.46604120514466024
+  },
+  "snapshots": [
+    {
+      "id": "snap-1",
+      "name": "v1 – MVP",
+      "timestamp": 1779191434374,
+      "nodes": {
+        "sys1": {
+          "id": "sys1",
+          "type": "system",
+          "label": "Platform",
+          "description": "Main system",
+          "collapsed": false,
+          "x": 200,
+          "y": 100,
+          "width": 700,
+          "height": 400
+        },
+        "ctn1": {
+          "id": "ctn1",
+          "type": "container",
+          "label": "Frontend",
+          "technology": "React",
+          "description": "Web UI",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 40,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "ctn2": {
+          "id": "ctn2",
+          "type": "container",
+          "label": "API",
+          "technology": "Node.js",
+          "description": "REST API",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 360,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "usr1": {
+          "id": "usr1",
+          "type": "person",
+          "label": "End User",
+          "description": "Uses web app",
+          "collapsed": false,
+          "x": -100,
+          "y": 180,
+          "width": 150,
+          "height": 170
+        }
+      },
+      "relations": {
+        "r01": {
+          "id": "r01",
+          "sourceId": "ctn1",
+          "targetId": "ctn2",
+          "label": "Calls",
+          "technology": "HTTPS"
+        },
+        "r00": {
+          "id": "r00",
+          "sourceId": "usr1",
+          "targetId": "ctn1",
+          "label": "Uses",
+          "technology": "Browser"
+        }
+      }
+    },
+    {
+      "id": "snap-2",
+      "name": "v2 – Added Database",
+      "timestamp": 1779537034374,
+      "nodes": {
+        "sys1": {
+          "id": "sys1",
+          "type": "system",
+          "label": "Platform",
+          "description": "Main system",
+          "collapsed": false,
+          "x": 200,
+          "y": 100,
+          "width": 900,
+          "height": 400
+        },
+        "ctn1": {
+          "id": "ctn1",
+          "type": "container",
+          "label": "Frontend",
+          "technology": "React",
+          "description": "Web UI",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 40,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "ctn2": {
+          "id": "ctn2",
+          "type": "container",
+          "label": "API",
+          "technology": "Node.js",
+          "description": "REST API",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 360,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "usr1": {
+          "id": "usr1",
+          "type": "person",
+          "label": "End User",
+          "description": "Uses web app",
+          "collapsed": false,
+          "x": -100,
+          "y": 180,
+          "width": 150,
+          "height": 170
+        },
+        "ctn3": {
+          "id": "ctn3",
+          "type": "container",
+          "label": "Database",
+          "technology": "Postgres",
+          "description": "Data storage",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 580,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        }
+      },
+      "relations": {
+        "r01": {
+          "id": "r01",
+          "sourceId": "ctn1",
+          "targetId": "ctn2",
+          "label": "Calls",
+          "technology": "HTTPS"
+        },
+        "r00": {
+          "id": "r00",
+          "sourceId": "usr1",
+          "targetId": "ctn1",
+          "label": "Uses",
+          "technology": "Browser"
+        },
+        "r02": {
+          "id": "r02",
+          "sourceId": "ctn2",
+          "targetId": "ctn3",
+          "label": "Reads/writes",
+          "technology": "SQL"
+        }
+      }
+    },
+    {
+      "id": "snap-3",
+      "name": "v3 – Auth + Cache",
+      "timestamp": 1779796234374,
+      "nodes": {
+        "sys1": {
+          "id": "sys1",
+          "type": "system",
+          "label": "Platform",
+          "description": "Main system",
+          "collapsed": false,
+          "x": 200,
+          "y": 100,
+          "width": 1100,
+          "height": 500
+        },
+        "ctn1": {
+          "id": "ctn1",
+          "type": "container",
+          "label": "Frontend",
+          "technology": "React",
+          "description": "Web UI",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 40,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "ctn2": {
+          "id": "ctn2",
+          "type": "container",
+          "label": "Backend",
+          "technology": "Node.js / GraphQL",
+          "description": "GraphQL API",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 360,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "usr1": {
+          "id": "usr1",
+          "type": "person",
+          "label": "End User",
+          "description": "Uses web app",
+          "collapsed": false,
+          "x": -100,
+          "y": 180,
+          "width": 150,
+          "height": 170
+        },
+        "ctn3": {
+          "id": "ctn3",
+          "type": "container",
+          "label": "Database",
+          "technology": "Postgres",
+          "description": "Data storage",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 580,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        },
+        "ctn4": {
+          "id": "ctn4",
+          "type": "container",
+          "label": "Cache",
+          "technology": "Redis",
+          "description": "Session cache",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 580,
+          "y": 260,
+          "width": 300,
+          "height": 200
+        },
+        "ctn5": {
+          "id": "ctn5",
+          "type": "container",
+          "label": "Auth Service",
+          "technology": "Keycloak",
+          "description": "Identity provider",
+          "parentId": "sys1",
+          "collapsed": false,
+          "x": 820,
+          "y": 70,
+          "width": 300,
+          "height": 200
+        }
+      },
+      "relations": {
+        "r01": {
+          "id": "r01",
+          "sourceId": "ctn1",
+          "targetId": "ctn2",
+          "label": "Calls",
+          "technology": "HTTPS"
+        },
+        "r00": {
+          "id": "r00",
+          "sourceId": "usr1",
+          "targetId": "ctn1",
+          "label": "Uses",
+          "technology": "Browser"
+        },
+        "r02": {
+          "id": "r02",
+          "sourceId": "ctn2",
+          "targetId": "ctn3",
+          "label": "Reads/writes",
+          "technology": "SQL"
+        },
+        "r03": {
+          "id": "r03",
+          "sourceId": "ctn2",
+          "targetId": "ctn4",
+          "label": "Caches",
+          "technology": "Redis protocol"
+        },
+        "r04": {
+          "id": "r04",
+          "sourceId": "ctn1",
+          "targetId": "ctn5",
+          "label": "Auth",
+          "technology": "OAuth2"
+        }
+      }
+    }
+  ],
+  "presentations": [
+    {
+      "id": "c8881eab-bd94-477d-b3a6-67f94694e563",
+      "name": "Main",
+      "slides": []
+    }
+  ],
+  "metamodel": {
+    "id": "c4-builtin",
+    "name": "C4 (built-in)",
+    "nodeTypes": {
+      "person": {
+        "id": "person",
+        "label": "Person",
+        "color": "#08427b",
+        "fg": "#fff",
+        "iconPath": "M8 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 12.5C3 10.01 5.24 8 8 8s5 2.01 5 4.5V14H3v-1.5Z",
+        "width": 150,
+        "height": 170,
+        "collapsedWidth": 150,
+        "collapsedHeight": 170,
+        "allowedAtRoot": true,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "system": {
+        "id": "system",
+        "label": "Software System",
+        "color": "#1168bd",
+        "fg": "#fff",
+        "iconPath": "M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9ZM4 5h8v1H4V5Zm0 2.5h8v1H4v-1Zm0 2.5h5v1H4V10Z",
+        "width": 360,
+        "height": 260,
+        "collapsedWidth": 280,
+        "collapsedHeight": 180,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": true,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "container": {
+        "id": "container",
+        "label": "Container",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M1 4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1H1V4Zm0 2.5h14V12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6.5ZM3 3a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm2 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
+        "width": 300,
+        "height": 200,
+        "collapsedWidth": 240,
+        "collapsedHeight": 160,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "component": {
+        "id": "component",
+        "label": "Component",
+        "color": "#85bbf0",
+        "fg": "#000",
+        "iconPath": "M5 1v2H3a1 1 0 0 0-1 1v2h2v2H2v2h2v2H2v2a1 1 0 0 0 1 1h2v2h2v-2h2v2h2v-2h2a1 1 0 0 0 1-1v-2h-2v-2h2V8h-2V6h2V4a1 1 0 0 0-1-1h-2V1H9v2H7V1H5Z",
+        "width": 200,
+        "height": 120,
+        "collapsedWidth": 200,
+        "collapsedHeight": 120,
+        "allowedParents": [
+          "container",
+          "webapp"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "database": {
+        "id": "database",
+        "label": "Database",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M8 1C4.7 1 2 2.3 2 4v8c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3ZM2 4c0 1.7 2.7 3 6 3s6-1.3 6-3",
+        "width": 190,
+        "height": 130,
+        "collapsedWidth": 190,
+        "collapsedHeight": 130,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "webapp": {
+        "id": "webapp",
+        "label": "Web App",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm1 2.5V13h10V5.5H3ZM4 3.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
+        "width": 210,
+        "height": 140,
+        "collapsedWidth": 210,
+        "collapsedHeight": 140,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "queue": {
+        "id": "queue",
+        "label": "Queue",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M4 3a3 2 0 1 0 0 4h8a3 2 0 1 0 0-4H4Zm-2 5.5a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Zm10 0a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Z",
+        "width": 220,
+        "height": 95,
+        "collapsedWidth": 220,
+        "collapsedHeight": 95,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      }
+    },
+    "relationTypes": {
+      "uses": {
+        "id": "uses",
+        "label": "Uses",
+        "allowedPairs": [
+          {
+            "from": "person",
+            "to": "system"
+          },
+          {
+            "from": "person",
+            "to": "container"
+          },
+          {
+            "from": "person",
+            "to": "webapp"
+          },
+          {
+            "from": "system",
+            "to": "system"
+          },
+          {
+            "from": "system",
+            "to": "container"
+          },
+          {
+            "from": "system",
+            "to": "database"
+          },
+          {
+            "from": "system",
+            "to": "webapp"
+          },
+          {
+            "from": "system",
+            "to": "queue"
+          },
+          {
+            "from": "container",
+            "to": "system"
+          },
+          {
+            "from": "container",
+            "to": "container"
+          },
+          {
+            "from": "container",
+            "to": "database"
+          },
+          {
+            "from": "container",
+            "to": "webapp"
+          },
+          {
+            "from": "container",
+            "to": "queue"
+          },
+          {
+            "from": "webapp",
+            "to": "system"
+          },
+          {
+            "from": "webapp",
+            "to": "container"
+          },
+          {
+            "from": "webapp",
+            "to": "database"
+          },
+          {
+            "from": "webapp",
+            "to": "webapp"
+          },
+          {
+            "from": "webapp",
+            "to": "queue"
+          },
+          {
+            "from": "queue",
+            "to": "container"
+          },
+          {
+            "from": "queue",
+            "to": "webapp"
+          },
+          {
+            "from": "queue",
+            "to": "component"
+          },
+          {
+            "from": "component",
+            "to": "component"
+          },
+          {
+            "from": "component",
+            "to": "container"
+          },
+          {
+            "from": "component",
+            "to": "webapp"
+          },
+          {
+            "from": "component",
+            "to": "database"
+          },
+          {
+            "from": "component",
+            "to": "queue"
+          }
+        ],
+        "properties": [
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          }
+        ],
+        "builtin": true
+      },
+      "delivers": {
+        "id": "delivers",
+        "label": "Delivers to",
+        "allowedPairs": [
+          {
+            "from": "system",
+            "to": "person"
+          },
+          {
+            "from": "container",
+            "to": "person"
+          },
+          {
+            "from": "webapp",
+            "to": "person"
+          }
+        ],
+        "properties": [
+          {
+            "key": "technology",
+            "label": "Channel",
+            "type": "text"
+          }
+        ],
+        "builtin": true
+      }
+    }
+  }
+}

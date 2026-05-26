@@ -57,6 +57,13 @@ export interface DiagramSequence {
   name: string
   /** Ordered list of C4Relation IDs that form the interaction steps */
   relationIds: string[]
+  /**
+   * Per-step description overrides, parallel to relationIds.
+   * When set for index i, the SequenceView shows this text on the arrow
+   * instead of (or in addition to) the underlying relation label.
+   * Optional for backwards compat with persisted sequences.
+   */
+  stepDescriptions?: (string | undefined)[]
 }
 
 export interface DiagramView {

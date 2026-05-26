@@ -1,0 +1,577 @@
+{
+  "nodes": [
+    {
+      "id": "user",
+      "type": "webapp",
+      "label": "Aplikacja Web",
+      "description": "Frontend React",
+      "technology": "React + TypeScript",
+      "x": -187.23627921474122,
+      "y": -66.96405747040978,
+      "width": 150,
+      "height": 170,
+      "collapsed": false
+    },
+    {
+      "id": "api",
+      "type": "system",
+      "label": "Backend API",
+      "description": "REST API 2",
+      "technology": "Node.js",
+      "x": -60.143312526623674,
+      "y": 443.0359435295903,
+      "width": 666,
+      "height": 350,
+      "collapsed": false
+    },
+    {
+      "id": "auth",
+      "type": "container",
+      "label": "Auth Service 2",
+      "technology": "JWT",
+      "parentId": "api",
+      "x": 16,
+      "y": 120,
+      "width": 300,
+      "height": 200,
+      "collapsed": false
+    },
+    {
+      "id": "orders",
+      "type": "container",
+      "label": "Orders Service",
+      "technology": "Express",
+      "parentId": "api",
+      "x": 336,
+      "y": 120,
+      "width": 300,
+      "height": 200,
+      "collapsed": false
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Baza danych",
+      "technology": "PostgreSQL",
+      "x": 314.4108943000806,
+      "y": 855.1598747274037,
+      "width": 130,
+      "height": 100,
+      "collapsed": false
+    }
+  ],
+  "relations": [
+    {
+      "id": "r1",
+      "sourceId": "user",
+      "targetId": "web",
+      "label": "używa",
+      "technology": "HTTPS"
+    },
+    {
+      "id": "r2",
+      "sourceId": "web",
+      "targetId": "auth",
+      "label": "logowanie",
+      "technology": "REST/JSON"
+    },
+    {
+      "id": "r3",
+      "sourceId": "web",
+      "targetId": "orders",
+      "label": "zamówienia",
+      "technology": "REST/JSON"
+    },
+    {
+      "id": "r4",
+      "sourceId": "orders",
+      "targetId": "db",
+      "label": "czyta / zapisuje",
+      "technology": "SQL"
+    },
+    {
+      "id": "r5",
+      "sourceId": "auth",
+      "targetId": "db",
+      "label": "weryfikuje użytkownika",
+      "technology": "SQL"
+    }
+  ],
+  "sequences": [
+    {
+      "id": "7445b95c-5330-4f21-9081-cb3af599b1b3",
+      "name": "Sequence 1",
+      "relationIds": [
+        "r5",
+        "r4"
+      ]
+    }
+  ],
+  "views": [
+    {
+      "id": "v-frontend",
+      "name": "Widok Frontend",
+      "kind": "dynamic",
+      "nodeIds": [
+        "user",
+        "web",
+        "api"
+      ],
+      "positions": {
+        "user": {
+          "x": -187.23627921474122,
+          "y": -66.96405747040978,
+          "width": 150,
+          "height": 170
+        },
+        "api": {
+          "x": -60.143312526623674,
+          "y": 443.0359435295903,
+          "width": 666,
+          "height": 350
+        },
+        "auth": {
+          "x": 16,
+          "y": 120,
+          "width": 300,
+          "height": 200
+        },
+        "orders": {
+          "x": 336,
+          "y": 120,
+          "width": 300,
+          "height": 200
+        },
+        "db": {
+          "x": 314.4108943000806,
+          "y": 855.1598747274037,
+          "width": 130,
+          "height": 100
+        }
+      },
+      "hiddenRelationIds": [],
+      "viewport": {
+        "x": 548.6136497562572,
+        "y": 309.94909548264496,
+        "zoom": 0.9965407500805892
+      },
+      "sequenceId": "7445b95c-5330-4f21-9081-cb3af599b1b3"
+    }
+  ],
+  "defaultPositions": {
+    "user": {
+      "x": -89.44770831278124,
+      "y": 161.19182504889076,
+      "width": 150,
+      "height": 100
+    },
+    "api": {
+      "x": 180.55229368721876,
+      "y": -265.20736855510484,
+      "width": 420,
+      "height": 625.7898866634682
+    },
+    "auth": {
+      "x": 60,
+      "y": 60.028526231815476,
+      "width": 300,
+      "height": 200
+    },
+    "orders": {
+      "x": 60,
+      "y": 365.8000014720918,
+      "width": 300,
+      "height": 200
+    },
+    "db": {
+      "x": -69.44770831278124,
+      "y": -33.109580603080914,
+      "width": 130,
+      "height": 100
+    }
+  },
+  "defaultViewport": {
+    "x": 325.4370997898647,
+    "y": 519.5042042445518,
+    "zoom": 1.0274331623058341
+  },
+  "snapshots": [],
+  "presentations": [
+    {
+      "id": "ac84ef64-d902-42a0-8c61-2a001cdfc1fb",
+      "name": "Main",
+      "slides": []
+    }
+  ],
+  "metamodel": {
+    "id": "c4-builtin",
+    "name": "C4 (built-in)",
+    "nodeTypes": {
+      "person": {
+        "id": "person",
+        "label": "Person",
+        "color": "#08427b",
+        "fg": "#fff",
+        "iconPath": "M8 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 12.5C3 10.01 5.24 8 8 8s5 2.01 5 4.5V14H3v-1.5Z",
+        "width": 150,
+        "height": 170,
+        "collapsedWidth": 150,
+        "collapsedHeight": 170,
+        "allowedAtRoot": true,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "system": {
+        "id": "system",
+        "label": "Software System",
+        "color": "#1168bd",
+        "fg": "#fff",
+        "iconPath": "M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9ZM4 5h8v1H4V5Zm0 2.5h8v1H4v-1Zm0 2.5h5v1H4V10Z",
+        "width": 360,
+        "height": 260,
+        "collapsedWidth": 280,
+        "collapsedHeight": 180,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": true,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "container": {
+        "id": "container",
+        "label": "Container",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M1 4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1H1V4Zm0 2.5h14V12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6.5ZM3 3a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm2 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
+        "width": 300,
+        "height": 200,
+        "collapsedWidth": 240,
+        "collapsedHeight": 160,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "component": {
+        "id": "component",
+        "label": "Component",
+        "color": "#85bbf0",
+        "fg": "#000",
+        "iconPath": "M5 1v2H3a1 1 0 0 0-1 1v2h2v2H2v2h2v2H2v2a1 1 0 0 0 1 1h2v2h2v-2h2v2h2v-2h2a1 1 0 0 0 1-1v-2h-2v-2h2V8h-2V6h2V4a1 1 0 0 0-1-1h-2V1H9v2H7V1H5Z",
+        "width": 200,
+        "height": 120,
+        "collapsedWidth": 200,
+        "collapsedHeight": 120,
+        "allowedParents": [
+          "container",
+          "webapp"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "database": {
+        "id": "database",
+        "label": "Database",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M8 1C4.7 1 2 2.3 2 4v8c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3ZM2 4c0 1.7 2.7 3 6 3s6-1.3 6-3",
+        "width": 190,
+        "height": 130,
+        "collapsedWidth": 190,
+        "collapsedHeight": 130,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "webapp": {
+        "id": "webapp",
+        "label": "Web App",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm1 2.5V13h10V5.5H3ZM4 3.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
+        "width": 210,
+        "height": 140,
+        "collapsedWidth": 210,
+        "collapsedHeight": 140,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      },
+      "queue": {
+        "id": "queue",
+        "label": "Queue",
+        "color": "#438dd5",
+        "fg": "#fff",
+        "iconPath": "M4 3a3 2 0 1 0 0 4h8a3 2 0 1 0 0-4H4Zm-2 5.5a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Zm10 0a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Z",
+        "width": 220,
+        "height": 95,
+        "collapsedWidth": 220,
+        "collapsedHeight": 95,
+        "allowedParents": [
+          "system"
+        ],
+        "allowedAtRoot": false,
+        "builtin": true,
+        "properties": [
+          {
+            "key": "description",
+            "label": "Description",
+            "type": "textarea"
+          },
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          },
+          {
+            "key": "external",
+            "label": "External",
+            "type": "boolean"
+          }
+        ]
+      }
+    },
+    "relationTypes": {
+      "uses": {
+        "id": "uses",
+        "label": "Uses",
+        "allowedPairs": [
+          {
+            "from": "person",
+            "to": "system"
+          },
+          {
+            "from": "person",
+            "to": "container"
+          },
+          {
+            "from": "person",
+            "to": "webapp"
+          },
+          {
+            "from": "system",
+            "to": "system"
+          },
+          {
+            "from": "system",
+            "to": "container"
+          },
+          {
+            "from": "system",
+            "to": "database"
+          },
+          {
+            "from": "system",
+            "to": "webapp"
+          },
+          {
+            "from": "system",
+            "to": "queue"
+          },
+          {
+            "from": "container",
+            "to": "system"
+          },
+          {
+            "from": "container",
+            "to": "container"
+          },
+          {
+            "from": "container",
+            "to": "database"
+          },
+          {
+            "from": "container",
+            "to": "webapp"
+          },
+          {
+            "from": "container",
+            "to": "queue"
+          },
+          {
+            "from": "webapp",
+            "to": "system"
+          },
+          {
+            "from": "webapp",
+            "to": "container"
+          },
+          {
+            "from": "webapp",
+            "to": "database"
+          },
+          {
+            "from": "webapp",
+            "to": "webapp"
+          },
+          {
+            "from": "webapp",
+            "to": "queue"
+          },
+          {
+            "from": "queue",
+            "to": "container"
+          },
+          {
+            "from": "queue",
+            "to": "webapp"
+          },
+          {
+            "from": "queue",
+            "to": "component"
+          },
+          {
+            "from": "component",
+            "to": "component"
+          },
+          {
+            "from": "component",
+            "to": "container"
+          },
+          {
+            "from": "component",
+            "to": "webapp"
+          },
+          {
+            "from": "component",
+            "to": "database"
+          },
+          {
+            "from": "component",
+            "to": "queue"
+          }
+        ],
+        "properties": [
+          {
+            "key": "technology",
+            "label": "Technology",
+            "type": "text"
+          }
+        ],
+        "builtin": true
+      },
+      "delivers": {
+        "id": "delivers",
+        "label": "Delivers to",
+        "allowedPairs": [
+          {
+            "from": "system",
+            "to": "person"
+          },
+          {
+            "from": "container",
+            "to": "person"
+          },
+          {
+            "from": "webapp",
+            "to": "person"
+          }
+        ],
+        "properties": [
+          {
+            "key": "technology",
+            "label": "Channel",
+            "type": "text"
+          }
+        ],
+        "builtin": true
+      }
+    }
+  }
+}

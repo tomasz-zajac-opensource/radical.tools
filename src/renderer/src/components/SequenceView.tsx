@@ -31,6 +31,7 @@ interface Step {
   sourceId:   string
   targetId:   string
   label:      string
+  description?: string     // per-occurrence override (from stepDescriptions)
   index:      number       // 1-based step number
 }
 
@@ -66,6 +67,7 @@ export function SequenceView(): React.ReactElement {
         sourceId:   src.id,
         targetId:   tgt.id,
         label:      r.label || r.technology || '',
+        description: sequence.stepDescriptions?.[i] || undefined,
         index:      i + 1,
       })
     })
@@ -284,6 +286,8 @@ export function SequenceView(): React.ReactElement {
           // Compute label position for non-self messages
           const midX = (xs + xt) / 2
           const labelY = y - 6
+          // Per-step description overrides the default relation label
+          const displayLabel = s.description ?? s.label
 
           return (
             <g
@@ -306,7 +310,7 @@ export function SequenceView(): React.ReactElement {
                     strokeWidth={sw}
                     markerEnd={marker}
                   />
-                  {s.label && (
+                  {displayLabel && (
                     <text
                       x={xs + SELF_W + 8} y={y}
                       fill={stroke} fontSize={11}
@@ -314,7 +318,7 @@ export function SequenceView(): React.ReactElement {
                       fontFamily="system-ui, -apple-system, sans-serif"
                       pointerEvents="none"
                     >
-                      {truncate(s.label, 40)}
+                      {truncate(displayLabel, 40)}
                     </text>
                   )}
                 </>
@@ -328,7 +332,7 @@ export function SequenceView(): React.ReactElement {
                     strokeWidth={sw}
                     markerEnd={marker}
                   />
-                  {s.label && (
+                  {displayLabel && (
                     <text
                       x={midX} y={labelY}
                       fill={stroke} fontSize={11}
@@ -336,7 +340,7 @@ export function SequenceView(): React.ReactElement {
                       fontFamily="system-ui, -apple-system, sans-serif"
                       pointerEvents="none"
                     >
-                      {truncate(s.label, Math.max(8, Math.floor(Math.abs(xt - xs) / 8)))}
+                      {truncate(displayLabel, Math.max(8, Math.floor(Math.abs(xt - xs) / 8)))}
                     </text>
                   )}
                 </>

@@ -1,0 +1,322 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://radical.tools/schemas/c4.schema.json",
+  "title": "Radical.Tools C4 Diagram",
+  "description": "C4 architecture diagram persisted by Radical.Tools.",
+  "type": "object",
+  "required": ["nodes", "relations"],
+  "additionalProperties": false,
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "description": "All C4 elements in the diagram (persons, systems, containers, components, etc.).",
+      "items": { "$ref": "#/definitions/C4Node" }
+    },
+    "relations": {
+      "type": "array",
+      "description": "Directed relationships between elements.",
+      "items": { "$ref": "#/definitions/C4Relation" }
+    },
+    "sequences": {
+      "type": "array",
+      "description": "Named interaction sequences (ordered lists of relations) used by dynamic views.",
+      "items": { "$ref": "#/definitions/DiagramSequence" }
+    },
+    "views": {
+      "type": "array",
+      "description": "Named diagram views — each view shows a filtered subset of the model.",
+      "items": { "$ref": "#/definitions/DiagramView" }
+    },
+    "defaultPositions": {
+      "type": "object",
+      "description": "Canvas positions for the default (all-nodes) view.",
+      "additionalProperties": { "$ref": "#/definitions/NodePosition" }
+    },
+    "defaultViewport": {
+      "description": "Camera state (pan + zoom) for the default view.",
+      "oneOf": [
+        { "$ref": "#/definitions/Viewport" },
+        { "type": "null" }
+      ]
+    },
+    "snapshots": {
+      "type": "array",
+      "description": "Named snapshots (milestones) of the full model state.",
+      "items": { "$ref": "#/definitions/DiagramSnapshot" }
+    },
+    "presentations": {
+      "type": "array",
+      "description": "Named slide-deck presentations.",
+      "items": { "$ref": "#/definitions/Presentation" }
+    },
+    "presentationSlides": {
+      "type": "array",
+      "description": "Deprecated — legacy single-presentation slides. Auto-migrated on load.",
+      "items": { "$ref": "#/definitions/PresentationSlide" }
+    },
+    "metamodel": {
+      "$ref": "#/definitions/Metamodel",
+      "description": "Per-document metamodel overriding the built-in C4 preset."
+    }
+  },
+  "definitions": {
+    "C4ElementType": {
+      "type": "string",
+      "enum": ["person", "system", "container", "component", "database", "webapp", "queue", "domain"],
+      "description": "The C4 element type."
+    },
+    "C4Node": {
+      "type": "object",
+      "description": "A C4 element (actor, system, container, component, etc.).",
+      "required": ["id", "type", "label", "collapsed", "x", "y", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for this element."
+        },
+        "type": {
+          "$ref": "#/definitions/C4ElementType"
+        },
+        "label": {
+          "type": "string",
+          "description": "Display name of the element."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short description shown in the diagram."
+        },
+        "technology": {
+          "type": "string",
+          "description": "Technology / implementation detail (e.g. 'React', 'PostgreSQL')."
+        },
+        "parentId": {
+          "type": "string",
+          "description": "ID of the parent container node (omit for top-level elements)."
+        },
+        "collapsed": {
+          "type": "boolean",
+          "description": "Whether this container is collapsed in the default view."
+        },
+        "external": {
+          "type": "boolean",
+          "description": "True for external actors / systems outside the software boundary."
+        },
+        "x": { "type": "number", "description": "Canvas X position (relative to parent if nested)." },
+        "y": { "type": "number", "description": "Canvas Y position (relative to parent if nested)." },
+        "width": { "type": "number", "description": "Element width in canvas units." },
+        "height": { "type": "number", "description": "Element height in canvas units." }
+      }
+    },
+    "C4Relation": {
+      "type": "object",
+      "description": "A directed relationship between two C4 elements.",
+      "required": ["id", "sourceId", "targetId"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for this relation." },
+        "sourceId": { "type": "string", "description": "ID of the source element." },
+        "targetId": { "type": "string", "description": "ID of the target element." },
+        "label": { "type": "string", "description": "Short verb phrase describing the interaction." },
+        "technology": { "type": "string", "description": "Protocol or technology (e.g. 'HTTPS/JSON')." }
+      }
+    },
+    "NodePosition": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number" },
+        "height": { "type": "number" }
+      }
+    },
+    "Viewport": {
+      "type": "object",
+      "required": ["x", "y", "zoom"],
+      "additionalProperties": false,
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "zoom": { "type": "number", "minimum": 0.01 }
+      }
+    },
+    "DiagramSequence": {
+      "type": "object",
+      "description": "A named, ordered interaction sequence referencing relation IDs.",
+      "required": ["id", "name", "relationIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "relationIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Ordered list of C4Relation IDs forming the interaction steps."
+        }
+      }
+    },
+    "DiagramView": {
+      "type": "object",
+      "description": "A named diagram view showing a filtered subset of the model.",
+      "required": ["id", "name", "nodeIds", "positions"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "kind": {
+          "type": "string",
+          "enum": ["static", "dynamic", "treemap"],
+          "description": "'static' = filtered view, 'dynamic' = shows step badges from a sequence, 'treemap' = hierarchy map."
+        },
+        "sequenceId": {
+          "type": "string",
+          "description": "ID of the DiagramSequence to visualise (only used when kind='dynamic')."
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "C4 node IDs included in this view. Ancestors are auto-included."
+        },
+        "hiddenRelationIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Relation IDs explicitly hidden from this view."
+        },
+        "positions": {
+          "type": "object",
+          "description": "Per-node canvas positions for this view.",
+          "additionalProperties": { "$ref": "#/definitions/NodePosition" }
+        },
+        "viewport": { "$ref": "#/definitions/Viewport" },
+        "layoutMode": {
+          "type": "string",
+          "enum": ["auto", "tree"],
+          "description": "'auto' = Smart Layout ensemble, 'tree' = hierarchical ELK tree layout."
+        },
+        "treemapFocusId": {
+          "description": "Treemap drill-down root node ID. null = top of hierarchy.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "treemapSizeBy": {
+          "type": "string",
+          "enum": ["leaves", "uniform", "relations"],
+          "description": "How treemap rectangles are sized."
+        },
+        "treemapMaxDepth": {
+          "description": "Maximum depth rendered below focus. null = unlimited.",
+          "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }]
+        },
+        "treemapExpandedIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Node IDs explicitly expanded inline in the treemap (overrides treemapMaxDepth)."
+        },
+        "collapsedNodeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Node IDs collapsed in this view only (independent of model-level collapsed flag)."
+        },
+        "expandedNodeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Node IDs expanded in this view, overriding a model-level collapsed=true."
+        }
+      }
+    },
+    "DiagramSnapshot": {
+      "type": "object",
+      "description": "A named snapshot (milestone) capturing the full model at a point in time.",
+      "required": ["id", "name", "timestamp", "nodes", "relations"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "timestamp": { "type": "number", "description": "Unix epoch milliseconds." },
+        "nodes": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/C4Node" }
+        },
+        "relations": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/C4Relation" }
+        }
+      }
+    },
+    "SlideCanvasState": {
+      "type": "object",
+      "description": "Saved canvas positions and collapsed flags for all nodes at slide-capture time.",
+      "properties": {
+        "nodes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["x", "y", "width", "height", "collapsed"],
+            "additionalProperties": false,
+            "properties": {
+              "x": { "type": "number" },
+              "y": { "type": "number" },
+              "width": { "type": "number" },
+              "height": { "type": "number" },
+              "collapsed": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "PresentationSlide": {
+      "type": "object",
+      "description": "A single slide in a presentation.",
+      "required": ["id", "name", "viewport"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "snapshotId": {
+          "description": "Snapshot to restore when navigating to this slide. null = use live model.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "viewId": {
+          "description": "View to activate when navigating to this slide. null = show all.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "viewport": { "$ref": "#/definitions/Viewport" },
+        "canvasState": { "$ref": "#/definitions/SlideCanvasState" },
+        "modelSnapshot": {
+          "type": "object",
+          "description": "Inline model snapshot at slide-creation time.",
+          "properties": {
+            "nodes": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/C4Node" }
+            },
+            "relations": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/C4Relation" }
+            }
+          }
+        }
+      }
+    },
+    "Presentation": {
+      "type": "object",
+      "description": "A named slide-deck presentation.",
+      "required": ["id", "name", "slides"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slides": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/PresentationSlide" }
+        }
+      }
+    },
+    "Metamodel": {
+      "type": "object",
+      "description": "Per-document metamodel configuration overriding the built-in C4 preset.",
+      "additionalProperties": true
+    }
+  }
+}

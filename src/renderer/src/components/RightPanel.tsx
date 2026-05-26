@@ -464,6 +464,7 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
   const removeFromSequence = useDiagramStore((s) => s.removeFromSequence)
   const reorderSequence = useDiagramStore((s) => s.reorderSequence)
   const clearSequence = useDiagramStore((s) => s.clearSequence)
+  const updateStepDescription = useDiagramStore((s) => s.updateStepDescription)
   const c4Nodes = useDiagramStore((s) => s.c4Nodes)
   const c4Relations = useDiagramStore((s) => s.c4Relations)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -514,14 +515,15 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
                     const rel = c4Relations[relId]
                     const src = rel ? c4Nodes[rel.sourceId] : null
                     const tgt = rel ? c4Nodes[rel.targetId] : null
+                    const stepDesc = seq.stepDescriptions?.[idx]
                     return (
-                      <div key={relId} className="seq-step" style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '4px 6px' }}>
+                      <div key={relId} className="seq-step" style={{ display: 'flex', alignItems: 'flex-start', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '4px 6px' }}>
                         <span style={{
                           width: 18, height: 18, borderRadius: '50%',
                           background: 'var(--accent)', color: '#fff',
                           fontSize: 10, fontWeight: 700,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          flexShrink: 0,
+                          flexShrink: 0, marginTop: 1,
                         }}>{idx + 1}</span>
                         <div style={{ flex: 1, minWidth: 0, fontSize: 11, lineHeight: 1.35 }}>
                           <div style={{ color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -530,6 +532,21 @@ function SequenceList({ readOnly = false, compact = false }: { readOnly?: boolea
                           {rel?.label && (
                             <div style={{ color: 'var(--text-muted)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {rel.label}
+                            </div>
+                          )}
+                          {!readOnly && (
+                            <input
+                              className="props-input"
+                              defaultValue={stepDesc ?? ''}
+                              placeholder={rel?.label || 'Add step note…'}
+                              onBlur={(e) => updateStepDescription(seq.id, idx, e.currentTarget.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                              style={{ marginTop: 3, fontSize: 10, padding: '2px 4px', width: '100%', boxSizing: 'border-box' }}
+                            />
+                          )}
+                          {readOnly && stepDesc && (
+                            <div style={{ color: 'var(--text-secondary)', fontSize: 10, marginTop: 1, fontStyle: 'italic' }}>
+                              {stepDesc}
                             </div>
                           )}
                         </div>
@@ -1036,6 +1053,7 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
   const removeFromSequence = useDiagramStore((s) => s.removeFromSequence)
   const reorderSequence = useDiagramStore((s) => s.reorderSequence)
   const clearSequence = useDiagramStore((s) => s.clearSequence)
+  const updateStepDescription = useDiagramStore((s) => s.updateStepDescription)
   const setActiveSequence = useDiagramStore((s) => s.setActiveSequence)
   const addViewFromSequence = useDiagramStore((s) => s.addViewFromSequence)
   const views = useDiagramStore((s) => s.views)
@@ -1106,14 +1124,15 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
               const rel = c4Relations[relId]
               const src = rel ? c4Nodes[rel.sourceId] : null
               const tgt = rel ? c4Nodes[rel.targetId] : null
+              const stepDesc = seq.stepDescriptions?.[idx]
               return (
-                <div key={relId} className="seq-step" style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '5px 7px' }}>
+                <div key={relId} className="seq-step" style={{ display: 'flex', alignItems: 'flex-start', gap: 5, background: 'var(--surface-2,rgba(255,255,255,0.04))', borderRadius: 5, padding: '5px 7px' }}>
                   <span style={{
                     width: 20, height: 20, borderRadius: '50%',
                     background: 'var(--accent)', color: '#fff',
                     fontSize: 10, fontWeight: 700,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
+                    flexShrink: 0, marginTop: 1,
                   }}>{idx + 1}</span>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 11, lineHeight: 1.35 }}>
                     <div style={{ color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1122,6 +1141,21 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
                     {rel?.label && (
                       <div style={{ color: 'var(--text-muted)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {rel.label}
+                      </div>
+                    )}
+                    {!readOnly && (
+                      <input
+                        className="props-input"
+                        defaultValue={stepDesc ?? ''}
+                        placeholder={rel?.label || 'Add step note…'}
+                        onBlur={(e) => updateStepDescription(seq.id, idx, e.currentTarget.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                        style={{ marginTop: 4, fontSize: 11, padding: '3px 6px', width: '100%', boxSizing: 'border-box' }}
+                      />
+                    )}
+                    {readOnly && stepDesc && (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 10, marginTop: 1, fontStyle: 'italic' }}>
+                        {stepDesc}
                       </div>
                     )}
                   </div>
