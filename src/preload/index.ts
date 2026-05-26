@@ -20,6 +20,11 @@ const api = {
     ipcRenderer.invoke('dev:saveSample', json),
   devLoadSample: (): Promise<{ success: boolean; content?: string; error?: string }> =>
     ipcRenderer.invoke('dev:loadSample'),
+  getWatchedPath: (): Promise<string | null> =>
+    ipcRenderer.invoke('file:getWatchedPath'),
+  onFileChanged: (listener: (data: { filePath: string; content: string }) => void): void => {
+    ipcRenderer.on('file:external-change', (_event, data) => listener(data as { filePath: string; content: string }))
+  },
 }
 
 if (process.contextIsolated) {

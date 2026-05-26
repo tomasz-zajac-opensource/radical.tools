@@ -1,5 +1,5 @@
 import React from 'react'
-import { useDiagramStore } from '../store/diagramStore'
+import { useDiagramStore, nodeEffectivelyCollapsedInView } from '../store/diagramStore'
 import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS } from '../types/c4'
 
 function C4Icon({ type, size = 12 }: { type: C4ElementType; size?: number }) {
@@ -89,10 +89,7 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
     || activeView.nodeIds.includes(nodeId)
   // Effective collapsed: per-view if a named view is active, else model-level.
   // A model-collapsed node can be overridden in this view via expandedNodeIds.
-  const isEffectivelyCollapsed = activeViewId
-    ? ((node.collapsed && !(activeView?.expandedNodeIds?.includes(nodeId) ?? false))
-        || (activeView?.collapsedNodeIds?.includes(nodeId) ?? false))
-    : node.collapsed
+  const isEffectivelyCollapsed = nodeEffectivelyCollapsedInView(node, activeViewId, activeView)
 
   return (
     <>

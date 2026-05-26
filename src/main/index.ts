@@ -1,7 +1,20 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, resolve } from 'path'
-import { readFile, writeFile } from 'fs/promises'
+import { readFile, writeFile, watchFile, unwatchFile } from 'fs'
+import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+
+// ── CLI-specified model file (--file /path/to/model.c4.json or RADICAL_FILE env) ──
+function getWatchedFilePath(): string | null {
+  const idx = process.argv.indexOf('--file')
+  if (idx !== -1 && process.argv[idx + 1]) return process.argv[idx + 1]
+  return process.env['RADICAL_FILE'] || null
+}
+const _watchedFilePath = getWatchedFilePath()
+
+// Track when we last wrote to a path ourselves so we can suppress the
+// "echo" watcher event that would otherwise reload the same content.
+const _lastWrittenAt = new Map<string, number>()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -68,7 +81,8 @@ app.whenReady().then(() => {
       ],
     })
     if (result.canceled || !result.filePath) return { success: false }
-    await writeFile(result.filePath, json, 'utf-8')
+    await writeFileAsync(result.filePath, json, 'utf-8')
+    _lastWrittenAt.set(result.filePath, Date.now())
     return { success: true, filePath: result.filePath }
   })
 
@@ -83,7 +97,7 @@ app.whenReady().then(() => {
     })
     if (result.canceled || result.filePaths.length === 0) return { success: false }
     const filePath = result.filePaths[0]
-    const content = await readFile(filePath, 'utf-8')
+    const content = await readFileAsync(filePath, 'utf-8')
     return { success: true, filePath, content }
   })
 
@@ -91,7 +105,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('file:read', async (_event, filePath: string) => {
     try {
-      const content = await readFile(filePath, 'utf-8')
+      const content = await readFileAsync(filePath, 'utf-8')
       return { success: true, content }
     } catch (e) {
       return { success: false, error: (e as Error).message }
@@ -100,12 +114,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle('file:write', async (_event, filePath: string, json: string) => {
     try {
-      await writeFile(filePath, json, 'utf-8')
+      await writeFileAsync(filePath, json, 'utf-8')
+      _lastWrittenAt.set(filePath, Date.now())
       return { success: true }
     } catch (e) {
       return { success: false, error: (e as Error).message }
     }
   })
+
+  // ── IPC: CLI-specified watched file ────────────────────────────────────────
+
+  ipcMain.handle('file:getWatchedPath', () => _watchedFilePath)
 
   // ── DEV: sample model source file helpers ─────────────────────────────────
   // Path is resolved once in the main process — no Vite define needed.
@@ -114,7 +133,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle('dev:saveSample', async (_event, json: string) => {
       try {
-        await writeFile(SAMPLE_JSON, json, 'utf-8')
+        await writeFileAsync(SAMPLE_JSON, json, 'utf-8')
         return { success: true }
       } catch (e) {
         return { success: false, error: (e as Error).message }
@@ -123,12 +142,31 @@ app.whenReady().then(() => {
 
     ipcMain.handle('dev:loadSample', async () => {
       try {
-        const content = await readFile(SAMPLE_JSON, 'utf-8')
+        const content = await readFileAsync(SAMPLE_JSON, 'utf-8')
         return { success: true, content }
       } catch (e) {
         return { success: false, error: (e as Error).message }
       }
     })
+  }
+
+  // ── File watcher: push external changes to renderer ───────────────────────
+  // When launched with --file or RADICAL_FILE, watch the file with polling
+  // (reliable on all mounts including /Volumes) and push its new content to
+  // the renderer whenever it changes outside the app.
+  if (_watchedFilePath) {
+    watchFile(_watchedFilePath, { interval: 500 }, () => {
+      // Suppress the echo caused by our own write (auto-persist → file:write IPC).
+      const lastWrite = _lastWrittenAt.get(_watchedFilePath!) ?? 0
+      if (Date.now() - lastWrite < 2000) return
+      readFileAsync(_watchedFilePath!, 'utf-8')
+        .then((content) => {
+          const win = BrowserWindow.getAllWindows()[0]
+          win?.webContents.send('file:external-change', { filePath: _watchedFilePath, content })
+        })
+        .catch((e) => console.warn('[main] watchFile read error:', e))
+    })
+    app.on('will-quit', () => unwatchFile(_watchedFilePath!))
   }
 
   createWindow()

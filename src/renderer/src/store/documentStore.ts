@@ -200,6 +200,13 @@ export interface DocumentsAPI {
 
   createLSDocument(name: string, seed?: DiagramData): DocumentMeta
 
+  /** Register an FS-backed document without a native dialog.
+   *  Used when a file path is supplied programmatically (e.g. via the
+   *  `--file` CLI flag). De-dupes by path: returns the existing meta if
+   *  this path is already tracked. The document content is NOT loaded here;
+   *  the caller must call `loadDocument` / `setActiveId` afterwards. */
+  createFSDocument(filePath: string): DocumentMeta
+
   /** Read the payload for a document. Async because FS reads cross IPC. */
   loadDocument(id: string): Promise<DiagramData | null>
 
@@ -266,6 +273,25 @@ export const documents: DocumentsAPI = {
       lastModified: Date.now(),
     }
     if (seed) writeLSPayload(meta.id, seed)
+    idx.docs.push(meta)
+    idx.activeId = meta.id
+    writeIndex(idx)
+    notify()
+    return meta
+  },
+
+  createFSDocument(filePath) {
+    const idx = readIndex()
+    // De-dupe: if this path is already tracked, return the existing entry.
+    const existing = idx.docs.find((d) => d.source === 'fs' && d.filePath === filePath)
+    if (existing) return existing
+    const meta: DocumentMeta = {
+      id: uid(),
+      name: defaultNameFromPath(filePath),
+      source: 'fs',
+      filePath,
+      lastModified: Date.now(),
+    }
     idx.docs.push(meta)
     idx.activeId = meta.id
     writeIndex(idx)

@@ -36,7 +36,7 @@ function AppInner(): React.ReactElement {
 
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(() => localStorage.getItem(LS_LEFT) === '1')
   const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => localStorage.getItem(LS_RIGHT) === '1')
-  const [showWelcome, setShowWelcome] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(() => !(window as unknown as { electronAPI?: unknown }).electronAPI)
   const toggleLeft = useCallback(() => {
     setLeftCollapsed((c) => { localStorage.setItem(LS_LEFT, c ? '0' : '1'); return !c })
   }, [])
@@ -60,10 +60,13 @@ function AppInner(): React.ReactElement {
     }
   }, [])
 
-  // Run Radical layout automatically on first load
+  // Run Radical layout automatically on first load — but only when nodes have
+  // no saved positions yet (all at origin). Skip if positions were loaded from file.
   useEffect(() => {
     const timer = setTimeout(() => {
-      runRadicalLayout()
+      const nodes = Object.values(useDiagramStore.getState().c4Nodes)
+      const hasPositions = nodes.some(n => (n.x ?? 0) !== 0 || (n.y ?? 0) !== 0)
+      if (!hasPositions) runRadicalLayout()
     }, 400)
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps

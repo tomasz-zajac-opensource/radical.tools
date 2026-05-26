@@ -13,6 +13,8 @@ declare global {
       writeFile: (filePath: string, json: string) => Promise<{ success: boolean; error?: string }>
       devSaveSample: (json: string) => Promise<{ success: boolean; error?: string }>
       devLoadSample: () => Promise<{ success: boolean; content?: string; error?: string }>
+      getWatchedPath: () => Promise<string | null>
+      onFileChanged: (listener: (data: { filePath: string; content: string }) => void) => void
     }
   }
 }

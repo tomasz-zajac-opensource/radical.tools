@@ -2160,6 +2160,28 @@ body {
   -webkit-line-clamp: 2;
 }
 
+/* WebApp node — 210×140 with 18px title bar leaves only ~122px content area.
+   Scale down to match the available space (same pattern as database/queue). */
+.c4-webapp-node .c4-node-label {
+  font-size: 16px;
+  font-weight: 700;
+  padding: 0 6px 2px;
+  -webkit-line-clamp: 2;
+}
+
+.c4-webapp-node .c4-node-tech {
+  font-size: 11px;
+  padding: 0 6px;
+}
+
+.c4-webapp-node .c4-node-desc {
+  font-size: 11px;
+  padding: 2px 6px 0;
+  line-height: 1.25;
+  flex: 0 0 auto;
+  -webkit-line-clamp: 2;
+}
+
 /* Person node — narrow box (~150px) sits below a 44px silhouette, leaving
    ~120px for header + label + tech + desc. The default 22px label wraps
    and crowds out tech/desc, so size everything down here too. */
