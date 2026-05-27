@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import type { C4Node } from '../types/c4'
+import type { C4Node, C4Relation } from '../types/c4'
 
 // Same palette as TreemapView so types stay visually consistent.
 const TYPE_COLORS: Record<string, readonly [string, string, string]> = {
