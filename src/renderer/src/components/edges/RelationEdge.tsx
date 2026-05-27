@@ -204,7 +204,7 @@ export const RelationEdge = memo(
     const targetSelector = useCallback((s: any) => s.nodeInternals.get(target), [target])
     const sourceNode = useStore(sourceSelector)
     const targetNode = useStore(targetSelector)
-    const diffKind = useDiagramStore(s => s.diffHighlight[id])
+    const diffKind = useDiagramStore(s => s.showDiff ? s.diffHighlight[id] : undefined)
     const storeApi = useStoreApi()
 
     // Fall back to a straight stub if node data is not ready yet
