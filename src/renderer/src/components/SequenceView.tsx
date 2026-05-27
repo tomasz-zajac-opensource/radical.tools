@@ -58,6 +58,8 @@ export function SequenceView(): React.ReactElement {
   const milestoneDirty           = useDiagramStore((s) => s.milestoneDirty)
   const commitMilestoneChanges   = useDiagramStore((s) => s.commitMilestoneChanges)
   const discardMilestoneChanges  = useDiagramStore((s) => s.discardMilestoneChanges)
+  const showDiff             = useDiagramStore((s) => s.showDiff)
+  const toggleShowDiff       = useDiagramStore((s) => s.toggleShowDiff)
   const [milestoneNewName, setMilestoneNewName] = useState<string | null>(null)
 
   const sequence = view?.sequenceId ? sequences[view.sequenceId] : undefined
@@ -68,11 +70,15 @@ export function SequenceView(): React.ReactElement {
     if (!sequence) return result
     const seen = new Map<string, C4Node>()
     const out: Step[] = []
+    const effectiveGhostNodes    = showDiff ? ghostNodes    : {} as Record<string, C4Node>
+    const effectiveGhostRelations = showDiff ? ghostRelations : {} as Record<string, C4Relation>
+    const effectiveDiffHighlight  = showDiff ? diffHighlight  : {} as Record<string, 'new' | 'changed' | 'removed'>
+    const effectiveDiffBaseId     = showDiff ? diffBaseSnapshotId : null
     sequence.relationIds.forEach((rid, i) => {
-      const r = relations[rid] ?? ghostRelations[rid]
+      const r = relations[rid] ?? effectiveGhostRelations[rid]
       if (!r) return
-      const src = nodes[r.sourceId] ?? ghostNodes[r.sourceId]
-      const tgt = nodes[r.targetId] ?? ghostNodes[r.targetId]
+      const src = nodes[r.sourceId] ?? effectiveGhostNodes[r.sourceId]
+      const tgt = nodes[r.targetId] ?? effectiveGhostNodes[r.targetId]
       if (!src || !tgt) return
       if (!seen.has(src.id)) seen.set(src.id, src)
       if (!seen.has(tgt.id)) seen.set(tgt.id, tgt)
@@ -86,19 +92,19 @@ export function SequenceView(): React.ReactElement {
       })
     })
     // Add ghost steps: relation IDs removed from this sequence vs. the diff base.
-    if (diffBaseSnapshotId && view?.sequenceId) {
-      const baseSnap = snapshots.find(s => s.id === diffBaseSnapshotId)
+    if (effectiveDiffBaseId && view?.sequenceId) {
+      const baseSnap = snapshots.find(s => s.id === effectiveDiffBaseId)
       const baseSeq  = (baseSnap?.sequences as any)?.[view.sequenceId] as { relationIds: string[]; stepDescriptions?: (string | undefined)[] } | undefined
       if (baseSeq) {
         const currSet = new Set(sequence.relationIds)
         baseSeq.relationIds.forEach((rid, i) => {
           if (currSet.has(rid)) return  // still in sequence
-          if (diffHighlight[rid] !== 'removed') return  // only show seq-removed steps
+          if (effectiveDiffHighlight[rid] !== 'removed') return  // only show seq-removed steps
           // Prefer live relation data (still in model) → ghost (model-deleted)
-          const r = relations[rid] ?? ghostRelations[rid] ?? (baseSnap?.relations as any)?.[rid]
+          const r = relations[rid] ?? effectiveGhostRelations[rid] ?? (baseSnap?.relations as any)?.[rid]
           if (!r) return
-          const src = nodes[r.sourceId] ?? ghostNodes[r.sourceId] ?? (baseSnap?.nodes as any)?.[r.sourceId]
-          const tgt = nodes[r.targetId] ?? ghostNodes[r.targetId] ?? (baseSnap?.nodes as any)?.[r.targetId]
+          const src = nodes[r.sourceId] ?? effectiveGhostNodes[r.sourceId] ?? (baseSnap?.nodes as any)?.[r.sourceId]
+          const tgt = nodes[r.targetId] ?? effectiveGhostNodes[r.targetId] ?? (baseSnap?.nodes as any)?.[r.targetId]
           if (!src || !tgt) return
           if (!seen.has(src.id)) seen.set(src.id, src)
           if (!seen.has(tgt.id)) seen.set(tgt.id, tgt)
@@ -117,7 +123,7 @@ export function SequenceView(): React.ReactElement {
     result.participants = Array.from(seen.values())
     result.steps = out
     return result
-  }, [sequence, relations, nodes, ghostRelations, ghostNodes, diffHighlight, diffBaseSnapshotId, snapshots, view])
+  }, [sequence, relations, nodes, ghostRelations, ghostNodes, diffHighlight, diffBaseSnapshotId, snapshots, view, showDiff])
 
   const xOf = useCallback(
     (id: string) => {
@@ -234,7 +240,7 @@ export function SequenceView(): React.ReactElement {
       const cx = xOf(p.id)
       const [fill, border, fg] = TYPE_COLORS[p.type] ?? FALLBACK
       const isSel = p.id === selectedNodeId
-      const dk = diffHighlight[p.id]
+      const dk = showDiff ? diffHighlight[p.id] as 'new' | 'changed' | 'removed' | undefined : undefined
       const diffColor = dk === 'new' ? '#4ade80' : dk === 'removed' ? '#f87171' : dk === 'changed' ? '#fb923c' : null
       const diffLabel = dk === 'new' ? 'NEW' : dk === 'removed' ? 'REMOVED' : dk === 'changed' ? 'CHANGED' : null
       return (
@@ -385,16 +391,17 @@ export function SequenceView(): React.ReactElement {
           const xt     = xOf(s.targetId)
           const isSel  = s.relationId === selectedEdgeId
           const isHov  = hoveredStep === idx
-          const dk       = diffHighlight[s.relationId]
-          const diffColor = dk === 'new' ? '#4ade80' : dk === 'removed' ? '#f87171' : dk === 'changed' ? '#fb923c' : null
+          const dk       = diffHighlight[s.relationId] as 'new' | 'changed' | 'removed' | undefined
+          const diffDk   = showDiff ? dk : undefined
+          const diffColor = diffDk === 'new' ? '#4ade80' : diffDk === 'removed' ? '#f87171' : diffDk === 'changed' ? '#fb923c' : null
           const stroke = isSel ? '#ffd84d' : diffColor ?? (isHov ? 'var(--accent)' : 'currentColor')
           const sw     = isSel || diffColor ? 2 : isHov ? 1.6 : 1.2
-          const strokeDash = dk === 'removed' ? '6 4' : undefined
-          const stepOpacity = dk === 'removed' ? 0.65 : 1
+          const strokeDash = diffDk === 'removed' ? '6 4' : undefined
+          const stepOpacity = diffDk === 'removed' ? 0.65 : 1
           const marker = isSel ? 'url(#seq-arrow-hl)'
-            : dk === 'new' ? 'url(#seq-arrow-new)'
-            : dk === 'removed' ? 'url(#seq-arrow-removed)'
-            : dk === 'changed' ? 'url(#seq-arrow-changed)'
+            : diffDk === 'new' ? 'url(#seq-arrow-new)'
+            : diffDk === 'removed' ? 'url(#seq-arrow-removed)'
+            : diffDk === 'changed' ? 'url(#seq-arrow-changed)'
             : 'url(#seq-arrow)'
 
           // Compute label position for non-self messages
@@ -498,7 +505,7 @@ export function SequenceView(): React.ReactElement {
           border: `1px solid ${(activeSnapshotId && milestoneDirty) ? 'var(--accent)' : 'var(--border-color)'}`,
           padding: '4px 8px',
           borderRadius: 4,
-          pointerEvents: (activeSnapshotId && milestoneDirty) ? 'all' : 'none',
+          pointerEvents: activeSnapshotId ? 'all' : 'none',
           display: 'flex',
           alignItems: 'center',
           gap: 6,
@@ -512,6 +519,11 @@ export function SequenceView(): React.ReactElement {
               Milestone: <strong style={{ color: 'var(--text-primary)' }}>{snapshotName}</strong>
               {milestoneDirty && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>· unsaved</span>}
             </span>
+            <button
+              title={showDiff ? 'Hide diff' : 'Show changes vs. previous milestone'}
+              onClick={toggleShowDiff}
+              style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: showDiff ? 'var(--accent)' : 'var(--bg-surface)', color: showDiff ? '#fff' : 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 3 }}
+            >{showDiff ? '⊙ diff on' : '⊙ diff'}</button>
             {milestoneDirty && (
               <>
                 <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--border-color)', margin: '0 2px' }} />

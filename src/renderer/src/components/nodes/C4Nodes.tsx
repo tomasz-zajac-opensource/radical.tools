@@ -5,7 +5,7 @@ import { useDiagramStore } from '../../store/diagramStore'
 
 // ─── Diff highlight overlay ────────────────────────────────────────────────
 function DiffOverlay({ c4id }: { c4id: string }) {
-  const diff = useDiagramStore(s => s.diffHighlight[c4id])
+  const diff = useDiagramStore(s => s.showDiff ? s.diffHighlight[c4id] : undefined)
   if (!diff) return null
   const color =
     diff === 'new' ? 'var(--success)'

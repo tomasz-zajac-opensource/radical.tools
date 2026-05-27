@@ -129,6 +129,8 @@ function StructuralCanvas(): React.ReactElement {
   const discardMilestoneChanges = useDiagramStore((s) => s.discardMilestoneChanges)
   const [milestoneNewName, setMilestoneNewName] = useState<string | null>(null)
   const diffHighlight = useDiagramStore((s) => s.diffHighlight)
+  const showDiff = useDiagramStore((s) => s.showDiff)
+  const toggleShowDiff = useDiagramStore((s) => s.toggleShowDiff)
   const milestoneStats = useMemo(() => {
     let added = 0, changed = 0, removed = 0
     for (const k of Object.values(diffHighlight)) {
@@ -821,7 +823,7 @@ function StructuralCanvas(): React.ReactElement {
             border: `1px solid ${milestoneDirty ? 'var(--accent)' : 'var(--border-color)'}`,
             padding: '4px 8px',
             borderRadius: 4,
-            pointerEvents: milestoneDirty ? 'all' : 'none',
+            pointerEvents: 'all',
             zIndex: 10,
             display: 'flex',
             gap: 6,
@@ -833,7 +835,12 @@ function StructuralCanvas(): React.ReactElement {
             Milestone: <strong style={{ color: 'var(--text-primary)' }}>{snapshotName}</strong>
             {milestoneDirty && <span style={{ color: 'var(--accent)', marginLeft: 4 }}>· unsaved</span>}
           </span>
-          {(milestoneStats.added + milestoneStats.changed + milestoneStats.removed) > 0 && (
+          <button
+            title={showDiff ? 'Hide diff' : 'Show changes vs. previous milestone'}
+            onClick={toggleShowDiff}
+            style={{ fontSize: 11, padding: '2px 6px', cursor: 'pointer', background: showDiff ? 'var(--accent)' : 'var(--bg-surface)', color: showDiff ? '#fff' : 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 3 }}
+          >{showDiff ? '⊙ diff on' : '⊙ diff'}</button>
+          {showDiff && (milestoneStats.added + milestoneStats.changed + milestoneStats.removed) > 0 && (
             <span style={{ marginLeft: 2, opacity: 0.9 }}>
               <span style={{ color: '#4ade80' }}>+{milestoneStats.added}</span>
               {' '}
@@ -952,7 +959,7 @@ function StructuralCanvas(): React.ReactElement {
       )}
 
       {/* View name caption — bottom-left, same style as SequenceView */}
-      {activeViewName && (
+      {activeViewName && !activeSnapshotId && (
         <div
           style={{
             position: 'absolute',

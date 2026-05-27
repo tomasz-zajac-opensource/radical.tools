@@ -1034,6 +1034,10 @@ interface DiagramStore {
    *  actual `c4Nodes` / `c4Relations` model. */
   diffGhostNodes: Record<string, C4Node>
   diffGhostRelations: Record<string, C4Relation>
+  /** Whether diff overlays are currently visible. Default `false` — user
+   *  toggles explicitly to see changes vs. the previous milestone. */
+  showDiff: boolean
+  toggleShowDiff: () => void
 
   // ── app mode ──
   appMode: 'designer' | 'viewer' | 'metamodel'
@@ -1238,6 +1242,7 @@ export const useDiagramStore = create<DiagramStore>()(
       diffBaseSnapshotId: null,
       diffGhostNodes: {},
       diffGhostRelations: {},
+      showDiff: false,
       appMode: 'designer' as const,
       metamodel: initMetamodel,
       notifications: [],
@@ -1257,7 +1262,7 @@ export const useDiagramStore = create<DiagramStore>()(
           // the real c4Nodes / c4Relations on save.
           const ghostNodes = state.diffGhostNodes as Record<string, C4Node>
           const ghostRels = state.diffGhostRelations as Record<string, C4Relation>
-          const hasGhosts = Object.keys(ghostNodes).length > 0 || Object.keys(ghostRels).length > 0
+          const hasGhosts = state.showDiff && (Object.keys(ghostNodes).length > 0 || Object.keys(ghostRels).length > 0)
           const liveNodes = state.c4Nodes as Record<string, C4Node>
           const liveRels = state.c4Relations as Record<string, C4Relation>
           const mergedNodes: Record<string, C4Node> = hasGhosts ? { ...ghostNodes, ...liveNodes } : liveNodes
@@ -3525,6 +3530,11 @@ export const useDiagramStore = create<DiagramStore>()(
 
       setDiffHighlight(diff) {
         set((state) => { state.diffHighlight = diff as any })
+      },
+
+      toggleShowDiff() {
+        set((state) => { state.showDiff = !state.showDiff })
+        get()._sync()
       },
 
       /** Set (or clear) the milestone used as the diff base. Pass `null` to
