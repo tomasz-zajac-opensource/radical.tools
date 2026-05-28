@@ -363,6 +363,16 @@ export function QuickSearch(): React.ReactElement | null {
   // Reset hover when the result list shape changes.
   useEffect(() => { setHover(0) }, [q])
 
+  const aiExamples = useMemo(() => [
+    'Add a Postgres database used by the Web App',
+    'Create a payment system with API gateway and worker',
+    'Create a view showing only the payment-related nodes',
+    'Show me the Auth Service node',
+    'List all technologies used in this model',
+    'Summarize the architecture',
+    'Create a complete 3-tier web app from scratch',
+  ], [])
+
   // The bar itself is always mounted (so it stays in the top toolbar
   // permanently); the dropdown is the only thing that opens/closes.
   if (presentationActive) return null
@@ -483,16 +493,6 @@ export function QuickSearch(): React.ReactElement | null {
       setAiMode((v) => !v)
     }
   }
-
-  const aiExamples = useMemo(() => [
-    'Add a Postgres database used by the Web App',
-    'Create a payment system with API gateway and worker',
-    'Create a view showing only the payment-related nodes',
-    'Show me the Auth Service node',
-    'List all technologies used in this model',
-    'Summarize the architecture',
-    'Create a complete 3-tier web app from scratch',
-  ], [])
 
   const showDropdown = focused || aiBusy || !!aiLast || aiMode
 
