@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Radical.Tools - Architecture Modelling Tool</title>
-  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Ships with C4. MIT licensed. Desktop or browser." />
+  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Structure, flow, and hierarchy views built on one shared source of truth. Ships with C4. MIT licensed. Desktop or browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -19,6 +19,7 @@
       <nav class="nav-links">
         <a href="#home">Home</a>
         <a href="#concepts">How it works</a>
+        <a href="#view-types">View types</a>
         <a href="#features">Features</a>
         <a href="#screenshots">Screenshots</a>
         <a href="manual.html">Manual</a>
@@ -108,12 +109,13 @@
           <p class="concept-lead">A filtered window onto the model.</p>
           <p>
             Different audiences need different levels of detail.
-            Static views show structure - System Context, Containers, Components.
-            Dynamic views show interaction sequences with numbered steps on the edges.
+            Structure views show static architecture slices.
+            Flow views show interaction sequences with numbered steps on the edges.
+            Hierarchy views turn containment into a drillable treemap.
             Each view has its own layout, the model stays shared.
           </p>
           <div class="concept-example">
-            <code>Dynamic View → Login flow: 1 → 2 → 3</code>
+            <code>Hierarchy View → Payments domain drill-down</code>
             <span class="ce-label">view instance</span>
           </div>
         </div>
@@ -133,6 +135,73 @@
           </div>
         </div>
 
+      </div>
+    </div>
+  </section>
+
+  <!-- ── VIEW TYPES ── -->
+  <section class="view-types" id="view-types">
+    <div class="section-inner">
+      <div class="section-header">
+        <span class="kicker">View types</span>
+        <h2>Same model. Three ways to read it.</h2>
+        <p>
+          Radical.Tools does not make you choose between static diagrams, interaction flows,
+          and hierarchy maps. The same underlying model can be rendered in all three modes.
+        </p>
+      </div>
+
+      <div class="view-types-grid">
+        <article class="view-type-card">
+          <div class="vt-head">
+            <span class="vt-badge vt-structure">Structure</span>
+            <span class="vt-kind">default</span>
+          </div>
+          <h3>Structure views</h3>
+          <p>
+            Classic architecture diagrams for System Context, Container, Component, or any custom slice.
+            Filter the shared model, keep a dedicated layout per view, and present only the elements a given audience needs.
+          </p>
+          <ul class="vt-list">
+            <li>Best for stakeholder overviews and scoped architecture slices</li>
+            <li>Supports Smart Layout and Tree Layout per view</li>
+            <li>Ideal when you want nodes and relations on a canvas</li>
+          </ul>
+        </article>
+
+        <article class="view-type-card">
+          <div class="vt-head">
+            <span class="vt-badge vt-flow">Flow</span>
+            <span class="vt-kind">sequence-aware</span>
+          </div>
+          <h3>Flow views</h3>
+          <p>
+            Turn a filtered slice into an interaction story. Flow views bind a view to a sequence and render numbered steps directly on the relations.
+            In presentation mode, each step can be replayed one by one.
+          </p>
+          <ul class="vt-list">
+            <li>Best for request lifecycles, onboarding, and incident walkthroughs</li>
+            <li>Links one view to a reusable sequence definition</li>
+            <li>Makes edge order explicit without duplicating nodes</li>
+          </ul>
+        </article>
+
+        <article class="view-type-card">
+          <div class="vt-head">
+            <span class="vt-badge vt-hierarchy">Hierarchy</span>
+            <span class="vt-kind">treemap</span>
+          </div>
+          <h3>Hierarchy views</h3>
+          <p>
+            Show containment as nested rectangles instead of a node-link graph. Drill into a parent by clicking its tile, zoom back out with breadcrumbs,
+            and inspect domains, subdomains, bounded contexts, or ownership areas at a glance.
+          </p>
+          <ul class="vt-list">
+            <li>Best for domain breakdowns and nested model structure</li>
+            <li>Supports drill-down, breadcrumbs, sizing modes, and level limits</li>
+            <li>Useful when the tree matters more than individual relation paths</li>
+          </ul>
+        </article>
       </div>
     </div>
   </section>
@@ -183,7 +252,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h2M11 8h6M7 12h10"/></svg>
           </div>
           <h3>Presentation Mode</h3>
-          <p>Sequence views into a slide deck. Dynamic views replay interaction flows step by step. Fullscreen walkthrough turns any model review into a structured session.</p>
+          <p>Sequence any mix of structure, flow, and hierarchy views into a slide deck. Flow views replay interaction steps one by one; the others give you framing slides before and after the walkthrough.</p>
         </div>
 
         <div class="feature-card">
@@ -229,6 +298,13 @@
           <figcaption>
             <span class="shot-label">Viewer</span>
             Sequence views into a slide deck. Hit Present for a fullscreen, presenter-ready walkthrough.
+          </figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="screenshots/hierarchy.png" alt="Hierarchy view in light mode showing the Platform system as a treemap with Frontend, Backend, Database, Cache, Auth Service, and End User tiles" />
+          <figcaption>
+            <span class="shot-label">Hierarchy</span>
+            Treemap-based hierarchy view in light mode. Drill into nested systems and containers, control visible depth, and inspect containment without edge clutter.
           </figcaption>
         </figure>
       </div>

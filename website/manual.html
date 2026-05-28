@@ -193,21 +193,87 @@
           <li>Use the <strong>eye icons</strong> in the node tree to include or exclude elements for this view.</li>
           <li>Each view stores its own layout — rearrange nodes here without affecting other views.</li>
         </ol>
-        <h3>Dynamic views</h3>
+        <h3>View types</h3>
+        <div class="doc-table-wrap">
+          <table class="doc-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>What it shows</th>
+                <th>Best for</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Structure</strong> <span class="badge-accent">default</span></td>
+                <td>Standard node-link architecture view with filtered elements and relations.</td>
+                <td>System Context, Container, Component, and custom static slices.</td>
+              </tr>
+              <tr>
+                <td><strong>Flow</strong></td>
+                <td>Sequence-aware view with numbered steps rendered on matching relations.</td>
+                <td>Request flows, use cases, incident walkthroughs, and presentations.</td>
+              </tr>
+              <tr>
+                <td><strong>Hierarchy</strong></td>
+                <td>Treemap view of the same model, organised by parent-child containment.</td>
+                <td>Domains, subdomains, bounded contexts, teams, and nested ownership structure.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>Structure views</h3>
         <p>
-          Set a view's type to <em>Dynamic</em> to add <strong>sequence numbers</strong> to relations.
-          Each edge gets a step number (1, 2, 3…) that appears on the canvas. In presentation mode,
-          dynamic views replay the steps one at a time — ideal for showing an interaction flow.
+          <strong>Structure</strong> is the default view type. It renders nodes and relations on the
+          canvas and is the best choice for classic C4-style slices: System Context, Containers,
+          Components, or any custom architecture subset.
         </p>
+        <p>
+          A structure view has its own filtering and layout, but it still points at the shared model.
+          Move elements or exclude them from one structure view and the underlying nodes remain available
+          to every other view.
+        </p>
+        <h3>Flow views</h3>
+        <p>
+          Set a view's type to <em>Flow</em> to add <strong>sequence numbers</strong> to relations.
+          Then choose the sequence to visualise in the view properties panel. Each matching edge gets
+          a step number (1, 2, 3…) on the canvas.
+        </p>
+        <p>
+          In presentation mode, flow views replay the sequence one step at a time — ideal for showing
+          user journeys, request lifecycles, integration hand-offs, or incident narratives.
+        </p>
+        <h3>Hierarchy views</h3>
+        <p>
+          Set a view's type to <em>Hierarchy</em> to render the same model as a <strong>treemap</strong>
+          instead of a node-link graph. Parent elements become nested tiles; child elements are packed
+          inside them.
+        </p>
+        <ul>
+          <li>Click a tile with children to drill into it.</li>
+          <li>Use breadcrumbs or the <em>Up</em> button to zoom back out.</li>
+          <li>Choose whether size is based on leaves, uniform sizing, or relation count.</li>
+          <li>Limit visible depth to keep dense trees readable, then expand specific branches inline.</li>
+        </ul>
+        <p>
+          Hierarchy views are useful when <strong>containment</strong> matters more than edge routing:
+          domains, subdomains, platform areas, team ownership maps, or any nested architecture where
+          you want to understand "what lives inside what" first.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/hierarchy.png" alt="Hierarchy view in light mode showing a treemap for the Platform system with nested Frontend, Backend, Database, Cache, Auth Service, and End User tiles" />
+          <figcaption>Hierarchy view in light mode. The breadcrumb bar lets you drill in and back out, while the size and levels controls tune how much of the containment tree is visible at once.</figcaption>
+        </figure>
         <h3>View layout mode</h3>
         <p>
-          Each view can independently use <em>Auto</em> (Smart Layout) or <em>Tree</em> layout.
-          Switch via the view's settings panel. In tree mode the Smart Layout button changes to
-          <em>Tree Layout</em>.
+          Structure and flow views can independently use <em>Auto</em> (Smart Layout) or <em>Tree</em>
+          layout. Switch via the view's settings panel. In tree mode the Smart Layout button changes to
+          <em>Tree Layout</em>. Hierarchy views use their own treemap layout and instead expose depth,
+          sizing, and drill-down controls.
         </p>
         <figure class="doc-shot">
           <img src="screenshots/views.png" alt="Views panel showing All elements, System Context, Core Banking Containers and Payments Domain views with a '+ New view' button" />
-          <figcaption>The views panel in Designer mode. Three named views are defined; the active view is highlighted. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
+          <figcaption>The views panel in Designer mode. Each named view can switch between Structure, Flow, and Hierarchy. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
         </figure>
       </section>
 
@@ -298,7 +364,7 @@
           <li>Drag views into the desired order in the slide deck at the bottom of the screen.</li>
           <li>Click <strong>Present</strong> or press <kbd>F5</kbd> to go fullscreen.</li>
           <li>Navigate between slides with the on-screen arrow buttons or keyboard.</li>
-          <li>Dynamic views replay their sequence steps one at a time — each press of the forward
+            <li>Flow views replay their sequence steps one at a time — each press of the forward
               arrow reveals the next numbered relation.</li>
           <li>Press <kbd>Esc</kbd> or <kbd>F5</kbd> again to exit presentation mode.</li>
         </ol>
