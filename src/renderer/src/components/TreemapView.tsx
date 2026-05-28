@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import type { C4Node, C4Relation } from '../types/c4'
+import { TYPE_ICON_PATHS } from '../types/c4'
+import type { C4ElementType, C4Node, C4Relation } from '../types/c4'
 
 // ─── Color palette per C4 type ──────────────────────────────────────────────
 const TYPE_COLORS: Record<string, readonly [string, string, string]> = {
@@ -145,8 +146,9 @@ function squarifySlice(nodes: TNode[], vals: number[], rect: Rect): void {
   }
 }
 
-const HDR = [28, 22, 17, 14]
-const PAD = [ 4,  3,  2,  1]
+const HDR = [32, 26, 20, 16]
+const PAD = [10,  7,  5,  3]
+const GAP = [ 3,  2,  1,  1]  // inter-sibling gap per depth level
 
 function applyLayout(nodes: TNode[], rect: Rect, depth: number): void {
   if (!nodes.length || rect.w < 2 || rect.h < 2) return
@@ -154,14 +156,25 @@ function applyLayout(nodes: TNode[], rect: Rect, depth: number): void {
   const total = nodes.reduce((s, n) => s + n.value, 0)
   if (!total) return
   squarifySlice(nodes, nodes.map(n => (n.value / total) * rect.w * rect.h), rect)
+  // Shrink each tile by a gap to create visible separation between siblings.
+  const gap = GAP[Math.min(depth, 3)]
+  for (const n of nodes) {
+    if (!n.rect) continue
+    n.rect = {
+      x: n.rect.x + gap,
+      y: n.rect.y + gap,
+      w: Math.max(0, n.rect.w - gap * 2),
+      h: Math.max(0, n.rect.h - gap * 2),
+    }
+  }
   const hh = HDR[Math.min(depth, 3)]
   const pd = PAD[Math.min(depth, 3)]
   for (const n of nodes) {
     if (!n.rect || !n.children.length) continue
     const inner = {
-      x: n.rect.x + pd, y: n.rect.y + hh,
+      x: n.rect.x + pd, y: n.rect.y + hh + pd,
       w: Math.max(0, n.rect.w - pd * 2),
-      h: Math.max(0, n.rect.h - hh - pd),
+      h: Math.max(0, n.rect.h - hh - pd * 2),
     }
     if (inner.w > 4 && inner.h > 4) applyLayout(n.children, inner, depth + 1)
   }
@@ -177,6 +190,7 @@ function flatten(nodes: TNode[], out: TNode[] = []): TNode[] {
 export function TreemapView(): React.ReactElement {
   const c4Nodes         = useDiagramStore(s => s.c4Nodes)
   const c4Relations     = useDiagramStore(s => s.c4Relations)
+  const metamodel       = useDiagramStore(s => s.metamodel)
   const activeViewId    = useDiagramStore(s => s.activeViewId)
   const views           = useDiagramStore(s => s.views)
   const selectNode      = useDiagramStore(s => s.selectNode)
@@ -292,7 +306,7 @@ export function TreemapView(): React.ReactElement {
   // Build tree (rooted at the RENDERED focus, which may lag the store focus
   // during drill-in so the OLD tree stays visible while it zooms in).
   const flatNodes = useMemo(() => {
-    const MARGIN = 10
+    const MARGIN = 16
     const roots = buildTree(c4Nodes, relCount, viewFilter, renderFocusId ?? undefined, 0, sizeBy, maxDepth, expandedSet, false)
     applyLayout(roots, { x: MARGIN, y: MARGIN, w: size.w - MARGIN * 2, h: size.h - MARGIN * 2 }, 0)
     return flatten(roots)
@@ -305,7 +319,7 @@ export function TreemapView(): React.ReactElement {
     prevFocusRef.current = focusId
 
     const W = size.w, H = size.h
-    const MARGIN = 10
+    const MARGIN = 16
 
     // Cancel any in-flight animation
     if (raf1Ref.current    !== null) cancelAnimationFrame(raf1Ref.current)
@@ -429,6 +443,8 @@ export function TreemapView(): React.ReactElement {
         if (w < 2 || h < 2) return null
 
         const [fill, border, fg] = (TYPE_COLORS[n.type] ?? FALLBACK_COLORS) as [string, string, string]
+        const typeDef = metamodel?.nodeTypes[n.type]
+        const iconPath = typeDef?.iconPath ?? TYPE_ICON_PATHS[n.type as C4ElementType] ?? ''
         const isHov = interactive && hovered?.id === n.id
         const isSel = interactive && selectedNodeId === n.id
         const hh    = HDR[Math.min(n.depth, 3)]
@@ -446,7 +462,15 @@ export function TreemapView(): React.ReactElement {
         const badgeIcon = n.isExpanded ? '−' : '+'
 
         const handleBodyClick = interactive
-          ? (e: React.MouseEvent) => { e.stopPropagation(); selectNode(n.id) }
+          ? (e: React.MouseEvent) => {
+              e.stopPropagation()
+              if (n.hasKids) {
+                clickedRectRef.current = { x, y, w, h }
+                setFocus(n.id)
+              } else {
+                selectNode(n.id)
+              }
+            }
           : undefined
         const handleHeaderClick = interactive
           ? (e: React.MouseEvent) => {
@@ -470,7 +494,18 @@ export function TreemapView(): React.ReactElement {
           isSel ? '#ffd84d' :
           isHov ? 'rgba(255,255,255,0.9)' : border
         const strokeW = isSel ? 2 : isHov ? 1.5 : 0.6
-        const labelX  = x + (showHeader && showExpandBadge && w > 40 ? 22 : 6)
+        const iconInset = showHeader && showExpandBadge && w > 40 ? 22 : 6
+        const iconSize = showHeader
+          ? Math.max(12, Math.min(15, hh - 8))
+          : Math.max(11, Math.min(14, h - 8))
+        const iconBoxPad = showHeader ? 3 : 2
+        const iconBoxSize = iconSize + iconBoxPad * 2
+        const showIcon = !!iconPath && w > (showHeader ? 66 : 44) && h > (showHeader ? hh - 2 : 16)
+        const iconX = x + iconInset
+        const iconY = showHeader ? y + (hh - iconBoxSize) / 2 : y + (h - iconBoxSize) / 2
+        const labelX  = iconX + (showIcon ? iconBoxSize + 5 : 0)
+        const iconFill = fg
+        const iconScale = iconSize / 16
 
         return (
           <g
@@ -527,6 +562,26 @@ export function TreemapView(): React.ReactElement {
                   </text>
                 )}
               </>
+            )}
+            {showIcon && (
+              <g
+                clipPath={`url(#${idPrefix}cp-${n.id})`}
+                pointerEvents="none"
+              >
+                <rect
+                  x={iconX}
+                  y={iconY}
+                  width={iconBoxSize}
+                  height={iconBoxSize}
+                  rx={3}
+                  fill={showHeader ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.12)'}
+                />
+                <path
+                  d={iconPath}
+                  fill={iconFill}
+                  transform={`translate(${iconX + iconBoxPad}, ${iconY + iconBoxPad}) scale(${iconScale})`}
+                />
+              </g>
             )}
             {w > 28 && (showHeader ? true : h > 12) && (
               <text
@@ -671,7 +726,7 @@ export function TreemapView(): React.ReactElement {
             )}
             <span className="tm-tt-hint">
               {hovered.hasKids
-                ? 'header → zoom in · body → select'
+                ? 'click tile → zoom in'
                 : 'click → select'}
             </span>
           </div>
