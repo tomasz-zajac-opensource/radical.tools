@@ -363,10 +363,6 @@ export function QuickSearch(): React.ReactElement | null {
   // Reset hover when the result list shape changes.
   useEffect(() => { setHover(0) }, [q])
 
-  // The bar itself is always mounted (so it stays in the top toolbar
-  // permanently); the dropdown is the only thing that opens/closes.
-  if (presentationActive) return null
-
   // Walk the parent chain from outermost ancestor downward to the target's
   // direct parent and expand any that are currently collapsed. Outermost
   // first so each toggleCollapse call's auto-fit math runs against an
@@ -493,6 +489,11 @@ export function QuickSearch(): React.ReactElement | null {
     'Summarize the architecture',
     'Create a complete 3-tier web app from scratch',
   ], [])
+
+  // The bar itself is always mounted (so it stays in the top toolbar
+  // permanently); the dropdown is the only thing that opens/closes.
+  // Keep this early return *after* all hooks to preserve hook order.
+  if (presentationActive) return null
 
   const showDropdown = focused || aiBusy || !!aiLast || aiMode
 

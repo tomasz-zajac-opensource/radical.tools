@@ -96,9 +96,21 @@ resource "aws_cloudfront_distribution" "web" {
     cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
 
-  # index.html: always revalidate so deploys are visible immediately.
+  # HTML entry points: always revalidate so deploys are visible immediately.
   ordered_cache_behavior {
     path_pattern           = "/index.html"
+    target_origin_id       = "s3-${aws_s3_bucket.web[0].id}"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    # AWS Managed-CachingDisabled
+    cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/manual.html"
     target_origin_id       = "s3-${aws_s3_bucket.web[0].id}"
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD"]
