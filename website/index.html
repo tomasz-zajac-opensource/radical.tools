@@ -19,7 +19,6 @@
       <nav class="nav-links">
         <a href="#home">Home</a>
         <a href="#concepts">How it works</a>
-        <a href="#view-types">View types</a>
         <a href="#features">Features</a>
         <a href="#screenshots">Screenshots</a>
         <a href="manual.html">Manual</a>
@@ -106,16 +105,16 @@
         <div class="concept-card">
           <div class="concept-num">03</div>
           <h3>View</h3>
-          <p class="concept-lead">A filtered window onto the model.</p>
+          <p class="concept-lead">A named perspective on the same model.</p>
           <p>
             Different audiences need different levels of detail.
-            Structure views show static architecture slices.
-            Flow views show interaction sequences with numbered steps on the edges.
+            Structure views render scoped node-link diagrams such as System Context or Container maps.
+            Flow views bind a sequence to that same model and show numbered interaction steps.
             Hierarchy views turn containment into a drillable treemap.
-            Each view has its own layout, the model stays shared.
+            Each view keeps its own layout or drill state, while the underlying model stays shared.
           </p>
           <div class="concept-example">
-            <code>Hierarchy View → Payments domain drill-down</code>
+            <code>Structure / Flow / Hierarchy → one model, three readings</code>
             <span class="ce-label">view instance</span>
           </div>
         </div>
@@ -135,73 +134,6 @@
           </div>
         </div>
 
-      </div>
-    </div>
-  </section>
-
-  <!-- ── VIEW TYPES ── -->
-  <section class="view-types" id="view-types">
-    <div class="section-inner">
-      <div class="section-header">
-        <span class="kicker">View types</span>
-        <h2>Same model. Three ways to read it.</h2>
-        <p>
-          Radical.Tools does not make you choose between static diagrams, interaction flows,
-          and hierarchy maps. The same underlying model can be rendered in all three modes.
-        </p>
-      </div>
-
-      <div class="view-types-grid">
-        <article class="view-type-card">
-          <div class="vt-head">
-            <span class="vt-badge vt-structure">Structure</span>
-            <span class="vt-kind">default</span>
-          </div>
-          <h3>Structure views</h3>
-          <p>
-            Classic architecture diagrams for System Context, Container, Component, or any custom slice.
-            Filter the shared model, keep a dedicated layout per view, and present only the elements a given audience needs.
-          </p>
-          <ul class="vt-list">
-            <li>Best for stakeholder overviews and scoped architecture slices</li>
-            <li>Supports Smart Layout and Tree Layout per view</li>
-            <li>Ideal when you want nodes and relations on a canvas</li>
-          </ul>
-        </article>
-
-        <article class="view-type-card">
-          <div class="vt-head">
-            <span class="vt-badge vt-flow">Flow</span>
-            <span class="vt-kind">sequence-aware</span>
-          </div>
-          <h3>Flow views</h3>
-          <p>
-            Turn a filtered slice into an interaction story. Flow views bind a view to a sequence and render numbered steps directly on the relations.
-            In presentation mode, each step can be replayed one by one.
-          </p>
-          <ul class="vt-list">
-            <li>Best for request lifecycles, onboarding, and incident walkthroughs</li>
-            <li>Links one view to a reusable sequence definition</li>
-            <li>Makes edge order explicit without duplicating nodes</li>
-          </ul>
-        </article>
-
-        <article class="view-type-card">
-          <div class="vt-head">
-            <span class="vt-badge vt-hierarchy">Hierarchy</span>
-            <span class="vt-kind">treemap</span>
-          </div>
-          <h3>Hierarchy views</h3>
-          <p>
-            Show containment as nested rectangles instead of a node-link graph. Drill into a parent by clicking its tile, zoom back out with breadcrumbs,
-            and inspect domains, subdomains, bounded contexts, or ownership areas at a glance.
-          </p>
-          <ul class="vt-list">
-            <li>Best for domain breakdowns and nested model structure</li>
-            <li>Supports drill-down, breadcrumbs, sizing modes, and level limits</li>
-            <li>Useful when the tree matters more than individual relation paths</li>
-          </ul>
-        </article>
       </div>
     </div>
   </section>
