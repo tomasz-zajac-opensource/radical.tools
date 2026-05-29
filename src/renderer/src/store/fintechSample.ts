@@ -1,14 +1,17 @@
 /**
- * Fintech Banking Platform — a rich sample C4 model demonstrating:
- *  - A multi-container banking system (8 services + 3 infra nodes)
- *  - External actors and systems
- *  - 4 milestones tracking the platform evolution
- *  - 3 named views (System Context, Containers, Payments Domain)
- *  - 1 presentation with 5 slides
+ * Fintech Banking Platform — a sample C4 model demonstrating all capabilities:
+ *  - All 8 node types: person, system, domain, container, component, database, webapp, queue
+ *  - 3 named views: System Context (static), Core Banking (static), Payments Domain (static)
+ *  - 1 dynamic view: Payment Flow (sequence diagram with step badges)
+ *  - 1 treemap view: Platform Hierarchy (nested rectangle area chart)
+ *  - 1 sequence: Payment Processing (ordered interaction steps)
+ *  - 3 milestones tracking platform evolution
+ *  - 1 presentation with 6 slides
  */
 
 import type {
-  DiagramData, C4Node, C4Relation, DiagramSnapshot, DiagramView, NodePosition, Presentation,
+  DiagramData, C4Node, C4Relation, DiagramSequence, DiagramSnapshot, DiagramView,
+  NodePosition, Presentation,
 } from '../types/c4'
 import { COLLAPSED_HEIGHT, COLLAPSED_WIDTH } from '../types/c4'
 import { runSmartLayout } from '../layout/smartLayout'
@@ -27,21 +30,6 @@ function nd(
 
 function rl(id: string, src: string, tgt: string, label: string, tech = ''): C4Relation {
   return { id, sourceId: src, targetId: tgt, label, technology: tech }
-}
-
-function pick(
-  allNodes: C4Node[], allRels: C4Relation[],
-  nodeIds: string[], relIds: string[],
-): { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> } {
-  const nodes: Record<string, C4Node> = {}
-  const relations: Record<string, C4Relation> = {}
-  for (const n of allNodes) {
-    if (nodeIds.includes(n.id)) nodes[n.id] = { ...n }
-  }
-  for (const r of allRels) {
-    if (relIds.includes(r.id)) relations[r.id] = r
-  }
-  return { nodes, relations }
 }
 
 // ── Layout helpers ────────────────────────────────────────────────────────────
@@ -111,201 +99,241 @@ function buildRelSubset(
   return result
 }
 
-// ── Dimensions (matching NODE_SIZES in c4.ts) ─────────────────────────────────
-
-const CW = 280; const CH = 180   // container
-const DBW = 200; const DBH = 120 // database
-const QW = 240; const QH = 90   // queue
-const WAW = 220; const WAH = 140 // webapp
-const PW = 130; const PH = 140  // person
-
-// Subsystem sizes — each is a system inside sys-core
-//   sub-access:   2 containers (API GW + Auth)           ≈ 640 × 280
-//   sub-banking:  3 containers (Accounts + Payments + Cards) ≈ 960 × 280
-//   sub-risk:     2 containers (Fraud + Reporting)        ≈ 640 × 280
-//   sub-platform: 2 queues/infra + 3 DBs across 2 rows   ≈ 960 × 440
-const SUB_ACCESS_W  = 640;  const SUB_ACCESS_H  = 280
-const SUB_BANKING_W = 960;  const SUB_BANKING_H = 280
-const SUB_RISK_W    = 640;  const SUB_RISK_H    = 280
-const SUB_PLAT_W    = 960;  const SUB_PLAT_H    = 340
-
 // ── Build ─────────────────────────────────────────────────────────────────────
 
-/** All node + relation definitions (no layout applied). */
+/**
+ * All node + relation definitions (hardcoded initial positions — overridden by
+ * the pre-computed layout stored in fintechSampleData.json).
+ *
+ * Node type coverage:
+ *   person, system, domain, container, component, database, webapp, queue
+ */
 function _makeBaseData(): { allNodes: C4Node[]; allRels: C4Relation[] } {
   const allNodes: C4Node[] = [
 
-    // ── External actors ──
-    nd('p-customer', 'person', 'Retail Customer',  'Individual banking customer accessing via web and mobile', '', -320, 80,  PW, PH),
-    nd('p-corp',     'person', 'Corporate Client', 'Business customer using treasury and bulk-payment APIs',   '', -320, 330, PW, PH),
-    nd('p-ops',      'person', 'Bank Operator',    'Internal staff managing operations and support tickets',   '', -320, 580, PW, PH),
+    // ── Actors ────────────────────────────────────────────────────────────────
+    nd('p-customer', 'person', 'Retail Customer',  'Individual banking customer accessing via web and mobile', '', -250, 200,  150, 170),
+    nd('p-corp',     'person', 'Corporate Client', 'Business client using treasury and bulk-payment APIs',     '', -250, 440,  150, 170),
+    nd('p-ops',      'person', 'Bank Operator',    'Internal staff managing operations and support',           '', -250, 670,  150, 170),
 
-    // ── Core Banking Platform ─────────────────────────────────────────────────
-    // Outer system: contains 4 subsystems arranged in a 2×2 grid
-    //   Left col:  sub-access (640)   + 40 gap + sub-risk (640)    = 1320
-    //   Right col: sub-banking (960)  + 40 gap + sub-platform (960) = 960
-    //   Total width:  max(1320, 960) with outer padding = 1420 wide
-    //   Total height: row1 (280) + 40 gap + row2 (340) + top/bottom pads = 740
+    // ── Core Banking Platform (system, contains 3 domains) ───────────────────
     nd('sys-core', 'system', 'Core Banking Platform',
-      'Central microservices platform handling all banking domain logic',
-      'Kubernetes / Istio', 100, 80, 2140, 800),
+      'Central microservices platform — all banking domain logic', 'Kubernetes / Istio',
+      50, 0, 2200, 980),
 
-    // ── Subsystem: Access & Security Layer ──────────────────────────────────
-    nd('sub-access', 'system', 'Access & Security',
-      'API gateway, authentication and authorisation for all inbound traffic',
-      'Kong / Keycloak', 40, 80, SUB_ACCESS_W, SUB_ACCESS_H, { parentId: 'sys-core' }),
+    // Domain: Access & Security — API gateway + auth service
+    nd('dom-access', 'domain', 'Access & Security',
+      'API gateway, authentication and authorisation for all inbound traffic', 'Kong / Keycloak',
+      60, 100, 700, 360, { parentId: 'sys-core' }),
 
-    nd('ctn-api-gw', 'container', 'API Gateway',  'Routes all external traffic, enforces rate limits and TLS termination', 'Kong Gateway / Nginx',  40, 80, CW, CH, { parentId: 'sub-access' }),
-    nd('ctn-auth',   'container', 'Auth Service', 'Identity & access management, issues JWT tokens via OIDC flow',         'Keycloak / OAuth 2.0', 360, 80, CW, CH, { parentId: 'sub-access' }),
+    nd('ctn-apigw', 'container', 'API Gateway',
+      'Routes all external traffic, enforces rate limits and TLS termination', 'Kong / Nginx',
+      30, 110, 300, 200, { parentId: 'dom-access' }),
 
-    // ── Subsystem: Banking Services ──────────────────────────────────────────
-    nd('sub-banking', 'system', 'Banking Services',
-      'Core financial domain — accounts, payments and card management',
-      'Java / Go microservices', 720, 80, SUB_BANKING_W, SUB_BANKING_H, { parentId: 'sys-core' }),
+    nd('ctn-auth', 'container', 'Auth Service',
+      'Issues JWT tokens and validates OIDC sessions', 'Keycloak / OAuth 2.0',
+      370, 110, 300, 200, { parentId: 'dom-access' }),
 
-    nd('ctn-accounts', 'container', 'Accounts Service', 'Manages customer accounts, balances and statements',              'Java 21 / Spring Boot',  40,  80, CW, CH, { parentId: 'sub-banking' }),
-    nd('ctn-payments', 'container', 'Payments Service', 'Processes domestic and cross-border payment instructions',        'Go 1.22 / gRPC',        360,  80, CW, CH, { parentId: 'sub-banking' }),
-    nd('ctn-cards',    'container', 'Card Management',  'Issues and manages debit / credit cards, tokenisation',           'Go 1.22 / REST',        680,  80, CW, CH, { parentId: 'sub-banking' }),
+    // Domain: Banking Services — payments (with components), accounts, event bus
+    nd('dom-banking', 'domain', 'Banking Services',
+      'Core financial domain — payments, accounts and event streaming', 'Java / Go',
+      820, 100, 1260, 400, { parentId: 'sys-core' }),
 
-    // ── Subsystem: Risk & Compliance ─────────────────────────────────────────
-    nd('sub-risk', 'system', 'Risk & Compliance',
-      'Real-time fraud detection, regulatory reporting and AML controls',
-      'Python / Scala', 40, 440, SUB_RISK_W, SUB_RISK_H, { parentId: 'sys-core' }),
+    nd('ctn-payments', 'container', 'Payments Service',
+      'Processes domestic and cross-border payment instructions', 'Go 1.22 / gRPC',
+      30, 110, 480, 240, { parentId: 'dom-banking' }),
 
-    nd('ctn-fraud',     'container', 'Fraud Detection', 'Real-time ML-based transaction risk scoring and blocking', 'Python 3.12 / XGBoost',   40, 80, CW, CH, { parentId: 'sub-risk' }),
-    nd('ctn-reporting', 'container', 'Reporting Engine','Generates regulatory (PSD2, EBA) and management reports', 'Scala 3 / Apache Spark', 360, 80, CW, CH, { parentId: 'sub-risk' }),
+    nd('comp-validator', 'component', 'Payment Validator',
+      'Validates payment rules, limits and IBAN format', 'Go / Rule Engine',
+      20, 80, 200, 120, { parentId: 'ctn-payments' }),
 
-    // ── Subsystem: Platform Infrastructure ───────────────────────────────────
-    nd('sub-platform', 'system', 'Platform Infrastructure',
-      'Async messaging, notifications and persistent data stores shared across all services',
-      'Kafka / PostgreSQL / Redis', 720, 440, SUB_PLAT_W, SUB_PLAT_H, { parentId: 'sys-core' }),
+    nd('comp-fx', 'component', 'FX Engine',
+      'Applies real-time FX rates for cross-border payments', 'Go / Reuters Feed',
+      260, 80, 200, 120, { parentId: 'ctn-payments' }),
 
-    nd('ctn-kafka',   'queue',    'Event Bus',       'Async domain-event streaming between all microservices',            'Apache Kafka 3.6',        40,  80, QW,  QH,  { parentId: 'sub-platform' }),
-    nd('ctn-notif',   'container','Notifications',   'Delivers push, SMS and e-mail alerts triggered by domain events',   'Node.js 22 / FCM / Twilio',340, 80, CW,  CH,  { parentId: 'sub-platform' }),
-    nd('ctn-db-core', 'database', 'Accounts DB',     'Primary store for customer and account data',                       'PostgreSQL 15 / Patroni',  40, 240, DBW, DBH, { parentId: 'sub-platform' }),
-    nd('ctn-db-tx',   'database', 'Transactions DB', 'Immutable append-only ledger of all financial transactions',        'PostgreSQL 15 / Patroni', 300, 240, DBW, DBH, { parentId: 'sub-platform' }),
-    nd('ctn-redis',   'database', 'Cache / Sessions','Session tokens, rate-limit counters and hot-path account data',     'Redis 7 Cluster',         560, 240, DBW, DBH, { parentId: 'sub-platform' }),
+    nd('ctn-accounts', 'container', 'Accounts Service',
+      'Manages customer accounts, balances and statements', 'Java 21 / Spring Boot',
+      570, 110, 300, 200, { parentId: 'dom-banking' }),
 
-    // ── Digital Channels ──────────────────────────────────────────────────────
+    nd('ctn-evtbus', 'queue', 'Event Bus',
+      'Async domain-event streaming between all microservices', 'Apache Kafka 3.6',
+      930, 165, 220, 95, { parentId: 'dom-banking' }),
+
+    // Domain: Risk & Data — fraud detection + data stores
+    nd('dom-risk', 'domain', 'Risk & Data',
+      'Real-time fraud detection and persistent data stores', 'Python / PostgreSQL',
+      60, 560, 880, 360, { parentId: 'sys-core' }),
+
+    nd('ctn-fraud', 'container', 'Fraud Detection',
+      'Real-time ML-based transaction risk scoring', 'Python 3.12 / XGBoost',
+      30, 110, 300, 200, { parentId: 'dom-risk' }),
+
+    nd('ctn-db-acc', 'database', 'Accounts DB',
+      'Primary store for customer and account data', 'PostgreSQL 15 / Patroni',
+      390, 145, 190, 130, { parentId: 'dom-risk' }),
+
+    nd('ctn-db-tx', 'database', 'Transactions DB',
+      'Immutable append-only ledger of all financial transactions', 'PostgreSQL 15 / Patroni',
+      640, 145, 190, 130, { parentId: 'dom-risk' }),
+
+    // ── Digital Channels (system, contains 2 webapps) ─────────────────────────
     nd('sys-channels', 'system', 'Digital Channels',
-      'Customer-facing web portal and native mobile applications',
-      'React / Swift / Kotlin', 2320, 80, 420, 530),
+      'Customer-facing web portal and native mobile app', 'React / React Native',
+      2360, 80, 270, 450),
 
-    nd('ctn-web',     'webapp', 'Web Banking', 'Full-featured banking portal and admin console for browsers', 'React 18 / TypeScript',    40, 80,  WAW, WAH, { parentId: 'sys-channels' }),
-    nd('ctn-ios',     'webapp', 'iOS App',     'Native banking app for iPhone and iPad',                      'Swift 5.9 / SwiftUI',      40, 280, WAW, WAH, { parentId: 'sys-channels' }),
-    nd('ctn-android', 'webapp', 'Android App', 'Native banking app for Android phones and tablets',           'Kotlin / Jetpack Compose', 280, 280, WAW, WAH, { parentId: 'sys-channels' }),
+    nd('ctn-web', 'webapp', 'Web Banking',
+      'Full-featured banking portal for browsers', 'React 18 / TypeScript',
+      30, 100, 210, 140, { parentId: 'sys-channels' }),
+
+    nd('ctn-mobile', 'webapp', 'Mobile App',
+      'Native banking app for iOS and Android', 'React Native / Expo',
+      30, 300, 210, 140, { parentId: 'sys-channels' }),
 
     // ── External systems ──────────────────────────────────────────────────────
-    nd('sys-swift', 'system', 'SWIFT Network',      'International interbank messaging for cross-border wire transfers', 'SWIFT MT / ISO 20022',  100,  960, 340, 240, { external: true }),
-    nd('sys-visa',  'system', 'Card Networks',       'Visa and Mastercard payment authorisation and settlement',         'ISO 8583 / Visa API',   500,  960, 340, 240, { external: true }),
-    nd('sys-kyc',   'system', 'KYC / AML Provider', 'Identity verification and anti-money-laundering screening',        'REST / JSON',           900,  960, 340, 240, { external: true }),
+    nd('sys-swift', 'system', 'SWIFT Network',      'International wire transfer messaging',  'SWIFT MT / ISO 20022', 200,  1060, 360, 260, { external: true }),
+    nd('sys-cards', 'system', 'Card Networks',       'Visa / Mastercard authorisation',        'ISO 8583 / Visa API',  620,  1060, 360, 260, { external: true }),
+    nd('sys-kyc',   'system', 'KYC / AML Provider', 'Identity verification and AML screening', 'REST / JSON',          1040, 1060, 360, 260, { external: true }),
   ]
 
   // ── Relations ──────────────────────────────────────────────────────────────
 
   const allRels: C4Relation[] = [
-    // Actors → channels
-    rl('r-cust-web', 'p-customer', 'ctn-web',      'Views accounts & transfers', 'HTTPS / Browser'),
-    rl('r-cust-ios', 'p-customer', 'ctn-ios',      'Mobile banking',             'TLS / Push'),
-    rl('r-corp-web', 'p-corp',     'ctn-web',      'Bulk payments & treasury',   'HTTPS / Browser'),
-    rl('r-ops-gw',   'p-ops',      'ctn-api-gw',   'Admin operations',           'HTTPS / Admin API'),
+    // Actors → channels / gateway
+    rl('r-cust-web',    'p-customer',   'ctn-web',      'Views accounts & transfers',  'HTTPS / Browser'),
+    rl('r-corp-web',    'p-corp',       'ctn-web',      'Bulk payments & treasury',    'HTTPS / Browser'),
+    rl('r-ops-apigw',   'p-ops',        'ctn-apigw',    'Admin & support operations',  'HTTPS / Admin API'),
 
     // Channels → API Gateway
-    rl('r-web-gw', 'ctn-web',     'ctn-api-gw', 'API calls', 'HTTPS / REST'),
-    rl('r-ios-gw', 'ctn-ios',     'ctn-api-gw', 'API calls', 'HTTPS / REST'),
-    rl('r-and-gw', 'ctn-android', 'ctn-api-gw', 'API calls', 'HTTPS / REST'),
+    rl('r-web-apigw',   'ctn-web',      'ctn-apigw',    'API calls', 'HTTPS / REST'),
+    rl('r-mob-apigw',   'ctn-mobile',   'ctn-apigw',    'API calls', 'HTTPS / REST'),
 
     // API Gateway → services
-    rl('r-gw-auth',  'ctn-api-gw', 'ctn-auth',     'Validates token',    'JWT / OIDC introspect'),
-    rl('r-gw-acc',   'ctn-api-gw', 'ctn-accounts', 'Routes',             'HTTP/2 / gRPC'),
-    rl('r-gw-pay',   'ctn-api-gw', 'ctn-payments', 'Routes',             'HTTP/2 / gRPC'),
-    rl('r-gw-card',  'ctn-api-gw', 'ctn-cards',    'Routes',             'HTTP/2 / gRPC'),
-    rl('r-gw-cache', 'ctn-api-gw', 'ctn-redis',    'Session lookup',     'Redis protocol'),
+    rl('r-apigw-auth',  'ctn-apigw',    'ctn-auth',     'Validates token',  'JWT / OIDC'),
+    rl('r-apigw-pay',   'ctn-apigw',    'ctn-payments', 'Routes',           'HTTP/2 / gRPC'),
+    rl('r-apigw-acc',   'ctn-apigw',    'ctn-accounts', 'Routes',           'HTTP/2 / gRPC'),
 
-    // Services → persistence
-    rl('r-acc-db',  'ctn-accounts',  'ctn-db-core', 'Reads / writes', 'JDBC / SQL'),
-    rl('r-pay-db',  'ctn-payments',  'ctn-db-tx',   'Reads / writes', 'JDBC / SQL'),
-    rl('r-rep-db1', 'ctn-reporting', 'ctn-db-core', 'Reads (batch)',   'JDBC / SQL'),
-    rl('r-rep-db2', 'ctn-reporting', 'ctn-db-tx',   'Reads (batch)',   'JDBC / SQL'),
+    // Services → data stores
+    rl('r-pay-dbtx',    'ctn-payments', 'ctn-db-tx',    'Reads / writes', 'JDBC / SQL'),
+    rl('r-acc-dbacc',   'ctn-accounts', 'ctn-db-acc',   'Reads / writes', 'JDBC / SQL'),
 
-    // Kafka event flows
-    rl('r-pay-pub',   'ctn-payments', 'ctn-kafka', 'Publishes payment.completed', 'Kafka producer'),
-    rl('r-card-pub',  'ctn-cards',    'ctn-kafka', 'Publishes card.authorised',   'Kafka producer'),
-    rl('r-acc-pub',   'ctn-accounts', 'ctn-kafka', 'Publishes balance.updated',   'Kafka producer'),
-    rl('r-fraud-sub', 'ctn-kafka', 'ctn-fraud',    'Consumes all tx events',      'Kafka consumer'),
-    rl('r-notif-sub', 'ctn-kafka', 'ctn-notif',    'Consumes domain events',      'Kafka consumer'),
+    // Event streaming
+    rl('r-pay-evtbus',  'ctn-payments', 'ctn-evtbus',   'Publishes payment.completed', 'Kafka producer'),
+    rl('r-acc-evtbus',  'ctn-accounts', 'ctn-evtbus',   'Publishes balance.updated',   'Kafka producer'),
+    rl('r-evtbus-fraud','ctn-evtbus',   'ctn-fraud',    'Consumes all tx events',      'Kafka consumer'),
 
     // External integrations
-    rl('r-pay-swift', 'ctn-payments', 'sys-swift', 'Sends wire transfers',       'SWIFT MT103 / gpi'),
-    rl('r-card-visa', 'ctn-cards',    'sys-visa',  'Card authorisation',          'ISO 8583 / Visa Direct'),
-    rl('r-acc-kyc',   'ctn-accounts', 'sys-kyc',   'Identity & AML screening',   'REST / JSON'),
+    rl('r-pay-swift',   'ctn-payments', 'sys-swift',    'Sends wire transfers',       'SWIFT MT103'),
+    rl('r-pay-cards',   'ctn-payments', 'sys-cards',    'Card authorisation',          'ISO 8583'),
+    rl('r-acc-kyc',     'ctn-accounts', 'sys-kyc',      'Identity & AML screening',    'REST / JSON'),
   ]
 
   return { allNodes, allRels }
 }
 
-// ── Node ID lists shared between Raw and async builders ───────────────────────
+// ── Sequence ──────────────────────────────────────────────────────────────────
 
-// v1 – Core & Accounts: access layer + accounts only
-const V1_NODES = [
-  'p-customer',
-  'sys-core', 'sub-access', 'ctn-api-gw', 'ctn-auth',
-  'sub-banking', 'ctn-accounts',
-  'sub-platform', 'ctn-db-core',
-  'sys-channels', 'ctn-web',
+function _buildSequences(): DiagramSequence[] {
+  return [{
+    id: 'seq-payment-flow',
+    name: 'Payment Processing',
+    relationIds: [
+      'r-cust-web', 'r-web-apigw', 'r-apigw-auth',
+      'r-apigw-pay', 'r-pay-evtbus', 'r-evtbus-fraud', 'r-pay-swift',
+    ],
+    stepDescriptions: [
+      'Customer initiates transfer',
+      'Web app calls REST API',
+      'Gateway validates JWT token',
+      'Routes to Payments Service',
+      'Publishes payment.completed event',
+      'Fraud Detection scores transaction',
+      'Sends wire via SWIFT',
+    ],
+  }]
+}
+
+// ── View node ID lists ─────────────────────────────────────────────────────────
+
+// Context: top-level nodes only (sys-core & sys-channels auto-collapse)
+const CTX_IDS = [
+  'p-customer', 'p-corp', 'p-ops',
+  'sys-core', 'sys-channels',
+  'sys-swift', 'sys-cards', 'sys-kyc',
 ]
-const V1_RELS  = ['r-cust-web', 'r-web-gw', 'r-gw-auth', 'r-gw-acc', 'r-acc-db']
 
-// v2 – add Payments & Events
-const V2_NODES = [...V1_NODES, 'ctn-payments', 'ctn-db-tx', 'ctn-kafka', 'sys-swift']
-const V2_RELS  = [...V1_RELS, 'r-gw-pay', 'r-pay-db', 'r-pay-pub', 'r-acc-pub', 'r-pay-swift']
-
-// v3 – add Cards & Fraud (sub-risk now appears)
-const V3_NODES = [
-  ...V2_NODES,
-  'p-corp',
-  'sub-risk', 'ctn-fraud',
-  'ctn-cards', 'ctn-redis',
-  'ctn-ios', 'ctn-android',
-  'sys-visa',
-]
-const V3_RELS  = [...V2_RELS,
-  'r-cust-ios', 'r-corp-web', 'r-ios-gw', 'r-and-gw',
-  'r-gw-card', 'r-card-pub', 'r-gw-cache', 'r-fraud-sub', 'r-card-visa',
-]
-
-// Context view: top-level systems only (no containers visible)
-const CTX_IDS  = ['p-customer', 'p-corp', 'p-ops', 'sys-core', 'sys-channels', 'sys-swift', 'sys-visa', 'sys-kyc']
-
-// Core banking containers view: sys-core + all subsystems + all containers inside
+// Core banking: full hierarchy inside sys-core
 const CORE_IDS = [
   'sys-core',
-  'sub-access',  'ctn-api-gw', 'ctn-auth',
-  'sub-banking', 'ctn-accounts', 'ctn-payments', 'ctn-cards',
-  'sub-risk',    'ctn-fraud', 'ctn-reporting',
-  'sub-platform','ctn-kafka', 'ctn-notif', 'ctn-db-core', 'ctn-db-tx', 'ctn-redis',
+  'dom-access',  'ctn-apigw', 'ctn-auth',
+  'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-accounts', 'ctn-evtbus',
+  'dom-risk',    'ctn-fraud', 'ctn-db-acc', 'ctn-db-tx',
 ]
 
-// Payments domain view
-const PAY_IDS  = [
-  'p-customer', 'sys-core',
-  'sub-access',  'ctn-api-gw',
-  'sub-banking', 'ctn-payments', 'ctn-cards',
-  'sub-risk',    'ctn-fraud',
-  'sub-platform','ctn-db-tx', 'ctn-kafka',
-  'sys-swift', 'sys-visa',
+// Payments domain: payment-relevant nodes across both systems
+const PAY_IDS = [
+  'p-customer',
+  'sys-channels', 'ctn-web',
+  'sys-core',
+  'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-accounts', 'ctn-evtbus',
+  'dom-risk',    'ctn-fraud', 'ctn-db-tx',
+  'sys-swift', 'sys-cards',
 ]
+
+// Payment flow: nodes involved in the sequence (for dynamic view)
+const PAYFLOW_IDS = [
+  'p-customer',
+  'sys-channels', 'ctn-web',
+  'sys-core',
+  'dom-access',  'ctn-apigw', 'ctn-auth',
+  'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-evtbus',
+  'dom-risk',    'ctn-fraud',
+  'sys-swift',
+]
+
+// Treemap: full platform hierarchy (no actors or externals)
+const TREEMAP_IDS = [
+  'sys-core',
+  'dom-access',  'ctn-apigw', 'ctn-auth',
+  'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-accounts', 'ctn-evtbus',
+  'dom-risk',    'ctn-fraud', 'ctn-db-acc', 'ctn-db-tx',
+  'sys-channels', 'ctn-web', 'ctn-mobile',
+]
+
+// ── Milestone node / relation subsets ─────────────────────────────────────────
+
+// v1 – MVP: API gateway + auth + accounts only
+const V1_NODES = [
+  'p-customer',
+  'sys-channels', 'ctn-web',
+  'sys-core', 'dom-access', 'ctn-apigw', 'ctn-auth',
+  'dom-banking', 'ctn-accounts',
+  'dom-risk', 'ctn-db-acc',
+]
+const V1_RELS = ['r-cust-web', 'r-web-apigw', 'r-apigw-auth', 'r-apigw-acc', 'r-acc-dbacc']
+
+// v2 – add payments, events and SWIFT
+const V2_NODES = [
+  ...V1_NODES,
+  'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-evtbus', 'ctn-db-tx', 'sys-swift',
+]
+const V2_RELS = [
+  ...V1_RELS,
+  'r-apigw-pay', 'r-pay-dbtx', 'r-pay-evtbus', 'r-acc-evtbus', 'r-pay-swift',
+]
+
+// ── Presentations ─────────────────────────────────────────────────────────────
 
 function _buildPresentations(): Presentation[] {
   return [{
     id: 'pres-walkthrough',
     name: 'Architecture Walkthrough',
     slides: [
-      { id: 'slide-1', name: '1 – System Context',          snapshotId: null,      viewId: 'view-ctx',      viewport: { x: 350, y: 40, zoom: 0.55 } },
-      { id: 'slide-2', name: '2 – Core Banking Internals',  snapshotId: null,      viewId: 'view-core',     viewport: { x: 60,  y: 40, zoom: 0.55 } },
-      { id: 'slide-3', name: '3 – Payments Domain',         snapshotId: null,      viewId: 'view-payments', viewport: { x: 200, y: 80, zoom: 0.65 } },
-      { id: 'slide-4', name: '4 – v1 MVP (Milestone)',      snapshotId: 'snap-v1', viewId: null,            viewport: { x: 250, y: 80, zoom: 0.7  } },
-      { id: 'slide-5', name: '5 – v4 Full Platform (Milestone)', snapshotId: 'snap-v4', viewId: null,       viewport: { x: 60,  y: 40, zoom: 0.5  } },
+      { id: 'slide-ctx',      name: '1 – System Context',     snapshotId: null,       viewId: 'view-ctx',      viewport: { x: 300, y: 60,  zoom: 0.55 } },
+      { id: 'slide-core',     name: '2 – Core Banking',        snapshotId: null,       viewId: 'view-core',     viewport: { x: 60,  y: 40,  zoom: 0.45 } },
+      { id: 'slide-payments', name: '3 – Payments Domain',     snapshotId: null,       viewId: 'view-payments', viewport: { x: 100, y: 60,  zoom: 0.55 } },
+      { id: 'slide-payflow',  name: '4 – Payment Flow',        snapshotId: null,       viewId: 'view-payflow',  viewport: { x: 100, y: 60,  zoom: 0.55 } },
+      { id: 'slide-treemap',  name: '5 – Platform Hierarchy',  snapshotId: null,       viewId: 'view-treemap',  viewport: { x: 80,  y: 80,  zoom: 0.6  } },
+      { id: 'slide-v1',       name: '6 – v1 MVP (Milestone)',  snapshotId: 'snap-v1',  viewId: null,            viewport: { x: 200, y: 80,  zoom: 0.65 } },
     ],
   }]
 }
@@ -332,10 +360,9 @@ export async function loadFintechSample(): Promise<DiagramData> {
 
 /**
  * Synchronous build — hardcoded initial positions, no smart layout.
- * Used as a fallback when no saved override is present.
+ * Used as a fallback when no saved layout is present in fintechSampleData.json.
  */
 export function buildFintechSampleRaw(): DiagramData {
-  // Bundled static import fallback (populated at first save in old sessions).
   if ((savedSampleData as { nodes?: unknown }).nodes) {
     return JSON.parse(JSON.stringify(savedSampleData)) as DiagramData
   }
@@ -346,30 +373,40 @@ export function buildFintechSampleRaw(): DiagramData {
   for (const n of allNodes) nodeMap[n.id] = { ...n }
   const mainPositions = recordToPos(nodeMap)
 
-  const v1 = pick(allNodes, allRels, V1_NODES, V1_RELS)
-  const v2 = pick(allNodes, allRels, V2_NODES, V2_RELS)
-  const v3 = pick(allNodes, allRels, V3_NODES, V3_RELS)
-  const v4nodes: Record<string, C4Node> = {}
-  const v4rels:  Record<string, C4Relation> = {}
-  for (const n of allNodes) v4nodes[n.id] = { ...n }
-  for (const r of allRels)  v4rels[r.id]  = { ...r }
+  // Milestones — use main positions (no independent layout in raw mode)
+  const v1nodes: Record<string, C4Node> = {}
+  const v1rels: Record<string, C4Relation> = {}
+  for (const id of V1_NODES) { if (nodeMap[id]) v1nodes[id] = { ...nodeMap[id] } }
+  for (const id of V1_RELS)  { const r = allRels.find(r => r.id === id); if (r) v1rels[r.id] = r }
+
+  const v2nodes: Record<string, C4Node> = {}
+  const v2rels: Record<string, C4Relation> = {}
+  for (const id of V2_NODES) { if (nodeMap[id]) v2nodes[id] = { ...nodeMap[id] } }
+  for (const id of V2_RELS)  { const r = allRels.find(r => r.id === id); if (r) v2rels[r.id] = r }
+
+  const v3nodes: Record<string, C4Node> = {}
+  const v3rels: Record<string, C4Relation> = {}
+  for (const n of allNodes) v3nodes[n.id] = { ...n }
+  for (const r of allRels)  v3rels[r.id] = r
 
   const snapshots: DiagramSnapshot[] = [
-    { id: 'snap-v1', name: 'v1 – Core & Accounts',   timestamp: Date.now() - 90 * 86400000, nodes: v1.nodes, relations: v1.relations },
-    { id: 'snap-v2', name: 'v2 – Payments & Events', timestamp: Date.now() - 60 * 86400000, nodes: v2.nodes, relations: v2.relations },
-    { id: 'snap-v3', name: 'v3 – Cards & Fraud',     timestamp: Date.now() - 30 * 86400000, nodes: v3.nodes, relations: v3.relations },
-    { id: 'snap-v4', name: 'v4 – Full Platform',     timestamp: Date.now(),                 nodes: v4nodes,  relations: v4rels        },
+    { id: 'snap-v1', name: 'v1 – Core & Accounts',   timestamp: Date.now() - 90 * 86400000, nodes: v1nodes, relations: v1rels },
+    { id: 'snap-v2', name: 'v2 – Payments & Events', timestamp: Date.now() - 45 * 86400000, nodes: v2nodes, relations: v2rels },
+    { id: 'snap-v3', name: 'v3 – Full Platform',     timestamp: Date.now(),                 nodes: v3nodes, relations: v3rels },
   ]
 
   const views: DiagramView[] = [
-    { id: 'view-ctx',      name: 'System Context',             nodeIds: CTX_IDS,  positions: mainPositions, viewport: { x: 350, y: 40, zoom: 0.55 } },
-    { id: 'view-core',     name: 'Core Banking Containers',    nodeIds: CORE_IDS, positions: mainPositions, viewport: { x: 60,  y: 40, zoom: 0.55 } },
-    { id: 'view-payments', name: 'Payments Domain',            nodeIds: PAY_IDS,  positions: mainPositions, viewport: { x: 200, y: 80, zoom: 0.65 } },
+    { id: 'view-ctx',      name: 'System Context',     kind: 'static',  nodeIds: CTX_IDS,      positions: mainPositions, viewport: { x: 300, y: 60, zoom: 0.55 } },
+    { id: 'view-core',     name: 'Core Banking',        kind: 'static',  nodeIds: CORE_IDS,     positions: mainPositions, viewport: { x: 60,  y: 40, zoom: 0.45 } },
+    { id: 'view-payments', name: 'Payments Domain',     kind: 'static',  nodeIds: PAY_IDS,      positions: mainPositions, viewport: { x: 100, y: 60, zoom: 0.55 } },
+    { id: 'view-payflow',  name: 'Payment Flow',        kind: 'dynamic', nodeIds: PAYFLOW_IDS,  positions: mainPositions, viewport: { x: 100, y: 60, zoom: 0.55 }, sequenceId: 'seq-payment-flow' },
+    { id: 'view-treemap',  name: 'Platform Hierarchy',  kind: 'treemap', nodeIds: TREEMAP_IDS,  positions: mainPositions, viewport: { x: 80,  y: 80, zoom: 0.6  } },
   ]
 
   return {
     nodes: allNodes,
     relations: allRels,
+    sequences: _buildSequences(),
     views,
     snapshots,
     presentations: _buildPresentations(),
@@ -379,7 +416,7 @@ export function buildFintechSampleRaw(): DiagramData {
 
 export async function buildFintechSample(): Promise<DiagramData> {
 
-  // ── If the developer has saved an edited version, use it directly ─────────
+  // ── If a pre-computed layout is bundled, use it directly ──────────────────
   if ((savedSampleData as { nodes?: unknown }).nodes) {
     return JSON.parse(JSON.stringify(savedSampleData)) as DiagramData
   }
@@ -388,42 +425,42 @@ export async function buildFintechSample(): Promise<DiagramData> {
 
   const { allNodes, allRels } = _makeBaseData()
 
-  // ── Build nodeMap / relMap for main diagram ───────────────────────────────
-
   const nodeMap: Record<string, C4Node> = {}
   const relMap: Record<string, C4Relation> = {}
   for (const n of allNodes) nodeMap[n.id] = { ...n }
   for (const r of allRels)  relMap[r.id]  = { ...r }
 
-  // ── Layout main diagram ───────────────────────────────────────────────────
+  // Main layout (all nodes)
   await applyLayoutInPlace(nodeMap, relMap)
   const mainPositions = recordToPos(nodeMap)
 
   // ── Milestones (each gets its own independent layout) ─────────────────────
 
-  const v1 = pick(allNodes, allRels, V1_NODES, V1_RELS)
-  await applyLayoutInPlace(v1.nodes, v1.relations)
+  const v1nodes: Record<string, C4Node> = {}
+  const v1rels: Record<string, C4Relation> = {}
+  for (const id of V1_NODES) { if (nodeMap[id]) v1nodes[id] = { ...nodeMap[id] } }
+  for (const id of V1_RELS)  { const r = allRels.find(r => r.id === id); if (r) v1rels[r.id] = r }
+  await applyLayoutInPlace(v1nodes, v1rels)
 
-  const v2 = pick(allNodes, allRels, V2_NODES, V2_RELS)
-  await applyLayoutInPlace(v2.nodes, v2.relations)
+  const v2nodes: Record<string, C4Node> = {}
+  const v2rels: Record<string, C4Relation> = {}
+  for (const id of V2_NODES) { if (nodeMap[id]) v2nodes[id] = { ...nodeMap[id] } }
+  for (const id of V2_RELS)  { const r = allRels.find(r => r.id === id); if (r) v2rels[r.id] = r }
+  await applyLayoutInPlace(v2nodes, v2rels)
 
-  const v3 = pick(allNodes, allRels, V3_NODES, V3_RELS)
-  await applyLayoutInPlace(v3.nodes, v3.relations)
-
-  const v4nodes: Record<string, C4Node> = {}
-  const v4rels: Record<string, C4Relation> = {}
-  for (const n of allNodes) v4nodes[n.id] = { ...n }
-  for (const r of allRels)  v4rels[r.id]  = { ...r }
-  await applyLayoutInPlace(v4nodes, v4rels)
+  const v3nodes: Record<string, C4Node> = {}
+  const v3rels: Record<string, C4Relation> = {}
+  for (const n of allNodes) v3nodes[n.id] = { ...n }
+  for (const r of allRels)  v3rels[r.id]  = { ...r }
+  await applyLayoutInPlace(v3nodes, v3rels)
 
   const snapshots: DiagramSnapshot[] = [
-    { id: 'snap-v1', name: 'v1 – Core & Accounts',   timestamp: Date.now() - 90 * 86400000, nodes: v1.nodes, relations: v1.relations },
-    { id: 'snap-v2', name: 'v2 – Payments & Events', timestamp: Date.now() - 60 * 86400000, nodes: v2.nodes, relations: v2.relations },
-    { id: 'snap-v3', name: 'v3 – Cards & Fraud',     timestamp: Date.now() - 30 * 86400000, nodes: v3.nodes, relations: v3.relations },
-    { id: 'snap-v4', name: 'v4 – Full Platform',     timestamp: Date.now(),                 nodes: v4nodes,  relations: v4rels        },
+    { id: 'snap-v1', name: 'v1 – Core & Accounts',   timestamp: Date.now() - 90 * 86400000, nodes: v1nodes, relations: v1rels },
+    { id: 'snap-v2', name: 'v2 – Payments & Events', timestamp: Date.now() - 45 * 86400000, nodes: v2nodes, relations: v2rels },
+    { id: 'snap-v3', name: 'v3 – Full Platform',     timestamp: Date.now(),                 nodes: v3nodes, relations: v3rels },
   ]
 
-  // ── Views (each gets its own layout, merged with main positions) ───────────
+  // ── Views (each gets its own layout) ──────────────────────────────────────
 
   const ctxNodes = buildViewSubset(CTX_IDS, nodeMap)
   const ctxRels  = buildRelSubset(ctxNodes, allRels)
@@ -440,15 +477,23 @@ export async function buildFintechSample(): Promise<DiagramData> {
   await applyLayoutInPlace(payNodes, payRels)
   const payPositions: Record<string, NodePosition> = { ...mainPositions, ...recordToPos(payNodes) }
 
+  const payflowNodes = buildViewSubset(PAYFLOW_IDS, nodeMap)
+  const payflowRels  = buildRelSubset(payflowNodes, allRels)
+  await applyLayoutInPlace(payflowNodes, payflowRels)
+  const payflowPositions: Record<string, NodePosition> = { ...mainPositions, ...recordToPos(payflowNodes) }
+
   const views: DiagramView[] = [
-    { id: 'view-ctx',      name: 'System Context',          nodeIds: CTX_IDS,  positions: ctxPositions,  viewport: { x: 350, y: 40, zoom: 0.55 } },
-    { id: 'view-core',     name: 'Core Banking Containers', nodeIds: CORE_IDS, positions: corePositions, viewport: { x: 60,  y: 40, zoom: 0.55 } },
-    { id: 'view-payments', name: 'Payments Domain',         nodeIds: PAY_IDS,  positions: payPositions,  viewport: { x: 200, y: 80, zoom: 0.65 } },
+    { id: 'view-ctx',      name: 'System Context',    kind: 'static',  nodeIds: CTX_IDS,      positions: ctxPositions,     viewport: { x: 300, y: 60, zoom: 0.55 } },
+    { id: 'view-core',     name: 'Core Banking',       kind: 'static',  nodeIds: CORE_IDS,     positions: corePositions,    viewport: { x: 60,  y: 40, zoom: 0.45 } },
+    { id: 'view-payments', name: 'Payments Domain',    kind: 'static',  nodeIds: PAY_IDS,      positions: payPositions,     viewport: { x: 100, y: 60, zoom: 0.55 } },
+    { id: 'view-payflow',  name: 'Payment Flow',       kind: 'dynamic', nodeIds: PAYFLOW_IDS,  positions: payflowPositions, viewport: { x: 100, y: 60, zoom: 0.55 }, sequenceId: 'seq-payment-flow' },
+    { id: 'view-treemap',  name: 'Platform Hierarchy', kind: 'treemap', nodeIds: TREEMAP_IDS,  positions: mainPositions,    viewport: { x: 80,  y: 80, zoom: 0.6  } },
   ]
 
   return {
     nodes: Object.values(nodeMap),
     relations: allRels,
+    sequences: _buildSequences(),
     views,
     snapshots,
     presentations: _buildPresentations(),

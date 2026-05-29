@@ -6,112 +6,99 @@
       "label": "Retail Customer",
       "description": "Individual banking customer accessing via web and mobile",
       "technology": "",
-      "x": 490.5550659735476,
-      "y": -310.00966398666685,
-      "width": 130,
-      "height": 140,
+      "x": 30,
+      "y": 120,
+      "width": 150,
+      "height": 170,
       "collapsed": false
     },
     {
       "id": "p-corp",
       "type": "person",
       "label": "Corporate Client",
-      "description": "Business customer using treasury and bulk-payment APIs",
+      "description": "Business client using treasury and bulk-payment APIs",
       "technology": "",
-      "x": -36.72383127545865,
-      "y": -250.00966098666677,
-      "width": 130,
-      "height": 140,
+      "x": 260,
+      "y": 120,
+      "width": 150,
+      "height": 170,
       "collapsed": false
     },
     {
       "id": "p-ops",
       "type": "person",
       "label": "Bank Operator",
-      "description": "Internal staff managing operations and support tickets",
+      "description": "Internal staff managing operations and support",
       "technology": "",
-      "x": 1113.5839165922573,
-      "y": -70.00965998666682,
-      "width": 130,
-      "height": 140,
+      "x": 490,
+      "y": 120,
+      "width": 150,
+      "height": 170,
       "collapsed": false
     },
     {
       "id": "sys-core",
       "type": "system",
       "label": "Core Banking Platform",
-      "description": "Central microservices platform handling all banking domain logic",
+      "description": "Central microservices platform — all banking domain logic",
       "technology": "Kubernetes / Istio",
-      "x": 412.3338909226659,
-      "y": 589.9876909078889,
-      "width": 1696.5508337205843,
-      "height": 1539.835068174607,
+      "x": 30,
+      "y": 650,
+      "width": 1230,
+      "height": 1440,
       "collapsed": false
     },
     {
-      "id": "sub-access",
-      "type": "system",
+      "id": "dom-access",
+      "type": "domain",
       "label": "Access & Security",
       "description": "API gateway, authentication and authorisation for all inbound traffic",
       "technology": "Kong / Keycloak",
-      "x": 90,
-      "y": 90,
-      "width": 620.5508297205843,
-      "height": 556.0000010000003,
+      "x": 20,
+      "y": 110,
+      "width": 690,
+      "height": 330,
       "collapsed": false,
       "parentId": "sys-core"
     },
     {
-      "id": "ctn-api-gw",
+      "id": "ctn-apigw",
       "type": "container",
       "label": "API Gateway",
       "description": "Routes all external traffic, enforces rate limits and TLS termination",
-      "technology": "Kong Gateway / Nginx",
-      "x": 282.55153995328476,
-      "y": 58.0026521054441,
-      "width": 280,
-      "height": 180,
+      "technology": "Kong / Nginx",
+      "x": 20,
+      "y": 110,
+      "width": 300,
+      "height": 200,
       "collapsed": false,
-      "parentId": "sub-access"
+      "parentId": "dom-access"
     },
     {
       "id": "ctn-auth",
       "type": "container",
       "label": "Auth Service",
-      "description": "Identity & access management, issues JWT tokens via OIDC flow",
+      "description": "Issues JWT tokens and validates OIDC sessions",
       "technology": "Keycloak / OAuth 2.0",
-      "x": 58.00332448292613,
-      "y": 318.0026531054443,
-      "width": 280,
-      "height": 180,
+      "x": 370,
+      "y": 110,
+      "width": 300,
+      "height": 200,
       "collapsed": false,
-      "parentId": "sub-access"
+      "parentId": "dom-access"
     },
     {
-      "id": "sub-banking",
-      "type": "system",
+      "id": "dom-banking",
+      "type": "domain",
       "label": "Banking Services",
-      "description": "Core financial domain — accounts, payments and card management",
-      "technology": "Java / Go microservices",
-      "x": 850.5508327205844,
-      "y": 90,
-      "width": 756.0000009999999,
-      "height": 556.0000010000003,
+      "description": "Core financial domain — payments, accounts and event streaming",
+      "technology": "Java / Go",
+      "x": 20,
+      "y": 650,
+      "width": 610,
+      "height": 770,
       "collapsed": false,
       "parentId": "sys-core"
-    },
-    {
-      "id": "ctn-accounts",
-      "type": "container",
-      "label": "Accounts Service",
-      "description": "Manages customer accounts, balances and statements",
-      "technology": "Java 21 / Spring Boot",
-      "x": 58.00071023270061,
-      "y": 318.0026531054443,
-      "width": 280,
-      "height": 180,
-      "collapsed": false,
-      "parentId": "sub-banking"
     },
     {
       "id": "ctn-payments",
@@ -119,36 +106,75 @@
       "label": "Payments Service",
       "description": "Processes domestic and cross-border payment instructions",
       "technology": "Go 1.22 / gRPC",
-      "x": 58.00071023270061,
-      "y": 58.0026521054441,
-      "width": 280,
-      "height": 180,
+      "x": 110,
+      "y": 340,
+      "width": 240,
+      "height": 410,
       "collapsed": false,
-      "parentId": "sub-banking"
+      "parentId": "dom-banking"
     },
     {
-      "id": "ctn-cards",
+      "id": "comp-validator",
+      "type": "component",
+      "label": "Payment Validator",
+      "description": "Validates payment rules, limits and IBAN format",
+      "technology": "Go / Rule Engine",
+      "x": 20,
+      "y": 110,
+      "width": 200,
+      "height": 120,
+      "collapsed": false,
+      "parentId": "ctn-payments"
+    },
+    {
+      "id": "comp-fx",
+      "type": "component",
+      "label": "FX Engine",
+      "description": "Applies real-time FX rates for cross-border payments",
+      "technology": "Go / Reuters Feed",
+      "x": 20,
+      "y": 270,
+      "width": 200,
+      "height": 120,
+      "collapsed": false,
+      "parentId": "ctn-payments"
+    },
+    {
+      "id": "ctn-accounts",
       "type": "container",
-      "label": "Card Management",
-      "description": "Issues and manages debit / credit cards, tokenisation",
-      "technology": "Go 1.22 / REST",
-      "x": 418.0007112327005,
-      "y": 318.0026531054443,
-      "width": 280,
-      "height": 180,
+      "label": "Accounts Service",
+      "description": "Manages customer accounts, balances and statements",
+      "technology": "Java 21 / Spring Boot",
+      "x": 20,
+      "y": 110,
+      "width": 300,
+      "height": 200,
       "collapsed": false,
-      "parentId": "sub-banking"
+      "parentId": "dom-banking"
     },
     {
-      "id": "sub-risk",
-      "type": "system",
-      "label": "Risk & Compliance",
-      "description": "Real-time fraud detection, regulatory reporting and AML controls",
-      "technology": "Python / Scala",
-      "x": 90,
-      "y": 893.8350671746066,
-      "width": 396,
-      "height": 556.0000010000003,
+      "id": "ctn-evtbus",
+      "type": "queue",
+      "label": "Event Bus",
+      "description": "Async domain-event streaming between all microservices",
+      "technology": "Apache Kafka 3.6",
+      "x": 370,
+      "y": 178,
+      "width": 220,
+      "height": 95,
+      "collapsed": false,
+      "parentId": "dom-banking"
+    },
+    {
+      "id": "dom-risk",
+      "type": "domain",
+      "label": "Risk & Data",
+      "description": "Real-time fraud detection and persistent data stores",
+      "technology": "Python / PostgreSQL",
+      "x": 750,
+      "y": 110,
+      "width": 460,
+      "height": 500,
       "collapsed": false,
       "parentId": "sys-core"
     },
@@ -156,79 +182,27 @@
       "id": "ctn-fraud",
       "type": "container",
       "label": "Fraud Detection",
-      "description": "Real-time ML-based transaction risk scoring and blocking",
+      "description": "Real-time ML-based transaction risk scoring",
       "technology": "Python 3.12 / XGBoost",
-      "x": 58.00332448292613,
-      "y": 318.00403626081743,
-      "width": 280,
-      "height": 180,
+      "x": 20,
+      "y": 280,
+      "width": 300,
+      "height": 200,
       "collapsed": false,
-      "parentId": "sub-risk"
+      "parentId": "dom-risk"
     },
     {
-      "id": "ctn-reporting",
-      "type": "container",
-      "label": "Reporting Engine",
-      "description": "Generates regulatory (PSD2, EBA) and management reports",
-      "technology": "Scala 3 / Apache Spark",
-      "x": 58.00332448292613,
-      "y": 58.00403526081709,
-      "width": 280,
-      "height": 180,
-      "collapsed": false,
-      "parentId": "sub-risk"
-    },
-    {
-      "id": "sub-platform",
-      "type": "system",
-      "label": "Platform Infrastructure",
-      "description": "Async messaging, notifications and persistent data stores shared across all services",
-      "technology": "Kafka / PostgreSQL / Redis",
-      "x": 626.0000030000001,
-      "y": 786.000004,
-      "width": 980.5508307205841,
-      "height": 466.0000009999999,
-      "collapsed": false,
-      "parentId": "sys-core"
-    },
-    {
-      "id": "ctn-kafka",
-      "type": "queue",
-      "label": "Event Bus",
-      "description": "Async domain-event streaming between all microservices",
-      "technology": "Apache Kafka 3.6",
-      "x": 359.5689702420848,
-      "y": 318.00265310544387,
-      "width": 240,
-      "height": 90,
-      "collapsed": false,
-      "parentId": "sub-platform"
-    },
-    {
-      "id": "ctn-notif",
-      "type": "container",
-      "label": "Notifications",
-      "description": "Delivers push, SMS and e-mail alerts triggered by domain events",
-      "technology": "Node.js 22 / FCM / Twilio",
-      "x": 642.5515409532848,
-      "y": 58.00265210544421,
-      "width": 280,
-      "height": 180,
-      "collapsed": false,
-      "parentId": "sub-platform"
-    },
-    {
-      "id": "ctn-db-core",
+      "id": "ctn-db-acc",
       "type": "database",
       "label": "Accounts DB",
       "description": "Primary store for customer and account data",
       "technology": "PostgreSQL 15 / Patroni",
-      "x": 58.003324482926246,
-      "y": 288.00265310544387,
-      "width": 200,
-      "height": 120,
+      "x": 20,
+      "y": 110,
+      "width": 190,
+      "height": 130,
       "collapsed": false,
-      "parentId": "sub-platform"
+      "parentId": "dom-risk"
     },
     {
       "id": "ctn-db-tx",
@@ -236,73 +210,47 @@
       "label": "Transactions DB",
       "description": "Immutable append-only ledger of all financial transactions",
       "technology": "PostgreSQL 15 / Patroni",
-      "x": 338.0033254829259,
-      "y": 58.00265210544421,
-      "width": 200,
-      "height": 120,
+      "x": 250,
+      "y": 110,
+      "width": 190,
+      "height": 130,
       "collapsed": false,
-      "parentId": "sub-platform"
-    },
-    {
-      "id": "ctn-redis",
-      "type": "database",
-      "label": "Cache / Sessions",
-      "description": "Session tokens, rate-limit counters and hot-path account data",
-      "technology": "Redis 7 Cluster",
-      "x": 58.003324482926246,
-      "y": 58.00265210544421,
-      "width": 200,
-      "height": 120,
-      "collapsed": false,
-      "parentId": "sub-platform"
+      "parentId": "dom-risk"
     },
     {
       "id": "sys-channels",
       "type": "system",
       "label": "Digital Channels",
-      "description": "Customer-facing web portal and native mobile applications",
-      "technology": "React / Swift / Kotlin",
-      "x": 289.5347711750567,
-      "y": -50.012314092111154,
-      "width": 704.0507850429224,
-      "height": 480.000001,
+      "description": "Customer-facing web portal and native mobile app",
+      "technology": "React / React Native",
+      "x": 2040,
+      "y": 120,
+      "width": 250,
+      "height": 450,
       "collapsed": false
     },
     {
       "id": "ctn-web",
       "type": "webapp",
       "label": "Web Banking",
-      "description": "Full-featured banking portal and admin console for browsers",
+      "description": "Full-featured banking portal for browsers",
       "technology": "React 18 / TypeScript",
-      "x": 59.998812085744476,
-      "y": 60.00265210544423,
-      "width": 220,
+      "x": 20,
+      "y": 110,
+      "width": 210,
       "height": 140,
       "collapsed": false,
       "parentId": "sys-channels"
     },
     {
-      "id": "ctn-ios",
+      "id": "ctn-mobile",
       "type": "webapp",
-      "label": "iOS App",
-      "description": "Native banking app for iPhone and iPad",
-      "technology": "Swift 5.9 / SwiftUI",
-      "x": 273.68699533399183,
-      "y": 280.0026531054442,
-      "width": 130,
-      "height": 140,
-      "collapsed": false,
-      "parentId": "sys-channels"
-    },
-    {
-      "id": "ctn-android",
-      "type": "webapp",
-      "label": "Android App",
-      "description": "Native banking app for Android phones and tablets",
-      "technology": "Kotlin / Jetpack Compose",
-      "x": 514.0491434172003,
-      "y": 280.0026531054442,
-      "width": 130,
+      "label": "Mobile App",
+      "description": "Native banking app for iOS and Android",
+      "technology": "React Native / Expo",
+      "x": 20,
+      "y": 290,
+      "width": 210,
       "height": 140,
       "collapsed": false,
       "parentId": "sys-channels"
@@ -311,25 +259,25 @@
       "id": "sys-swift",
       "type": "system",
       "label": "SWIFT Network",
-      "description": "International interbank messaging for cross-border wire transfers",
+      "description": "International wire transfer messaging",
       "technology": "SWIFT MT / ISO 20022",
-      "x": 1670.6253435763329,
-      "y": 49.990339013333184,
-      "width": 240,
-      "height": 100,
+      "x": 720,
+      "y": 120,
+      "width": 360,
+      "height": 260,
       "collapsed": false,
       "external": true
     },
     {
-      "id": "sys-visa",
+      "id": "sys-cards",
       "type": "system",
       "label": "Card Networks",
-      "description": "Visa and Mastercard payment authorisation and settlement",
+      "description": "Visa / Mastercard authorisation",
       "technology": "ISO 8583 / Visa API",
-      "x": 2462.481901266465,
-      "y": 1077.7856830947255,
-      "width": 240,
-      "height": 100,
+      "x": 1160,
+      "y": 120,
+      "width": 360,
+      "height": 260,
       "collapsed": false,
       "external": true
     },
@@ -337,12 +285,12 @@
       "id": "sys-kyc",
       "type": "system",
       "label": "KYC / AML Provider",
-      "description": "Identity verification and anti-money-laundering screening",
+      "description": "Identity verification and AML screening",
       "technology": "REST / JSON",
-      "x": 1928.574995627478,
-      "y": 229.9903400133332,
-      "width": 340,
-      "height": 240,
+      "x": 1600,
+      "y": 120,
+      "width": 360,
+      "height": 260,
       "collapsed": false,
       "external": true
     }
@@ -356,13 +304,6 @@
       "technology": "HTTPS / Browser"
     },
     {
-      "id": "r-cust-ios",
-      "sourceId": "p-customer",
-      "targetId": "ctn-ios",
-      "label": "Mobile banking",
-      "technology": "TLS / Push"
-    },
-    {
       "id": "r-corp-web",
       "sourceId": "p-corp",
       "targetId": "ctn-web",
@@ -370,129 +311,80 @@
       "technology": "HTTPS / Browser"
     },
     {
-      "id": "r-ops-gw",
+      "id": "r-ops-apigw",
       "sourceId": "p-ops",
-      "targetId": "ctn-api-gw",
-      "label": "Admin operations",
+      "targetId": "ctn-apigw",
+      "label": "Admin & support operations",
       "technology": "HTTPS / Admin API"
     },
     {
-      "id": "r-web-gw",
+      "id": "r-web-apigw",
       "sourceId": "ctn-web",
-      "targetId": "ctn-api-gw",
+      "targetId": "ctn-apigw",
       "label": "API calls",
       "technology": "HTTPS / REST"
     },
     {
-      "id": "r-ios-gw",
-      "sourceId": "ctn-ios",
-      "targetId": "ctn-api-gw",
+      "id": "r-mob-apigw",
+      "sourceId": "ctn-mobile",
+      "targetId": "ctn-apigw",
       "label": "API calls",
       "technology": "HTTPS / REST"
     },
     {
-      "id": "r-and-gw",
-      "sourceId": "ctn-android",
-      "targetId": "ctn-api-gw",
-      "label": "API calls",
-      "technology": "HTTPS / REST"
-    },
-    {
-      "id": "r-gw-auth",
-      "sourceId": "ctn-api-gw",
+      "id": "r-apigw-auth",
+      "sourceId": "ctn-apigw",
       "targetId": "ctn-auth",
       "label": "Validates token",
-      "technology": "JWT / OIDC introspect"
+      "technology": "JWT / OIDC"
     },
     {
-      "id": "r-gw-acc",
-      "sourceId": "ctn-api-gw",
-      "targetId": "ctn-accounts",
-      "label": "Routes",
-      "technology": "HTTP/2 / gRPC"
-    },
-    {
-      "id": "r-gw-pay",
-      "sourceId": "ctn-api-gw",
+      "id": "r-apigw-pay",
+      "sourceId": "ctn-apigw",
       "targetId": "ctn-payments",
       "label": "Routes",
       "technology": "HTTP/2 / gRPC"
     },
     {
-      "id": "r-gw-card",
-      "sourceId": "ctn-api-gw",
-      "targetId": "ctn-cards",
+      "id": "r-apigw-acc",
+      "sourceId": "ctn-apigw",
+      "targetId": "ctn-accounts",
       "label": "Routes",
       "technology": "HTTP/2 / gRPC"
     },
     {
-      "id": "r-gw-cache",
-      "sourceId": "ctn-api-gw",
-      "targetId": "ctn-redis",
-      "label": "Session lookup",
-      "technology": "Redis protocol"
+      "id": "r-pay-dbtx",
+      "sourceId": "ctn-payments",
+      "targetId": "ctn-db-tx",
+      "label": "Reads / writes",
+      "technology": "JDBC / SQL"
     },
     {
-      "id": "r-acc-db",
+      "id": "r-acc-dbacc",
       "sourceId": "ctn-accounts",
-      "targetId": "ctn-db-core",
+      "targetId": "ctn-db-acc",
       "label": "Reads / writes",
       "technology": "JDBC / SQL"
     },
     {
-      "id": "r-pay-db",
+      "id": "r-pay-evtbus",
       "sourceId": "ctn-payments",
-      "targetId": "ctn-db-tx",
-      "label": "Reads / writes",
-      "technology": "JDBC / SQL"
-    },
-    {
-      "id": "r-rep-db1",
-      "sourceId": "ctn-reporting",
-      "targetId": "ctn-db-core",
-      "label": "Reads (batch)",
-      "technology": "JDBC / SQL"
-    },
-    {
-      "id": "r-rep-db2",
-      "sourceId": "ctn-reporting",
-      "targetId": "ctn-db-tx",
-      "label": "Reads (batch)",
-      "technology": "JDBC / SQL"
-    },
-    {
-      "id": "r-pay-pub",
-      "sourceId": "ctn-payments",
-      "targetId": "ctn-kafka",
+      "targetId": "ctn-evtbus",
       "label": "Publishes payment.completed",
       "technology": "Kafka producer"
     },
     {
-      "id": "r-card-pub",
-      "sourceId": "ctn-cards",
-      "targetId": "ctn-kafka",
-      "label": "Publishes card.authorised",
-      "technology": "Kafka producer"
-    },
-    {
-      "id": "r-acc-pub",
+      "id": "r-acc-evtbus",
       "sourceId": "ctn-accounts",
-      "targetId": "ctn-kafka",
+      "targetId": "ctn-evtbus",
       "label": "Publishes balance.updated",
       "technology": "Kafka producer"
     },
     {
-      "id": "r-fraud-sub",
-      "sourceId": "ctn-kafka",
+      "id": "r-evtbus-fraud",
+      "sourceId": "ctn-evtbus",
       "targetId": "ctn-fraud",
       "label": "Consumes all tx events",
-      "technology": "Kafka consumer"
-    },
-    {
-      "id": "r-notif-sub",
-      "sourceId": "ctn-kafka",
-      "targetId": "ctn-notif",
-      "label": "Consumes domain events",
       "technology": "Kafka consumer"
     },
     {
@@ -500,14 +392,14 @@
       "sourceId": "ctn-payments",
       "targetId": "sys-swift",
       "label": "Sends wire transfers",
-      "technology": "SWIFT MT103 / gpi"
+      "technology": "SWIFT MT103"
     },
     {
-      "id": "r-card-visa",
-      "sourceId": "ctn-cards",
-      "targetId": "sys-visa",
+      "id": "r-pay-cards",
+      "sourceId": "ctn-payments",
+      "targetId": "sys-cards",
       "label": "Card authorisation",
-      "technology": "ISO 8583 / Visa Direct"
+      "technology": "ISO 8583"
     },
     {
       "id": "r-acc-kyc",
@@ -517,10 +409,35 @@
       "technology": "REST / JSON"
     }
   ],
+  "sequences": [
+    {
+      "id": "seq-payment-flow",
+      "name": "Payment Processing",
+      "relationIds": [
+        "r-cust-web",
+        "r-web-apigw",
+        "r-apigw-auth",
+        "r-apigw-pay",
+        "r-pay-evtbus",
+        "r-evtbus-fraud",
+        "r-pay-swift"
+      ],
+      "stepDescriptions": [
+        "Customer initiates transfer",
+        "Web app calls REST API",
+        "Gateway validates JWT token",
+        "Routes to Payments Service",
+        "Publishes payment.completed event",
+        "Fraud Detection scores transaction",
+        "Sends wire via SWIFT"
+      ]
+    }
+  ],
   "views": [
     {
       "id": "view-ctx",
       "name": "System Context",
+      "kind": "static",
       "nodeIds": [
         "p-customer",
         "p-corp",
@@ -528,735 +445,831 @@
         "sys-core",
         "sys-channels",
         "sys-swift",
-        "sys-visa",
+        "sys-cards",
         "sys-kyc"
       ],
       "positions": {
         "p-customer": {
-          "x": -121.61949686195965,
-          "y": 723.0126874166185,
-          "width": 130,
-          "height": 140
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "p-corp": {
-          "x": 156.980451959943,
-          "y": 365.0020773856979,
-          "width": 130,
-          "height": 140
+          "x": 260,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "p-ops": {
-          "x": -564.315083580025,
-          "y": 724.6462077489713,
-          "width": 130,
-          "height": 140
+          "x": 490,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "sys-core": {
-          "x": -208.14037913907265,
-          "y": 1294.142856670025,
-          "width": 220,
-          "height": 70
-        },
-        "sub-access": {
-          "x": 40,
-          "y": 80,
-          "width": 640,
-          "height": 280
-        },
-        "ctn-api-gw": {
-          "x": 40,
-          "y": 80,
+          "x": 720,
+          "y": 120,
           "width": 280,
           "height": 180
+        },
+        "dom-access": {
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330
+        },
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
         },
         "ctn-auth": {
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
         },
-        "sub-banking": {
-          "x": 720,
-          "y": 80,
-          "width": 960,
-          "height": 280
-        },
-        "ctn-accounts": {
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180
+        "dom-banking": {
+          "x": 20,
+          "y": 650,
+          "width": 610,
+          "height": 770
         },
         "ctn-payments": {
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410
         },
-        "ctn-cards": {
-          "x": 680,
-          "y": 80,
-          "width": 280,
-          "height": 180
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
         },
-        "sub-risk": {
-          "x": 40,
-          "y": 440,
-          "width": 640,
-          "height": 280
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 750,
+          "y": 110,
+          "width": 460,
+          "height": 500
         },
         "ctn-fraud": {
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200
         },
-        "ctn-reporting": {
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180
-        },
-        "sub-platform": {
-          "x": 720,
-          "y": 440,
-          "width": 960,
-          "height": 340
-        },
-        "ctn-kafka": {
-          "x": 40,
-          "y": 80,
-          "width": 240,
-          "height": 90
-        },
-        "ctn-notif": {
-          "x": 340,
-          "y": 80,
-          "width": 280,
-          "height": 180
-        },
-        "ctn-db-core": {
-          "x": 40,
-          "y": 240,
-          "width": 200,
-          "height": 120
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
         },
         "ctn-db-tx": {
-          "x": 300,
-          "y": 240,
-          "width": 200,
-          "height": 120
-        },
-        "ctn-redis": {
-          "x": 560,
-          "y": 240,
-          "width": 200,
-          "height": 120
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130
         },
         "sys-channels": {
-          "x": -132.9090650016306,
-          "y": 1144.1428556700248,
-          "width": 220,
-          "height": 70
+          "x": 30,
+          "y": 380,
+          "width": 280,
+          "height": 180
         },
         "ctn-web": {
-          "x": 40,
-          "y": 80,
-          "width": 220,
+          "x": 20,
+          "y": 110,
+          "width": 210,
           "height": 140
         },
-        "ctn-ios": {
-          "x": 40,
-          "y": 280,
-          "width": 130,
-          "height": 140
-        },
-        "ctn-android": {
-          "x": 230,
-          "y": 280,
-          "width": 130,
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
           "height": 140
         },
         "sys-swift": {
-          "x": 733.352645557335,
-          "y": 1464.142856670025,
-          "width": 340,
-          "height": 240
+          "x": 390,
+          "y": 380,
+          "width": 360,
+          "height": 260
         },
-        "sys-visa": {
-          "x": 313.35264455733494,
-          "y": 1464.142856670025,
-          "width": 340,
-          "height": 240
+        "sys-cards": {
+          "x": 30,
+          "y": 720,
+          "width": 360,
+          "height": 260
         },
         "sys-kyc": {
-          "x": 453.6859241354399,
-          "y": 1144.1428556700248,
-          "width": 340,
-          "height": 240
+          "x": 470,
+          "y": 720,
+          "width": 360,
+          "height": 260
         }
       },
       "viewport": {
-        "x": 352.5220446017568,
-        "y": -116.66185945446381,
-        "zoom": 0.4518953874460482
+        "x": 64,
+        "y": 14,
+        "zoom": 0.55
       }
     },
     {
       "id": "view-core",
-      "name": "Core Banking Containers",
+      "name": "Core Banking",
+      "kind": "static",
       "nodeIds": [
         "sys-core",
-        "sub-access",
-        "ctn-api-gw",
+        "dom-access",
+        "ctn-apigw",
         "ctn-auth",
-        "sub-banking",
-        "ctn-accounts",
+        "dom-banking",
         "ctn-payments",
-        "ctn-cards",
-        "sub-risk",
+        "comp-validator",
+        "comp-fx",
+        "ctn-accounts",
+        "ctn-evtbus",
+        "dom-risk",
         "ctn-fraud",
-        "ctn-reporting",
-        "sub-platform",
-        "ctn-kafka",
-        "ctn-notif",
-        "ctn-db-core",
-        "ctn-db-tx",
-        "ctn-redis"
+        "ctn-db-acc",
+        "ctn-db-tx"
       ],
       "positions": {
         "p-customer": {
-          "x": -320,
-          "y": 80,
-          "width": 130,
-          "height": 140
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "p-corp": {
-          "x": -320,
-          "y": 330,
-          "width": 130,
-          "height": 140
+          "x": 260,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "p-ops": {
-          "x": -320,
-          "y": 580,
-          "width": 130,
-          "height": 140
+          "x": 490,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "sys-core": {
-          "x": 183.76546247081592,
-          "y": -132.52271074947578,
-          "width": 1472.0000039999998,
-          "height": 1692.0000059999998
+          "x": 30,
+          "y": 120,
+          "width": 1230,
+          "height": 1440
         },
-        "sub-access": {
-          "x": 986.0000039999998,
-          "y": 1046.0000049999999,
-          "width": 396,
-          "height": 556.0000009999999
+        "dom-access": {
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330
         },
-        "ctn-api-gw": {
-          "x": 58.01460457853386,
-          "y": 58.00402075297961,
-          "width": 280,
-          "height": 180
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
         },
         "ctn-auth": {
-          "x": 58.01460457853386,
-          "y": 318.0040217529795,
-          "width": 280,
-          "height": 180
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
         },
-        "sub-banking": {
-          "x": 967.2557217312674,
-          "y": 90,
-          "width": 396,
-          "height": 816.000002
-        },
-        "ctn-accounts": {
-          "x": 58.00061868154671,
-          "y": 318.0040217529796,
-          "width": 280,
-          "height": 180
+        "dom-banking": {
+          "x": 20,
+          "y": 650,
+          "width": 610,
+          "height": 770
         },
         "ctn-payments": {
-          "x": 58.00061868154671,
-          "y": 578.0040227529795,
-          "width": 280,
-          "height": 180
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410
         },
-        "ctn-cards": {
-          "x": 58.00061868154671,
-          "y": 58.00402075297956,
-          "width": 280,
-          "height": 180
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
         },
-        "sub-risk": {
-          "x": 90,
-          "y": 1200.7655603648773,
-          "width": 756.0000010000001,
-          "height": 296
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 750,
+          "y": 110,
+          "width": 460,
+          "height": 500
         },
         "ctn-fraud": {
-          "x": 58.01460457853403,
-          "y": 57.994829183174716,
-          "width": 280,
-          "height": 180
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200
         },
-        "ctn-reporting": {
-          "x": 418.0146055785341,
-          "y": 57.994829183174716,
-          "width": 280,
-          "height": 180
-        },
-        "sub-platform": {
-          "x": 221.63739652158642,
-          "y": 90,
-          "width": 605.6183222096811,
-          "height": 970.7655573648772
-        },
-        "ctn-kafka": {
-          "x": 307.6189408912277,
-          "y": 380.6324740970495,
-          "width": 240,
-          "height": 90
-        },
-        "ctn-notif": {
-          "x": 57.93698621770261,
-          "y": 58.0040207529796,
-          "width": 280,
-          "height": 180
-        },
-        "ctn-db-core": {
-          "x": 67.61893989122757,
-          "y": 740.8840934519278,
-          "width": 200,
-          "height": 120
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
         },
         "ctn-db-tx": {
-          "x": 347.6189408912277,
-          "y": 592.760385548052,
-          "width": 200,
-          "height": 120
-        },
-        "ctn-redis": {
-          "x": 347.6189408912277,
-          "y": 792.760386548052,
-          "width": 200,
-          "height": 120
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130
         },
         "sys-channels": {
-          "x": 2320,
-          "y": 80,
-          "width": 420,
-          "height": 530
+          "x": 2040,
+          "y": 120,
+          "width": 250,
+          "height": 450
         },
         "ctn-web": {
-          "x": 40,
-          "y": 80,
-          "width": 220,
+          "x": 20,
+          "y": 110,
+          "width": 210,
           "height": 140
         },
-        "ctn-ios": {
-          "x": 40,
-          "y": 280,
-          "width": 130,
-          "height": 140
-        },
-        "ctn-android": {
-          "x": 230,
-          "y": 280,
-          "width": 130,
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
           "height": 140
         },
         "sys-swift": {
-          "x": 100,
-          "y": 960,
-          "width": 340,
-          "height": 240
+          "x": 720,
+          "y": 120,
+          "width": 360,
+          "height": 260
         },
-        "sys-visa": {
-          "x": 500,
-          "y": 960,
-          "width": 340,
-          "height": 240
+        "sys-cards": {
+          "x": 1160,
+          "y": 120,
+          "width": 360,
+          "height": 260
         },
         "sys-kyc": {
-          "x": 900,
-          "y": 960,
-          "width": 340,
-          "height": 240
+          "x": 1600,
+          "y": 120,
+          "width": 360,
+          "height": 260
         }
       },
       "viewport": {
-        "x": 47.033969256025614,
-        "y": 286.31231579677683,
-        "zoom": 0.44501199495953464
+        "x": 67,
+        "y": 26,
+        "zoom": 0.45
       }
     },
     {
       "id": "view-payments",
       "name": "Payments Domain",
+      "kind": "static",
       "nodeIds": [
         "p-customer",
+        "sys-channels",
+        "ctn-web",
         "sys-core",
-        "sub-access",
-        "ctn-api-gw",
-        "sub-banking",
+        "dom-banking",
         "ctn-payments",
-        "ctn-cards",
-        "sub-risk",
+        "comp-validator",
+        "comp-fx",
+        "ctn-accounts",
+        "ctn-evtbus",
+        "dom-risk",
         "ctn-fraud",
-        "sub-platform",
         "ctn-db-tx",
-        "ctn-kafka",
         "sys-swift",
-        "sys-visa"
+        "sys-cards"
       ],
       "positions": {
         "p-customer": {
-          "x": 1370.0659086720368,
-          "y": -779.8640032821712,
-          "width": 130,
-          "height": 140
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "p-corp": {
-          "x": -320,
-          "y": 330,
-          "width": 130,
-          "height": 140
+          "x": 260,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "p-ops": {
-          "x": -320,
-          "y": 580,
-          "width": 130,
-          "height": 140
+          "x": 490,
+          "y": 120,
+          "width": 150,
+          "height": 170
         },
         "sys-core": {
-          "x": 881.7957049149163,
-          "y": -117.01364269745488,
-          "width": 1086.5916473349316,
-          "height": 1458.000007
+          "x": 30,
+          "y": 470,
+          "width": 1030,
+          "height": 900
         },
-        "sub-access": {
-          "x": 420.50695763413705,
-          "y": 1072.000007,
-          "width": 396,
-          "height": 296
+        "dom-access": {
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330
         },
-        "ctn-api-gw": {
-          "x": 58.00905914344844,
-          "y": 58.00369208486313,
-          "width": 280,
-          "height": 180
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
         },
         "ctn-auth": {
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
         },
-        "sub-banking": {
-          "x": 240.59164633493174,
-          "y": 636.000004,
-          "width": 756.0000010000001,
-          "height": 296.0000000000001
-        },
-        "ctn-accounts": {
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180
+        "dom-banking": {
+          "x": 400,
+          "y": 110,
+          "width": 610,
+          "height": 770
         },
         "ctn-payments": {
-          "x": 57.999628383662866,
-          "y": 58.00369208486313,
-          "width": 280,
-          "height": 180
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410
         },
-        "ctn-cards": {
-          "x": 417.99962938366275,
-          "y": 58.00369208486313,
-          "width": 280,
-          "height": 180
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
         },
-        "sub-risk": {
-          "x": 90,
-          "y": 89.99999999999999,
-          "width": 396,
-          "height": 296
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 20,
+          "y": 110,
+          "width": 340,
+          "height": 500
         },
         "ctn-fraud": {
-          "x": 57.99146161079193,
-          "y": 58.00369208486313,
-          "width": 280,
-          "height": 180
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200
         },
-        "ctn-reporting": {
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180
-        },
-        "sub-platform": {
-          "x": 626.0000029999999,
-          "y": 89.99999999999999,
-          "width": 356,
-          "height": 406.000001
-        },
-        "ctn-kafka": {
-          "x": 57.99146161079216,
-          "y": 58.00369208486313,
-          "width": 240,
-          "height": 90
-        },
-        "ctn-notif": {
-          "x": 340,
-          "y": 80,
-          "width": 280,
-          "height": 180
-        },
-        "ctn-db-core": {
-          "x": 40,
-          "y": 240,
-          "width": 200,
-          "height": 120
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
         },
         "ctn-db-tx": {
-          "x": 57.99146161079216,
-          "y": 228.00369308486307,
-          "width": 200,
-          "height": 120
-        },
-        "ctn-redis": {
-          "x": 560,
-          "y": 240,
-          "width": 200,
-          "height": 120
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
         },
         "sys-channels": {
-          "x": 2320,
-          "y": 80,
-          "width": 420,
-          "height": 530
+          "x": 260,
+          "y": 120,
+          "width": 250,
+          "height": 270
         },
         "ctn-web": {
-          "x": 40,
-          "y": 80,
-          "width": 220,
+          "x": 20,
+          "y": 110,
+          "width": 210,
           "height": 140
         },
-        "ctn-ios": {
-          "x": 40,
-          "y": 280,
-          "width": 130,
-          "height": 140
-        },
-        "ctn-android": {
-          "x": 230,
-          "y": 280,
-          "width": 130,
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
           "height": 140
         },
         "sys-swift": {
-          "x": 521.7871635257083,
-          "y": 806.0143759985212,
-          "width": 240,
-          "height": 100
+          "x": 590,
+          "y": 120,
+          "width": 360,
+          "height": 260
         },
-        "sys-visa": {
-          "x": 2188.1470365590944,
-          "y": 812.1988432737329,
-          "width": 240,
-          "height": 100
+        "sys-cards": {
+          "x": 1030,
+          "y": 120,
+          "width": 360,
+          "height": 260
         },
         "sys-kyc": {
-          "x": 900,
-          "y": 960,
-          "width": 340,
-          "height": 240
+          "x": 1600,
+          "y": 120,
+          "width": 360,
+          "height": 260
         }
       },
       "viewport": {
-        "x": -65.79953262861795,
-        "y": 503.73693644819616,
-        "zoom": 0.3564078187735615
+        "x": 64,
+        "y": 14,
+        "zoom": 0.55
+      }
+    },
+    {
+      "id": "view-payflow",
+      "name": "Payment Flow",
+      "kind": "dynamic",
+      "nodeIds": [
+        "p-customer",
+        "sys-channels",
+        "ctn-web",
+        "sys-core",
+        "dom-access",
+        "ctn-apigw",
+        "ctn-auth",
+        "dom-banking",
+        "ctn-payments",
+        "comp-validator",
+        "comp-fx",
+        "ctn-evtbus",
+        "dom-risk",
+        "ctn-fraud",
+        "sys-swift"
+      ],
+      "positions": {
+        "p-customer": {
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-corp": {
+          "x": 260,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-ops": {
+          "x": 490,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "sys-core": {
+          "x": 30,
+          "y": 470,
+          "width": 1110,
+          "height": 1040
+        },
+        "dom-access": {
+          "x": 400,
+          "y": 110,
+          "width": 690,
+          "height": 330
+        },
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-auth": {
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "dom-banking": {
+          "x": 20,
+          "y": 480,
+          "width": 550,
+          "height": 540
+        },
+        "ctn-payments": {
+          "x": 20,
+          "y": 110,
+          "width": 240,
+          "height": 410
+        },
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
+        },
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 310,
+          "y": 267,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 20,
+          "y": 110,
+          "width": 340,
+          "height": 330
+        },
+        "ctn-fraud": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "ctn-db-tx": {
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "sys-channels": {
+          "x": 260,
+          "y": 120,
+          "width": 250,
+          "height": 270
+        },
+        "ctn-web": {
+          "x": 20,
+          "y": 110,
+          "width": 210,
+          "height": 140
+        },
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
+          "height": 140
+        },
+        "sys-swift": {
+          "x": 590,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-cards": {
+          "x": 1160,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-kyc": {
+          "x": 1600,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        }
+      },
+      "viewport": {
+        "x": 64,
+        "y": 14,
+        "zoom": 0.55
+      },
+      "sequenceId": "seq-payment-flow"
+    },
+    {
+      "id": "view-treemap",
+      "name": "Platform Hierarchy",
+      "kind": "treemap",
+      "nodeIds": [
+        "sys-core",
+        "dom-access",
+        "ctn-apigw",
+        "ctn-auth",
+        "dom-banking",
+        "ctn-payments",
+        "comp-validator",
+        "comp-fx",
+        "ctn-accounts",
+        "ctn-evtbus",
+        "dom-risk",
+        "ctn-fraud",
+        "ctn-db-acc",
+        "ctn-db-tx",
+        "sys-channels",
+        "ctn-web",
+        "ctn-mobile"
+      ],
+      "positions": {
+        "p-customer": {
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-corp": {
+          "x": 260,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-ops": {
+          "x": 490,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "sys-core": {
+          "x": 30,
+          "y": 650,
+          "width": 1230,
+          "height": 1440
+        },
+        "dom-access": {
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330
+        },
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-auth": {
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "dom-banking": {
+          "x": 20,
+          "y": 650,
+          "width": 610,
+          "height": 770
+        },
+        "ctn-payments": {
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410
+        },
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
+        },
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 750,
+          "y": 110,
+          "width": 460,
+          "height": 500
+        },
+        "ctn-fraud": {
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "ctn-db-tx": {
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "sys-channels": {
+          "x": 2040,
+          "y": 120,
+          "width": 250,
+          "height": 450
+        },
+        "ctn-web": {
+          "x": 20,
+          "y": 110,
+          "width": 210,
+          "height": 140
+        },
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
+          "height": 140
+        },
+        "sys-swift": {
+          "x": 720,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-cards": {
+          "x": 1160,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-kyc": {
+          "x": 1600,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        }
+      },
+      "viewport": {
+        "x": 80,
+        "y": 80,
+        "zoom": 0.6
       }
     }
   ],
-  "defaultPositions": {
-    "p-customer": {
-      "x": 490.5550659735476,
-      "y": -310.00966398666685,
-      "width": 130,
-      "height": 140
-    },
-    "p-corp": {
-      "x": -36.72383127545865,
-      "y": -250.00966098666677,
-      "width": 130,
-      "height": 140
-    },
-    "p-ops": {
-      "x": 1113.5839165922573,
-      "y": -70.00965998666682,
-      "width": 130,
-      "height": 140
-    },
-    "sys-core": {
-      "x": 412.3338909226659,
-      "y": 589.9876909078889,
-      "width": 1696.5508337205843,
-      "height": 1539.835068174607
-    },
-    "sub-access": {
-      "x": 90,
-      "y": 90,
-      "width": 620.5508297205843,
-      "height": 556.0000010000003
-    },
-    "ctn-api-gw": {
-      "x": 282.55153995328476,
-      "y": 58.0026521054441,
-      "width": 280,
-      "height": 180
-    },
-    "ctn-auth": {
-      "x": 58.00332448292613,
-      "y": 318.0026531054443,
-      "width": 280,
-      "height": 180
-    },
-    "sub-banking": {
-      "x": 850.5508327205844,
-      "y": 90,
-      "width": 756.0000009999999,
-      "height": 556.0000010000003
-    },
-    "ctn-accounts": {
-      "x": 58.00071023270061,
-      "y": 318.0026531054443,
-      "width": 280,
-      "height": 180
-    },
-    "ctn-payments": {
-      "x": 58.00071023270061,
-      "y": 58.0026521054441,
-      "width": 280,
-      "height": 180
-    },
-    "ctn-cards": {
-      "x": 418.0007112327005,
-      "y": 318.0026531054443,
-      "width": 280,
-      "height": 180
-    },
-    "sub-risk": {
-      "x": 90,
-      "y": 893.8350671746066,
-      "width": 396,
-      "height": 556.0000010000003
-    },
-    "ctn-fraud": {
-      "x": 58.00332448292613,
-      "y": 318.00403626081743,
-      "width": 280,
-      "height": 180
-    },
-    "ctn-reporting": {
-      "x": 58.00332448292613,
-      "y": 58.00403526081709,
-      "width": 280,
-      "height": 180
-    },
-    "sub-platform": {
-      "x": 626.0000030000001,
-      "y": 786.000004,
-      "width": 980.5508307205841,
-      "height": 466.0000009999999
-    },
-    "ctn-kafka": {
-      "x": 359.5689702420848,
-      "y": 318.00265310544387,
-      "width": 240,
-      "height": 90
-    },
-    "ctn-notif": {
-      "x": 642.5515409532848,
-      "y": 58.00265210544421,
-      "width": 280,
-      "height": 180
-    },
-    "ctn-db-core": {
-      "x": 58.003324482926246,
-      "y": 288.00265310544387,
-      "width": 200,
-      "height": 120
-    },
-    "ctn-db-tx": {
-      "x": 338.0033254829259,
-      "y": 58.00265210544421,
-      "width": 200,
-      "height": 120
-    },
-    "ctn-redis": {
-      "x": 58.003324482926246,
-      "y": 58.00265210544421,
-      "width": 200,
-      "height": 120
-    },
-    "sys-channels": {
-      "x": 289.5347711750567,
-      "y": -50.012314092111154,
-      "width": 704.0507850429224,
-      "height": 480.000001
-    },
-    "ctn-web": {
-      "x": 59.998812085744476,
-      "y": 60.00265210544423,
-      "width": 220,
-      "height": 140
-    },
-    "ctn-ios": {
-      "x": 273.68699533399183,
-      "y": 280.0026531054442,
-      "width": 130,
-      "height": 140
-    },
-    "ctn-android": {
-      "x": 514.0491434172003,
-      "y": 280.0026531054442,
-      "width": 130,
-      "height": 140
-    },
-    "sys-swift": {
-      "x": 1670.6253435763329,
-      "y": 49.990339013333184,
-      "width": 240,
-      "height": 100
-    },
-    "sys-visa": {
-      "x": 2462.481901266465,
-      "y": 1077.7856830947255,
-      "width": 240,
-      "height": 100
-    },
-    "sys-kyc": {
-      "x": 1928.574995627478,
-      "y": 229.9903400133332,
-      "width": 340,
-      "height": 240
-    }
-  },
-  "defaultViewport": {
-    "x": 115.80556081553175,
-    "y": 365.5313602204818,
-    "zoom": 0.25823381578331267
-  },
   "snapshots": [
     {
       "id": "snap-v1",
       "name": "v1 – Core & Accounts",
-      "timestamp": 1769698284308,
+      "timestamp": 1772284199727,
       "nodes": {
         "p-customer": {
           "id": "p-customer",
@@ -1264,73 +1277,98 @@
           "label": "Retail Customer",
           "description": "Individual banking customer accessing via web and mobile",
           "technology": "",
-          "x": -320,
-          "y": 80,
-          "width": 130,
-          "height": 140,
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170,
           "collapsed": false
+        },
+        "sys-channels": {
+          "id": "sys-channels",
+          "type": "system",
+          "label": "Digital Channels",
+          "description": "Customer-facing web portal and native mobile app",
+          "technology": "React / React Native",
+          "x": 260,
+          "y": 120,
+          "width": 250,
+          "height": 270,
+          "collapsed": false
+        },
+        "ctn-web": {
+          "id": "ctn-web",
+          "type": "webapp",
+          "label": "Web Banking",
+          "description": "Full-featured banking portal for browsers",
+          "technology": "React 18 / TypeScript",
+          "x": 20,
+          "y": 110,
+          "width": 210,
+          "height": 140,
+          "collapsed": false,
+          "parentId": "sys-channels"
         },
         "sys-core": {
           "id": "sys-core",
           "type": "system",
           "label": "Core Banking Platform",
-          "description": "Central microservices platform handling all banking domain logic",
+          "description": "Central microservices platform — all banking domain logic",
           "technology": "Kubernetes / Istio",
-          "x": 100,
-          "y": 80,
-          "width": 2140,
-          "height": 800,
+          "x": 590,
+          "y": 120,
+          "width": 730,
+          "height": 830,
           "collapsed": false
         },
-        "sub-access": {
-          "id": "sub-access",
-          "type": "system",
+        "dom-access": {
+          "id": "dom-access",
+          "type": "domain",
           "label": "Access & Security",
           "description": "API gateway, authentication and authorisation for all inbound traffic",
           "technology": "Kong / Keycloak",
-          "x": 40,
-          "y": 80,
-          "width": 640,
-          "height": 280,
+          "x": 20,
+          "y": 480,
+          "width": 690,
+          "height": 330,
           "collapsed": false,
           "parentId": "sys-core"
         },
-        "ctn-api-gw": {
-          "id": "ctn-api-gw",
+        "ctn-apigw": {
+          "id": "ctn-apigw",
           "type": "container",
           "label": "API Gateway",
           "description": "Routes all external traffic, enforces rate limits and TLS termination",
-          "technology": "Kong Gateway / Nginx",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "technology": "Kong / Nginx",
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-access"
+          "parentId": "dom-access"
         },
         "ctn-auth": {
           "id": "ctn-auth",
           "type": "container",
           "label": "Auth Service",
-          "description": "Identity & access management, issues JWT tokens via OIDC flow",
+          "description": "Issues JWT tokens and validates OIDC sessions",
           "technology": "Keycloak / OAuth 2.0",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-access"
+          "parentId": "dom-access"
         },
-        "sub-banking": {
-          "id": "sub-banking",
-          "type": "system",
+        "dom-banking": {
+          "id": "dom-banking",
+          "type": "domain",
           "label": "Banking Services",
-          "description": "Core financial domain — accounts, payments and card management",
-          "technology": "Java / Go microservices",
-          "x": 720,
-          "y": 80,
-          "width": 960,
-          "height": 280,
+          "description": "Core financial domain — payments, accounts and event streaming",
+          "technology": "Java / Go",
+          "x": 290,
+          "y": 110,
+          "width": 340,
+          "height": 330,
           "collapsed": false,
           "parentId": "sys-core"
         },
@@ -1340,63 +1378,38 @@
           "label": "Accounts Service",
           "description": "Manages customer accounts, balances and statements",
           "technology": "Java 21 / Spring Boot",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-banking"
+          "parentId": "dom-banking"
         },
-        "sub-platform": {
-          "id": "sub-platform",
-          "type": "system",
-          "label": "Platform Infrastructure",
-          "description": "Async messaging, notifications and persistent data stores shared across all services",
-          "technology": "Kafka / PostgreSQL / Redis",
-          "x": 720,
-          "y": 440,
-          "width": 960,
-          "height": 340,
+        "dom-risk": {
+          "id": "dom-risk",
+          "type": "domain",
+          "label": "Risk & Data",
+          "description": "Real-time fraud detection and persistent data stores",
+          "technology": "Python / PostgreSQL",
+          "x": 20,
+          "y": 110,
+          "width": 230,
+          "height": 260,
           "collapsed": false,
           "parentId": "sys-core"
         },
-        "ctn-db-core": {
-          "id": "ctn-db-core",
+        "ctn-db-acc": {
+          "id": "ctn-db-acc",
           "type": "database",
           "label": "Accounts DB",
           "description": "Primary store for customer and account data",
           "technology": "PostgreSQL 15 / Patroni",
-          "x": 40,
-          "y": 240,
-          "width": 200,
-          "height": 120,
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130,
           "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "sys-channels": {
-          "id": "sys-channels",
-          "type": "system",
-          "label": "Digital Channels",
-          "description": "Customer-facing web portal and native mobile applications",
-          "technology": "React / Swift / Kotlin",
-          "x": 2320,
-          "y": 80,
-          "width": 420,
-          "height": 530,
-          "collapsed": false
-        },
-        "ctn-web": {
-          "id": "ctn-web",
-          "type": "webapp",
-          "label": "Web Banking",
-          "description": "Full-featured banking portal and admin console for browsers",
-          "technology": "React 18 / TypeScript",
-          "x": 40,
-          "y": 80,
-          "width": 220,
-          "height": 140,
-          "collapsed": false,
-          "parentId": "sys-channels"
+          "parentId": "dom-risk"
         }
       },
       "relations": {
@@ -1407,31 +1420,31 @@
           "label": "Views accounts & transfers",
           "technology": "HTTPS / Browser"
         },
-        "r-web-gw": {
-          "id": "r-web-gw",
+        "r-web-apigw": {
+          "id": "r-web-apigw",
           "sourceId": "ctn-web",
-          "targetId": "ctn-api-gw",
+          "targetId": "ctn-apigw",
           "label": "API calls",
           "technology": "HTTPS / REST"
         },
-        "r-gw-auth": {
-          "id": "r-gw-auth",
-          "sourceId": "ctn-api-gw",
+        "r-apigw-auth": {
+          "id": "r-apigw-auth",
+          "sourceId": "ctn-apigw",
           "targetId": "ctn-auth",
           "label": "Validates token",
-          "technology": "JWT / OIDC introspect"
+          "technology": "JWT / OIDC"
         },
-        "r-gw-acc": {
-          "id": "r-gw-acc",
-          "sourceId": "ctn-api-gw",
+        "r-apigw-acc": {
+          "id": "r-apigw-acc",
+          "sourceId": "ctn-apigw",
           "targetId": "ctn-accounts",
           "label": "Routes",
           "technology": "HTTP/2 / gRPC"
         },
-        "r-acc-db": {
-          "id": "r-acc-db",
+        "r-acc-dbacc": {
+          "id": "r-acc-dbacc",
           "sourceId": "ctn-accounts",
-          "targetId": "ctn-db-core",
+          "targetId": "ctn-db-acc",
           "label": "Reads / writes",
           "technology": "JDBC / SQL"
         }
@@ -1440,7 +1453,7 @@
     {
       "id": "snap-v2",
       "name": "v2 – Payments & Events",
-      "timestamp": 1772290284308,
+      "timestamp": 1776172199728,
       "nodes": {
         "p-customer": {
           "id": "p-customer",
@@ -1448,73 +1461,98 @@
           "label": "Retail Customer",
           "description": "Individual banking customer accessing via web and mobile",
           "technology": "",
-          "x": -320,
-          "y": 80,
-          "width": 130,
-          "height": 140,
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170,
           "collapsed": false
+        },
+        "sys-channels": {
+          "id": "sys-channels",
+          "type": "system",
+          "label": "Digital Channels",
+          "description": "Customer-facing web portal and native mobile app",
+          "technology": "React / React Native",
+          "x": 260,
+          "y": 120,
+          "width": 250,
+          "height": 270,
+          "collapsed": false
+        },
+        "ctn-web": {
+          "id": "ctn-web",
+          "type": "webapp",
+          "label": "Web Banking",
+          "description": "Full-featured banking portal for browsers",
+          "technology": "React 18 / TypeScript",
+          "x": 20,
+          "y": 110,
+          "width": 210,
+          "height": 140,
+          "collapsed": false,
+          "parentId": "sys-channels"
         },
         "sys-core": {
           "id": "sys-core",
           "type": "system",
           "label": "Core Banking Platform",
-          "description": "Central microservices platform handling all banking domain logic",
+          "description": "Central microservices platform — all banking domain logic",
           "technology": "Kubernetes / Istio",
-          "x": 100,
-          "y": 80,
-          "width": 2140,
-          "height": 800,
+          "x": 30,
+          "y": 470,
+          "width": 1000,
+          "height": 1370,
           "collapsed": false
         },
-        "sub-access": {
-          "id": "sub-access",
-          "type": "system",
+        "dom-access": {
+          "id": "dom-access",
+          "type": "domain",
           "label": "Access & Security",
           "description": "API gateway, authentication and authorisation for all inbound traffic",
           "technology": "Kong / Keycloak",
-          "x": 40,
-          "y": 80,
-          "width": 640,
-          "height": 280,
+          "x": 290,
+          "y": 110,
+          "width": 690,
+          "height": 330,
           "collapsed": false,
           "parentId": "sys-core"
         },
-        "ctn-api-gw": {
-          "id": "ctn-api-gw",
+        "ctn-apigw": {
+          "id": "ctn-apigw",
           "type": "container",
           "label": "API Gateway",
           "description": "Routes all external traffic, enforces rate limits and TLS termination",
-          "technology": "Kong Gateway / Nginx",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "technology": "Kong / Nginx",
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-access"
+          "parentId": "dom-access"
         },
         "ctn-auth": {
           "id": "ctn-auth",
           "type": "container",
           "label": "Auth Service",
-          "description": "Identity & access management, issues JWT tokens via OIDC flow",
+          "description": "Issues JWT tokens and validates OIDC sessions",
           "technology": "Keycloak / OAuth 2.0",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-access"
+          "parentId": "dom-access"
         },
-        "sub-banking": {
-          "id": "sub-banking",
-          "type": "system",
+        "dom-banking": {
+          "id": "dom-banking",
+          "type": "domain",
           "label": "Banking Services",
-          "description": "Core financial domain — accounts, payments and card management",
-          "technology": "Java / Go microservices",
-          "x": 720,
-          "y": 80,
-          "width": 960,
-          "height": 280,
+          "description": "Core financial domain — payments, accounts and event streaming",
+          "technology": "Java / Go",
+          "x": 20,
+          "y": 580,
+          "width": 610,
+          "height": 770,
           "collapsed": false,
           "parentId": "sys-core"
         },
@@ -1524,12 +1562,38 @@
           "label": "Accounts Service",
           "description": "Manages customer accounts, balances and statements",
           "technology": "Java 21 / Spring Boot",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-banking"
+          "parentId": "dom-banking"
+        },
+        "dom-risk": {
+          "id": "dom-risk",
+          "type": "domain",
+          "label": "Risk & Data",
+          "description": "Real-time fraud detection and persistent data stores",
+          "technology": "Python / PostgreSQL",
+          "x": 20,
+          "y": 110,
+          "width": 230,
+          "height": 430,
+          "collapsed": false,
+          "parentId": "sys-core"
+        },
+        "ctn-db-acc": {
+          "id": "ctn-db-acc",
+          "type": "database",
+          "label": "Accounts DB",
+          "description": "Primary store for customer and account data",
+          "technology": "PostgreSQL 15 / Patroni",
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130,
+          "collapsed": false,
+          "parentId": "dom-risk"
         },
         "ctn-payments": {
           "id": "ctn-payments",
@@ -1537,51 +1601,51 @@
           "label": "Payments Service",
           "description": "Processes domestic and cross-border payment instructions",
           "technology": "Go 1.22 / gRPC",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410,
           "collapsed": false,
-          "parentId": "sub-banking"
+          "parentId": "dom-banking"
         },
-        "sub-platform": {
-          "id": "sub-platform",
-          "type": "system",
-          "label": "Platform Infrastructure",
-          "description": "Async messaging, notifications and persistent data stores shared across all services",
-          "technology": "Kafka / PostgreSQL / Redis",
-          "x": 720,
-          "y": 440,
-          "width": 960,
-          "height": 340,
+        "comp-validator": {
+          "id": "comp-validator",
+          "type": "component",
+          "label": "Payment Validator",
+          "description": "Validates payment rules, limits and IBAN format",
+          "technology": "Go / Rule Engine",
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120,
           "collapsed": false,
-          "parentId": "sys-core"
+          "parentId": "ctn-payments"
         },
-        "ctn-kafka": {
-          "id": "ctn-kafka",
+        "comp-fx": {
+          "id": "comp-fx",
+          "type": "component",
+          "label": "FX Engine",
+          "description": "Applies real-time FX rates for cross-border payments",
+          "technology": "Go / Reuters Feed",
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120,
+          "collapsed": false,
+          "parentId": "ctn-payments"
+        },
+        "ctn-evtbus": {
+          "id": "ctn-evtbus",
           "type": "queue",
           "label": "Event Bus",
           "description": "Async domain-event streaming between all microservices",
           "technology": "Apache Kafka 3.6",
-          "x": 40,
-          "y": 80,
-          "width": 240,
-          "height": 90,
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95,
           "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-db-core": {
-          "id": "ctn-db-core",
-          "type": "database",
-          "label": "Accounts DB",
-          "description": "Primary store for customer and account data",
-          "technology": "PostgreSQL 15 / Patroni",
-          "x": 40,
-          "y": 240,
-          "width": 200,
-          "height": 120,
-          "collapsed": false,
-          "parentId": "sub-platform"
+          "parentId": "dom-banking"
         },
         "ctn-db-tx": {
           "id": "ctn-db-tx",
@@ -1589,48 +1653,23 @@
           "label": "Transactions DB",
           "description": "Immutable append-only ledger of all financial transactions",
           "technology": "PostgreSQL 15 / Patroni",
-          "x": 300,
-          "y": 240,
-          "width": 200,
-          "height": 120,
+          "x": 20,
+          "y": 280,
+          "width": 190,
+          "height": 130,
           "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "sys-channels": {
-          "id": "sys-channels",
-          "type": "system",
-          "label": "Digital Channels",
-          "description": "Customer-facing web portal and native mobile applications",
-          "technology": "React / Swift / Kotlin",
-          "x": 2320,
-          "y": 80,
-          "width": 420,
-          "height": 530,
-          "collapsed": false
-        },
-        "ctn-web": {
-          "id": "ctn-web",
-          "type": "webapp",
-          "label": "Web Banking",
-          "description": "Full-featured banking portal and admin console for browsers",
-          "technology": "React 18 / TypeScript",
-          "x": 40,
-          "y": 80,
-          "width": 220,
-          "height": 140,
-          "collapsed": false,
-          "parentId": "sys-channels"
+          "parentId": "dom-risk"
         },
         "sys-swift": {
           "id": "sys-swift",
           "type": "system",
           "label": "SWIFT Network",
-          "description": "International interbank messaging for cross-border wire transfers",
+          "description": "International wire transfer messaging",
           "technology": "SWIFT MT / ISO 20022",
-          "x": 100,
-          "y": 960,
-          "width": 340,
-          "height": 240,
+          "x": 590,
+          "y": 120,
+          "width": 360,
+          "height": 260,
           "collapsed": false,
           "external": true
         }
@@ -1643,59 +1682,59 @@
           "label": "Views accounts & transfers",
           "technology": "HTTPS / Browser"
         },
-        "r-web-gw": {
-          "id": "r-web-gw",
+        "r-web-apigw": {
+          "id": "r-web-apigw",
           "sourceId": "ctn-web",
-          "targetId": "ctn-api-gw",
+          "targetId": "ctn-apigw",
           "label": "API calls",
           "technology": "HTTPS / REST"
         },
-        "r-gw-auth": {
-          "id": "r-gw-auth",
-          "sourceId": "ctn-api-gw",
+        "r-apigw-auth": {
+          "id": "r-apigw-auth",
+          "sourceId": "ctn-apigw",
           "targetId": "ctn-auth",
           "label": "Validates token",
-          "technology": "JWT / OIDC introspect"
+          "technology": "JWT / OIDC"
         },
-        "r-gw-acc": {
-          "id": "r-gw-acc",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-accounts",
-          "label": "Routes",
-          "technology": "HTTP/2 / gRPC"
-        },
-        "r-gw-pay": {
-          "id": "r-gw-pay",
-          "sourceId": "ctn-api-gw",
+        "r-apigw-pay": {
+          "id": "r-apigw-pay",
+          "sourceId": "ctn-apigw",
           "targetId": "ctn-payments",
           "label": "Routes",
           "technology": "HTTP/2 / gRPC"
         },
-        "r-acc-db": {
-          "id": "r-acc-db",
-          "sourceId": "ctn-accounts",
-          "targetId": "ctn-db-core",
-          "label": "Reads / writes",
-          "technology": "JDBC / SQL"
+        "r-apigw-acc": {
+          "id": "r-apigw-acc",
+          "sourceId": "ctn-apigw",
+          "targetId": "ctn-accounts",
+          "label": "Routes",
+          "technology": "HTTP/2 / gRPC"
         },
-        "r-pay-db": {
-          "id": "r-pay-db",
+        "r-pay-dbtx": {
+          "id": "r-pay-dbtx",
           "sourceId": "ctn-payments",
           "targetId": "ctn-db-tx",
           "label": "Reads / writes",
           "technology": "JDBC / SQL"
         },
-        "r-pay-pub": {
-          "id": "r-pay-pub",
+        "r-acc-dbacc": {
+          "id": "r-acc-dbacc",
+          "sourceId": "ctn-accounts",
+          "targetId": "ctn-db-acc",
+          "label": "Reads / writes",
+          "technology": "JDBC / SQL"
+        },
+        "r-pay-evtbus": {
+          "id": "r-pay-evtbus",
           "sourceId": "ctn-payments",
-          "targetId": "ctn-kafka",
+          "targetId": "ctn-evtbus",
           "label": "Publishes payment.completed",
           "technology": "Kafka producer"
         },
-        "r-acc-pub": {
-          "id": "r-acc-pub",
+        "r-acc-evtbus": {
+          "id": "r-acc-evtbus",
           "sourceId": "ctn-accounts",
-          "targetId": "ctn-kafka",
+          "targetId": "ctn-evtbus",
           "label": "Publishes balance.updated",
           "technology": "Kafka producer"
         },
@@ -1704,14 +1743,14 @@
           "sourceId": "ctn-payments",
           "targetId": "sys-swift",
           "label": "Sends wire transfers",
-          "technology": "SWIFT MT103 / gpi"
+          "technology": "SWIFT MT103"
         }
       }
     },
     {
       "id": "snap-v3",
-      "name": "v3 – Cards & Fraud",
-      "timestamp": 1774882284308,
+      "name": "v3 – Full Platform",
+      "timestamp": 1780060199728,
       "nodes": {
         "p-customer": {
           "id": "p-customer",
@@ -1719,549 +1758,99 @@
           "label": "Retail Customer",
           "description": "Individual banking customer accessing via web and mobile",
           "technology": "",
-          "x": -320,
-          "y": 80,
-          "width": 130,
-          "height": 140,
+          "x": 30,
+          "y": 120,
+          "width": 150,
+          "height": 170,
           "collapsed": false
         },
         "p-corp": {
           "id": "p-corp",
           "type": "person",
           "label": "Corporate Client",
-          "description": "Business customer using treasury and bulk-payment APIs",
+          "description": "Business client using treasury and bulk-payment APIs",
           "technology": "",
-          "x": -320,
-          "y": 330,
-          "width": 130,
-          "height": 140,
-          "collapsed": false
-        },
-        "sys-core": {
-          "id": "sys-core",
-          "type": "system",
-          "label": "Core Banking Platform",
-          "description": "Central microservices platform handling all banking domain logic",
-          "technology": "Kubernetes / Istio",
-          "x": 100,
-          "y": 80,
-          "width": 2140,
-          "height": 800,
-          "collapsed": false
-        },
-        "sub-access": {
-          "id": "sub-access",
-          "type": "system",
-          "label": "Access & Security",
-          "description": "API gateway, authentication and authorisation for all inbound traffic",
-          "technology": "Kong / Keycloak",
-          "x": 40,
-          "y": 80,
-          "width": 640,
-          "height": 280,
-          "collapsed": false,
-          "parentId": "sys-core"
-        },
-        "ctn-api-gw": {
-          "id": "ctn-api-gw",
-          "type": "container",
-          "label": "API Gateway",
-          "description": "Routes all external traffic, enforces rate limits and TLS termination",
-          "technology": "Kong Gateway / Nginx",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-access"
-        },
-        "ctn-auth": {
-          "id": "ctn-auth",
-          "type": "container",
-          "label": "Auth Service",
-          "description": "Identity & access management, issues JWT tokens via OIDC flow",
-          "technology": "Keycloak / OAuth 2.0",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-access"
-        },
-        "sub-banking": {
-          "id": "sub-banking",
-          "type": "system",
-          "label": "Banking Services",
-          "description": "Core financial domain — accounts, payments and card management",
-          "technology": "Java / Go microservices",
-          "x": 720,
-          "y": 80,
-          "width": 960,
-          "height": 280,
-          "collapsed": false,
-          "parentId": "sys-core"
-        },
-        "ctn-accounts": {
-          "id": "ctn-accounts",
-          "type": "container",
-          "label": "Accounts Service",
-          "description": "Manages customer accounts, balances and statements",
-          "technology": "Java 21 / Spring Boot",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-banking"
-        },
-        "ctn-payments": {
-          "id": "ctn-payments",
-          "type": "container",
-          "label": "Payments Service",
-          "description": "Processes domestic and cross-border payment instructions",
-          "technology": "Go 1.22 / gRPC",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-banking"
-        },
-        "ctn-cards": {
-          "id": "ctn-cards",
-          "type": "container",
-          "label": "Card Management",
-          "description": "Issues and manages debit / credit cards, tokenisation",
-          "technology": "Go 1.22 / REST",
-          "x": 680,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-banking"
-        },
-        "sub-risk": {
-          "id": "sub-risk",
-          "type": "system",
-          "label": "Risk & Compliance",
-          "description": "Real-time fraud detection, regulatory reporting and AML controls",
-          "technology": "Python / Scala",
-          "x": 40,
-          "y": 440,
-          "width": 640,
-          "height": 280,
-          "collapsed": false,
-          "parentId": "sys-core"
-        },
-        "ctn-fraud": {
-          "id": "ctn-fraud",
-          "type": "container",
-          "label": "Fraud Detection",
-          "description": "Real-time ML-based transaction risk scoring and blocking",
-          "technology": "Python 3.12 / XGBoost",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-risk"
-        },
-        "sub-platform": {
-          "id": "sub-platform",
-          "type": "system",
-          "label": "Platform Infrastructure",
-          "description": "Async messaging, notifications and persistent data stores shared across all services",
-          "technology": "Kafka / PostgreSQL / Redis",
-          "x": 720,
-          "y": 440,
-          "width": 960,
-          "height": 340,
-          "collapsed": false,
-          "parentId": "sys-core"
-        },
-        "ctn-kafka": {
-          "id": "ctn-kafka",
-          "type": "queue",
-          "label": "Event Bus",
-          "description": "Async domain-event streaming between all microservices",
-          "technology": "Apache Kafka 3.6",
-          "x": 40,
-          "y": 80,
-          "width": 240,
-          "height": 90,
-          "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-db-core": {
-          "id": "ctn-db-core",
-          "type": "database",
-          "label": "Accounts DB",
-          "description": "Primary store for customer and account data",
-          "technology": "PostgreSQL 15 / Patroni",
-          "x": 40,
-          "y": 240,
-          "width": 200,
-          "height": 120,
-          "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-db-tx": {
-          "id": "ctn-db-tx",
-          "type": "database",
-          "label": "Transactions DB",
-          "description": "Immutable append-only ledger of all financial transactions",
-          "technology": "PostgreSQL 15 / Patroni",
-          "x": 300,
-          "y": 240,
-          "width": 200,
-          "height": 120,
-          "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-redis": {
-          "id": "ctn-redis",
-          "type": "database",
-          "label": "Cache / Sessions",
-          "description": "Session tokens, rate-limit counters and hot-path account data",
-          "technology": "Redis 7 Cluster",
-          "x": 560,
-          "y": 240,
-          "width": 200,
-          "height": 120,
-          "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "sys-channels": {
-          "id": "sys-channels",
-          "type": "system",
-          "label": "Digital Channels",
-          "description": "Customer-facing web portal and native mobile applications",
-          "technology": "React / Swift / Kotlin",
-          "x": 2320,
-          "y": 80,
-          "width": 420,
-          "height": 530,
-          "collapsed": false
-        },
-        "ctn-web": {
-          "id": "ctn-web",
-          "type": "webapp",
-          "label": "Web Banking",
-          "description": "Full-featured banking portal and admin console for browsers",
-          "technology": "React 18 / TypeScript",
-          "x": 40,
-          "y": 80,
-          "width": 220,
-          "height": 140,
-          "collapsed": false,
-          "parentId": "sys-channels"
-        },
-        "ctn-ios": {
-          "id": "ctn-ios",
-          "type": "webapp",
-          "label": "iOS App",
-          "description": "Native banking app for iPhone and iPad",
-          "technology": "Swift 5.9 / SwiftUI",
-          "x": 40,
-          "y": 280,
-          "width": 130,
-          "height": 140,
-          "collapsed": false,
-          "parentId": "sys-channels"
-        },
-        "ctn-android": {
-          "id": "ctn-android",
-          "type": "webapp",
-          "label": "Android App",
-          "description": "Native banking app for Android phones and tablets",
-          "technology": "Kotlin / Jetpack Compose",
-          "x": 230,
-          "y": 280,
-          "width": 130,
-          "height": 140,
-          "collapsed": false,
-          "parentId": "sys-channels"
-        },
-        "sys-swift": {
-          "id": "sys-swift",
-          "type": "system",
-          "label": "SWIFT Network",
-          "description": "International interbank messaging for cross-border wire transfers",
-          "technology": "SWIFT MT / ISO 20022",
-          "x": 100,
-          "y": 960,
-          "width": 340,
-          "height": 240,
-          "collapsed": false,
-          "external": true
-        },
-        "sys-visa": {
-          "id": "sys-visa",
-          "type": "system",
-          "label": "Card Networks",
-          "description": "Visa and Mastercard payment authorisation and settlement",
-          "technology": "ISO 8583 / Visa API",
-          "x": 500,
-          "y": 960,
-          "width": 340,
-          "height": 240,
-          "collapsed": false,
-          "external": true
-        }
-      },
-      "relations": {
-        "r-cust-web": {
-          "id": "r-cust-web",
-          "sourceId": "p-customer",
-          "targetId": "ctn-web",
-          "label": "Views accounts & transfers",
-          "technology": "HTTPS / Browser"
-        },
-        "r-cust-ios": {
-          "id": "r-cust-ios",
-          "sourceId": "p-customer",
-          "targetId": "ctn-ios",
-          "label": "Mobile banking",
-          "technology": "TLS / Push"
-        },
-        "r-corp-web": {
-          "id": "r-corp-web",
-          "sourceId": "p-corp",
-          "targetId": "ctn-web",
-          "label": "Bulk payments & treasury",
-          "technology": "HTTPS / Browser"
-        },
-        "r-web-gw": {
-          "id": "r-web-gw",
-          "sourceId": "ctn-web",
-          "targetId": "ctn-api-gw",
-          "label": "API calls",
-          "technology": "HTTPS / REST"
-        },
-        "r-ios-gw": {
-          "id": "r-ios-gw",
-          "sourceId": "ctn-ios",
-          "targetId": "ctn-api-gw",
-          "label": "API calls",
-          "technology": "HTTPS / REST"
-        },
-        "r-and-gw": {
-          "id": "r-and-gw",
-          "sourceId": "ctn-android",
-          "targetId": "ctn-api-gw",
-          "label": "API calls",
-          "technology": "HTTPS / REST"
-        },
-        "r-gw-auth": {
-          "id": "r-gw-auth",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-auth",
-          "label": "Validates token",
-          "technology": "JWT / OIDC introspect"
-        },
-        "r-gw-acc": {
-          "id": "r-gw-acc",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-accounts",
-          "label": "Routes",
-          "technology": "HTTP/2 / gRPC"
-        },
-        "r-gw-pay": {
-          "id": "r-gw-pay",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-payments",
-          "label": "Routes",
-          "technology": "HTTP/2 / gRPC"
-        },
-        "r-gw-card": {
-          "id": "r-gw-card",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-cards",
-          "label": "Routes",
-          "technology": "HTTP/2 / gRPC"
-        },
-        "r-gw-cache": {
-          "id": "r-gw-cache",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-redis",
-          "label": "Session lookup",
-          "technology": "Redis protocol"
-        },
-        "r-acc-db": {
-          "id": "r-acc-db",
-          "sourceId": "ctn-accounts",
-          "targetId": "ctn-db-core",
-          "label": "Reads / writes",
-          "technology": "JDBC / SQL"
-        },
-        "r-pay-db": {
-          "id": "r-pay-db",
-          "sourceId": "ctn-payments",
-          "targetId": "ctn-db-tx",
-          "label": "Reads / writes",
-          "technology": "JDBC / SQL"
-        },
-        "r-pay-pub": {
-          "id": "r-pay-pub",
-          "sourceId": "ctn-payments",
-          "targetId": "ctn-kafka",
-          "label": "Publishes payment.completed",
-          "technology": "Kafka producer"
-        },
-        "r-card-pub": {
-          "id": "r-card-pub",
-          "sourceId": "ctn-cards",
-          "targetId": "ctn-kafka",
-          "label": "Publishes card.authorised",
-          "technology": "Kafka producer"
-        },
-        "r-acc-pub": {
-          "id": "r-acc-pub",
-          "sourceId": "ctn-accounts",
-          "targetId": "ctn-kafka",
-          "label": "Publishes balance.updated",
-          "technology": "Kafka producer"
-        },
-        "r-fraud-sub": {
-          "id": "r-fraud-sub",
-          "sourceId": "ctn-kafka",
-          "targetId": "ctn-fraud",
-          "label": "Consumes all tx events",
-          "technology": "Kafka consumer"
-        },
-        "r-pay-swift": {
-          "id": "r-pay-swift",
-          "sourceId": "ctn-payments",
-          "targetId": "sys-swift",
-          "label": "Sends wire transfers",
-          "technology": "SWIFT MT103 / gpi"
-        },
-        "r-card-visa": {
-          "id": "r-card-visa",
-          "sourceId": "ctn-cards",
-          "targetId": "sys-visa",
-          "label": "Card authorisation",
-          "technology": "ISO 8583 / Visa Direct"
-        }
-      }
-    },
-    {
-      "id": "snap-v4",
-      "name": "v4 – Full Platform",
-      "timestamp": 1777474284308,
-      "nodes": {
-        "p-customer": {
-          "id": "p-customer",
-          "type": "person",
-          "label": "Retail Customer",
-          "description": "Individual banking customer accessing via web and mobile",
-          "technology": "",
-          "x": -320,
-          "y": 80,
-          "width": 130,
-          "height": 140,
-          "collapsed": false
-        },
-        "p-corp": {
-          "id": "p-corp",
-          "type": "person",
-          "label": "Corporate Client",
-          "description": "Business customer using treasury and bulk-payment APIs",
-          "technology": "",
-          "x": -320,
-          "y": 330,
-          "width": 130,
-          "height": 140,
+          "x": 260,
+          "y": 120,
+          "width": 150,
+          "height": 170,
           "collapsed": false
         },
         "p-ops": {
           "id": "p-ops",
           "type": "person",
           "label": "Bank Operator",
-          "description": "Internal staff managing operations and support tickets",
+          "description": "Internal staff managing operations and support",
           "technology": "",
-          "x": -320,
-          "y": 580,
-          "width": 130,
-          "height": 140,
+          "x": 490,
+          "y": 120,
+          "width": 150,
+          "height": 170,
           "collapsed": false
         },
         "sys-core": {
           "id": "sys-core",
           "type": "system",
           "label": "Core Banking Platform",
-          "description": "Central microservices platform handling all banking domain logic",
+          "description": "Central microservices platform — all banking domain logic",
           "technology": "Kubernetes / Istio",
-          "x": 100,
-          "y": 80,
-          "width": 2140,
-          "height": 800,
+          "x": 30,
+          "y": 650,
+          "width": 1230,
+          "height": 1440,
           "collapsed": false
         },
-        "sub-access": {
-          "id": "sub-access",
-          "type": "system",
+        "dom-access": {
+          "id": "dom-access",
+          "type": "domain",
           "label": "Access & Security",
           "description": "API gateway, authentication and authorisation for all inbound traffic",
           "technology": "Kong / Keycloak",
-          "x": 40,
-          "y": 80,
-          "width": 640,
-          "height": 280,
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330,
           "collapsed": false,
           "parentId": "sys-core"
         },
-        "ctn-api-gw": {
-          "id": "ctn-api-gw",
+        "ctn-apigw": {
+          "id": "ctn-apigw",
           "type": "container",
           "label": "API Gateway",
           "description": "Routes all external traffic, enforces rate limits and TLS termination",
-          "technology": "Kong Gateway / Nginx",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "technology": "Kong / Nginx",
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-access"
+          "parentId": "dom-access"
         },
         "ctn-auth": {
           "id": "ctn-auth",
           "type": "container",
           "label": "Auth Service",
-          "description": "Identity & access management, issues JWT tokens via OIDC flow",
+          "description": "Issues JWT tokens and validates OIDC sessions",
           "technology": "Keycloak / OAuth 2.0",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-access"
+          "parentId": "dom-access"
         },
-        "sub-banking": {
-          "id": "sub-banking",
-          "type": "system",
+        "dom-banking": {
+          "id": "dom-banking",
+          "type": "domain",
           "label": "Banking Services",
-          "description": "Core financial domain — accounts, payments and card management",
-          "technology": "Java / Go microservices",
-          "x": 720,
-          "y": 80,
-          "width": 960,
-          "height": 280,
+          "description": "Core financial domain — payments, accounts and event streaming",
+          "technology": "Java / Go",
+          "x": 20,
+          "y": 650,
+          "width": 610,
+          "height": 770,
           "collapsed": false,
           "parentId": "sys-core"
-        },
-        "ctn-accounts": {
-          "id": "ctn-accounts",
-          "type": "container",
-          "label": "Accounts Service",
-          "description": "Manages customer accounts, balances and statements",
-          "technology": "Java 21 / Spring Boot",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-banking"
         },
         "ctn-payments": {
           "id": "ctn-payments",
@@ -2269,36 +1858,75 @@
           "label": "Payments Service",
           "description": "Processes domestic and cross-border payment instructions",
           "technology": "Go 1.22 / gRPC",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410,
           "collapsed": false,
-          "parentId": "sub-banking"
+          "parentId": "dom-banking"
         },
-        "ctn-cards": {
-          "id": "ctn-cards",
+        "comp-validator": {
+          "id": "comp-validator",
+          "type": "component",
+          "label": "Payment Validator",
+          "description": "Validates payment rules, limits and IBAN format",
+          "technology": "Go / Rule Engine",
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120,
+          "collapsed": false,
+          "parentId": "ctn-payments"
+        },
+        "comp-fx": {
+          "id": "comp-fx",
+          "type": "component",
+          "label": "FX Engine",
+          "description": "Applies real-time FX rates for cross-border payments",
+          "technology": "Go / Reuters Feed",
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120,
+          "collapsed": false,
+          "parentId": "ctn-payments"
+        },
+        "ctn-accounts": {
+          "id": "ctn-accounts",
           "type": "container",
-          "label": "Card Management",
-          "description": "Issues and manages debit / credit cards, tokenisation",
-          "technology": "Go 1.22 / REST",
-          "x": 680,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "label": "Accounts Service",
+          "description": "Manages customer accounts, balances and statements",
+          "technology": "Java 21 / Spring Boot",
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-banking"
+          "parentId": "dom-banking"
         },
-        "sub-risk": {
-          "id": "sub-risk",
-          "type": "system",
-          "label": "Risk & Compliance",
-          "description": "Real-time fraud detection, regulatory reporting and AML controls",
-          "technology": "Python / Scala",
-          "x": 40,
-          "y": 440,
-          "width": 640,
-          "height": 280,
+        "ctn-evtbus": {
+          "id": "ctn-evtbus",
+          "type": "queue",
+          "label": "Event Bus",
+          "description": "Async domain-event streaming between all microservices",
+          "technology": "Apache Kafka 3.6",
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95,
+          "collapsed": false,
+          "parentId": "dom-banking"
+        },
+        "dom-risk": {
+          "id": "dom-risk",
+          "type": "domain",
+          "label": "Risk & Data",
+          "description": "Real-time fraud detection and persistent data stores",
+          "technology": "Python / PostgreSQL",
+          "x": 750,
+          "y": 110,
+          "width": 460,
+          "height": 500,
           "collapsed": false,
           "parentId": "sys-core"
         },
@@ -2306,79 +1934,27 @@
           "id": "ctn-fraud",
           "type": "container",
           "label": "Fraud Detection",
-          "description": "Real-time ML-based transaction risk scoring and blocking",
+          "description": "Real-time ML-based transaction risk scoring",
           "technology": "Python 3.12 / XGBoost",
-          "x": 40,
-          "y": 80,
-          "width": 280,
-          "height": 180,
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200,
           "collapsed": false,
-          "parentId": "sub-risk"
+          "parentId": "dom-risk"
         },
-        "ctn-reporting": {
-          "id": "ctn-reporting",
-          "type": "container",
-          "label": "Reporting Engine",
-          "description": "Generates regulatory (PSD2, EBA) and management reports",
-          "technology": "Scala 3 / Apache Spark",
-          "x": 360,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-risk"
-        },
-        "sub-platform": {
-          "id": "sub-platform",
-          "type": "system",
-          "label": "Platform Infrastructure",
-          "description": "Async messaging, notifications and persistent data stores shared across all services",
-          "technology": "Kafka / PostgreSQL / Redis",
-          "x": 720,
-          "y": 440,
-          "width": 960,
-          "height": 340,
-          "collapsed": false,
-          "parentId": "sys-core"
-        },
-        "ctn-kafka": {
-          "id": "ctn-kafka",
-          "type": "queue",
-          "label": "Event Bus",
-          "description": "Async domain-event streaming between all microservices",
-          "technology": "Apache Kafka 3.6",
-          "x": 40,
-          "y": 80,
-          "width": 240,
-          "height": 90,
-          "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-notif": {
-          "id": "ctn-notif",
-          "type": "container",
-          "label": "Notifications",
-          "description": "Delivers push, SMS and e-mail alerts triggered by domain events",
-          "technology": "Node.js 22 / FCM / Twilio",
-          "x": 340,
-          "y": 80,
-          "width": 280,
-          "height": 180,
-          "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-db-core": {
-          "id": "ctn-db-core",
+        "ctn-db-acc": {
+          "id": "ctn-db-acc",
           "type": "database",
           "label": "Accounts DB",
           "description": "Primary store for customer and account data",
           "technology": "PostgreSQL 15 / Patroni",
-          "x": 40,
-          "y": 240,
-          "width": 200,
-          "height": 120,
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130,
           "collapsed": false,
-          "parentId": "sub-platform"
+          "parentId": "dom-risk"
         },
         "ctn-db-tx": {
           "id": "ctn-db-tx",
@@ -2386,73 +1962,47 @@
           "label": "Transactions DB",
           "description": "Immutable append-only ledger of all financial transactions",
           "technology": "PostgreSQL 15 / Patroni",
-          "x": 300,
-          "y": 240,
-          "width": 200,
-          "height": 120,
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130,
           "collapsed": false,
-          "parentId": "sub-platform"
-        },
-        "ctn-redis": {
-          "id": "ctn-redis",
-          "type": "database",
-          "label": "Cache / Sessions",
-          "description": "Session tokens, rate-limit counters and hot-path account data",
-          "technology": "Redis 7 Cluster",
-          "x": 560,
-          "y": 240,
-          "width": 200,
-          "height": 120,
-          "collapsed": false,
-          "parentId": "sub-platform"
+          "parentId": "dom-risk"
         },
         "sys-channels": {
           "id": "sys-channels",
           "type": "system",
           "label": "Digital Channels",
-          "description": "Customer-facing web portal and native mobile applications",
-          "technology": "React / Swift / Kotlin",
-          "x": 2320,
-          "y": 80,
-          "width": 420,
-          "height": 530,
+          "description": "Customer-facing web portal and native mobile app",
+          "technology": "React / React Native",
+          "x": 2040,
+          "y": 120,
+          "width": 250,
+          "height": 450,
           "collapsed": false
         },
         "ctn-web": {
           "id": "ctn-web",
           "type": "webapp",
           "label": "Web Banking",
-          "description": "Full-featured banking portal and admin console for browsers",
+          "description": "Full-featured banking portal for browsers",
           "technology": "React 18 / TypeScript",
-          "x": 40,
-          "y": 80,
-          "width": 220,
+          "x": 20,
+          "y": 110,
+          "width": 210,
           "height": 140,
           "collapsed": false,
           "parentId": "sys-channels"
         },
-        "ctn-ios": {
-          "id": "ctn-ios",
+        "ctn-mobile": {
+          "id": "ctn-mobile",
           "type": "webapp",
-          "label": "iOS App",
-          "description": "Native banking app for iPhone and iPad",
-          "technology": "Swift 5.9 / SwiftUI",
-          "x": 40,
-          "y": 280,
-          "width": 130,
-          "height": 140,
-          "collapsed": false,
-          "parentId": "sys-channels"
-        },
-        "ctn-android": {
-          "id": "ctn-android",
-          "type": "webapp",
-          "label": "Android App",
-          "description": "Native banking app for Android phones and tablets",
-          "technology": "Kotlin / Jetpack Compose",
-          "x": 230,
-          "y": 280,
-          "width": 130,
+          "label": "Mobile App",
+          "description": "Native banking app for iOS and Android",
+          "technology": "React Native / Expo",
+          "x": 20,
+          "y": 290,
+          "width": 210,
           "height": 140,
           "collapsed": false,
           "parentId": "sys-channels"
@@ -2461,25 +2011,25 @@
           "id": "sys-swift",
           "type": "system",
           "label": "SWIFT Network",
-          "description": "International interbank messaging for cross-border wire transfers",
+          "description": "International wire transfer messaging",
           "technology": "SWIFT MT / ISO 20022",
-          "x": 100,
-          "y": 960,
-          "width": 340,
-          "height": 240,
+          "x": 720,
+          "y": 120,
+          "width": 360,
+          "height": 260,
           "collapsed": false,
           "external": true
         },
-        "sys-visa": {
-          "id": "sys-visa",
+        "sys-cards": {
+          "id": "sys-cards",
           "type": "system",
           "label": "Card Networks",
-          "description": "Visa and Mastercard payment authorisation and settlement",
+          "description": "Visa / Mastercard authorisation",
           "technology": "ISO 8583 / Visa API",
-          "x": 500,
-          "y": 960,
-          "width": 340,
-          "height": 240,
+          "x": 1160,
+          "y": 120,
+          "width": 360,
+          "height": 260,
           "collapsed": false,
           "external": true
         },
@@ -2487,12 +2037,12 @@
           "id": "sys-kyc",
           "type": "system",
           "label": "KYC / AML Provider",
-          "description": "Identity verification and anti-money-laundering screening",
+          "description": "Identity verification and AML screening",
           "technology": "REST / JSON",
-          "x": 900,
-          "y": 960,
-          "width": 340,
-          "height": 240,
+          "x": 1600,
+          "y": 120,
+          "width": 360,
+          "height": 260,
           "collapsed": false,
           "external": true
         }
@@ -2505,13 +2055,6 @@
           "label": "Views accounts & transfers",
           "technology": "HTTPS / Browser"
         },
-        "r-cust-ios": {
-          "id": "r-cust-ios",
-          "sourceId": "p-customer",
-          "targetId": "ctn-ios",
-          "label": "Mobile banking",
-          "technology": "TLS / Push"
-        },
         "r-corp-web": {
           "id": "r-corp-web",
           "sourceId": "p-corp",
@@ -2519,130 +2062,81 @@
           "label": "Bulk payments & treasury",
           "technology": "HTTPS / Browser"
         },
-        "r-ops-gw": {
-          "id": "r-ops-gw",
+        "r-ops-apigw": {
+          "id": "r-ops-apigw",
           "sourceId": "p-ops",
-          "targetId": "ctn-api-gw",
-          "label": "Admin operations",
+          "targetId": "ctn-apigw",
+          "label": "Admin & support operations",
           "technology": "HTTPS / Admin API"
         },
-        "r-web-gw": {
-          "id": "r-web-gw",
+        "r-web-apigw": {
+          "id": "r-web-apigw",
           "sourceId": "ctn-web",
-          "targetId": "ctn-api-gw",
+          "targetId": "ctn-apigw",
           "label": "API calls",
           "technology": "HTTPS / REST"
         },
-        "r-ios-gw": {
-          "id": "r-ios-gw",
-          "sourceId": "ctn-ios",
-          "targetId": "ctn-api-gw",
+        "r-mob-apigw": {
+          "id": "r-mob-apigw",
+          "sourceId": "ctn-mobile",
+          "targetId": "ctn-apigw",
           "label": "API calls",
           "technology": "HTTPS / REST"
         },
-        "r-and-gw": {
-          "id": "r-and-gw",
-          "sourceId": "ctn-android",
-          "targetId": "ctn-api-gw",
-          "label": "API calls",
-          "technology": "HTTPS / REST"
-        },
-        "r-gw-auth": {
-          "id": "r-gw-auth",
-          "sourceId": "ctn-api-gw",
+        "r-apigw-auth": {
+          "id": "r-apigw-auth",
+          "sourceId": "ctn-apigw",
           "targetId": "ctn-auth",
           "label": "Validates token",
-          "technology": "JWT / OIDC introspect"
+          "technology": "JWT / OIDC"
         },
-        "r-gw-acc": {
-          "id": "r-gw-acc",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-accounts",
-          "label": "Routes",
-          "technology": "HTTP/2 / gRPC"
-        },
-        "r-gw-pay": {
-          "id": "r-gw-pay",
-          "sourceId": "ctn-api-gw",
+        "r-apigw-pay": {
+          "id": "r-apigw-pay",
+          "sourceId": "ctn-apigw",
           "targetId": "ctn-payments",
           "label": "Routes",
           "technology": "HTTP/2 / gRPC"
         },
-        "r-gw-card": {
-          "id": "r-gw-card",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-cards",
+        "r-apigw-acc": {
+          "id": "r-apigw-acc",
+          "sourceId": "ctn-apigw",
+          "targetId": "ctn-accounts",
           "label": "Routes",
           "technology": "HTTP/2 / gRPC"
         },
-        "r-gw-cache": {
-          "id": "r-gw-cache",
-          "sourceId": "ctn-api-gw",
-          "targetId": "ctn-redis",
-          "label": "Session lookup",
-          "technology": "Redis protocol"
+        "r-pay-dbtx": {
+          "id": "r-pay-dbtx",
+          "sourceId": "ctn-payments",
+          "targetId": "ctn-db-tx",
+          "label": "Reads / writes",
+          "technology": "JDBC / SQL"
         },
-        "r-acc-db": {
-          "id": "r-acc-db",
+        "r-acc-dbacc": {
+          "id": "r-acc-dbacc",
           "sourceId": "ctn-accounts",
-          "targetId": "ctn-db-core",
+          "targetId": "ctn-db-acc",
           "label": "Reads / writes",
           "technology": "JDBC / SQL"
         },
-        "r-pay-db": {
-          "id": "r-pay-db",
+        "r-pay-evtbus": {
+          "id": "r-pay-evtbus",
           "sourceId": "ctn-payments",
-          "targetId": "ctn-db-tx",
-          "label": "Reads / writes",
-          "technology": "JDBC / SQL"
-        },
-        "r-rep-db1": {
-          "id": "r-rep-db1",
-          "sourceId": "ctn-reporting",
-          "targetId": "ctn-db-core",
-          "label": "Reads (batch)",
-          "technology": "JDBC / SQL"
-        },
-        "r-rep-db2": {
-          "id": "r-rep-db2",
-          "sourceId": "ctn-reporting",
-          "targetId": "ctn-db-tx",
-          "label": "Reads (batch)",
-          "technology": "JDBC / SQL"
-        },
-        "r-pay-pub": {
-          "id": "r-pay-pub",
-          "sourceId": "ctn-payments",
-          "targetId": "ctn-kafka",
+          "targetId": "ctn-evtbus",
           "label": "Publishes payment.completed",
           "technology": "Kafka producer"
         },
-        "r-card-pub": {
-          "id": "r-card-pub",
-          "sourceId": "ctn-cards",
-          "targetId": "ctn-kafka",
-          "label": "Publishes card.authorised",
-          "technology": "Kafka producer"
-        },
-        "r-acc-pub": {
-          "id": "r-acc-pub",
+        "r-acc-evtbus": {
+          "id": "r-acc-evtbus",
           "sourceId": "ctn-accounts",
-          "targetId": "ctn-kafka",
+          "targetId": "ctn-evtbus",
           "label": "Publishes balance.updated",
           "technology": "Kafka producer"
         },
-        "r-fraud-sub": {
-          "id": "r-fraud-sub",
-          "sourceId": "ctn-kafka",
+        "r-evtbus-fraud": {
+          "id": "r-evtbus-fraud",
+          "sourceId": "ctn-evtbus",
           "targetId": "ctn-fraud",
           "label": "Consumes all tx events",
-          "technology": "Kafka consumer"
-        },
-        "r-notif-sub": {
-          "id": "r-notif-sub",
-          "sourceId": "ctn-kafka",
-          "targetId": "ctn-notif",
-          "label": "Consumes domain events",
           "technology": "Kafka consumer"
         },
         "r-pay-swift": {
@@ -2650,14 +2144,14 @@
           "sourceId": "ctn-payments",
           "targetId": "sys-swift",
           "label": "Sends wire transfers",
-          "technology": "SWIFT MT103 / gpi"
+          "technology": "SWIFT MT103"
         },
-        "r-card-visa": {
-          "id": "r-card-visa",
-          "sourceId": "ctn-cards",
-          "targetId": "sys-visa",
+        "r-pay-cards": {
+          "id": "r-pay-cards",
+          "sourceId": "ctn-payments",
+          "targetId": "sys-cards",
           "label": "Card authorisation",
-          "technology": "ISO 8583 / Visa Direct"
+          "technology": "ISO 8583"
         },
         "r-acc-kyc": {
           "id": "r-acc-kyc",
@@ -2675,416 +2169,217 @@
       "name": "Architecture Walkthrough",
       "slides": [
         {
-          "id": "slide-1",
+          "id": "slide-ctx",
           "name": "1 – System Context",
           "snapshotId": null,
           "viewId": "view-ctx",
           "viewport": {
-            "x": 350,
-            "y": 40,
+            "x": 64,
+            "y": 14,
             "zoom": 0.55
           }
         },
         {
-          "id": "slide-2",
-          "name": "2 – Core Banking Internals",
+          "id": "slide-core",
+          "name": "2 – Core Banking",
           "snapshotId": null,
           "viewId": "view-core",
           "viewport": {
-            "x": 60,
-            "y": 40,
-            "zoom": 0.55
+            "x": 67,
+            "y": 26,
+            "zoom": 0.45
           }
         },
         {
-          "id": "slide-3",
+          "id": "slide-payments",
           "name": "3 – Payments Domain",
           "snapshotId": null,
           "viewId": "view-payments",
           "viewport": {
-            "x": 200,
-            "y": 80,
-            "zoom": 0.65
+            "x": 64,
+            "y": 14,
+            "zoom": 0.55
           }
         },
         {
-          "id": "slide-4",
-          "name": "4 – v1 MVP (Milestone)",
+          "id": "slide-payflow",
+          "name": "4 – Payment Flow",
+          "snapshotId": null,
+          "viewId": "view-payflow",
+          "viewport": {
+            "x": 64,
+            "y": 14,
+            "zoom": 0.55
+          }
+        },
+        {
+          "id": "slide-treemap",
+          "name": "5 – Platform Hierarchy",
+          "snapshotId": null,
+          "viewId": "view-treemap",
+          "viewport": {
+            "x": 80,
+            "y": 80,
+            "zoom": 0.6
+          }
+        },
+        {
+          "id": "slide-v1",
+          "name": "6 – v1 MVP (Milestone)",
           "snapshotId": "snap-v1",
           "viewId": null,
           "viewport": {
-            "x": 250,
-            "y": 80,
-            "zoom": 0.7
-          }
-        },
-        {
-          "id": "slide-5",
-          "name": "5 – v4 Full Platform (Milestone)",
-          "snapshotId": "snap-v4",
-          "viewId": null,
-          "viewport": {
-            "x": 60,
-            "y": 40,
-            "zoom": 0.5
+            "x": 62,
+            "y": 8,
+            "zoom": 0.6
           }
         }
       ]
     }
   ],
-  "metamodel": {
-    "id": "c4-builtin",
-    "name": "C4 (built-in)",
-    "nodeTypes": {
-      "person": {
-        "id": "person",
-        "label": "Person",
-        "color": "#08427b",
-        "fg": "#fff",
-        "iconPath": "M8 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 12.5C3 10.01 5.24 8 8 8s5 2.01 5 4.5V14H3v-1.5Z",
-        "width": 130,
-        "height": 140,
-        "collapsedWidth": 130,
-        "collapsedHeight": 140,
-        "allowedAtRoot": true,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      },
-      "system": {
-        "id": "system",
-        "label": "Software System",
-        "color": "#1168bd",
-        "fg": "#fff",
-        "iconPath": "M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9ZM4 5h8v1H4V5Zm0 2.5h8v1H4v-1Zm0 2.5h5v1H4V10Z",
-        "width": 340,
-        "height": 240,
-        "collapsedWidth": 220,
-        "collapsedHeight": 70,
-        "allowedParents": [
-          "system"
-        ],
-        "allowedAtRoot": true,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      },
-      "container": {
-        "id": "container",
-        "label": "Container",
-        "color": "#438dd5",
-        "fg": "#fff",
-        "iconPath": "M1 4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v1H1V4Zm0 2.5h14V12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6.5ZM3 3a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm2 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
-        "width": 280,
-        "height": 180,
-        "collapsedWidth": 200,
-        "collapsedHeight": 60,
-        "allowedParents": [
-          "system"
-        ],
-        "allowedAtRoot": false,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "technology",
-            "label": "Technology",
-            "type": "text"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      },
-      "component": {
-        "id": "component",
-        "label": "Component",
-        "color": "#85bbf0",
-        "fg": "#000",
-        "iconPath": "M5 1v2H3a1 1 0 0 0-1 1v2h2v2H2v2h2v2H2v2a1 1 0 0 0 1 1h2v2h2v-2h2v2h2v-2h2a1 1 0 0 0 1-1v-2h-2v-2h2V8h-2V6h2V4a1 1 0 0 0-1-1h-2V1H9v2H7V1H5Z",
-        "width": 200,
-        "height": 100,
-        "collapsedWidth": 200,
-        "collapsedHeight": 100,
-        "allowedParents": [
-          "container",
-          "webapp"
-        ],
-        "allowedAtRoot": false,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "technology",
-            "label": "Technology",
-            "type": "text"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      },
-      "database": {
-        "id": "database",
-        "label": "Database",
-        "color": "#438dd5",
-        "fg": "#fff",
-        "iconPath": "M8 1C4.7 1 2 2.3 2 4v8c0 1.7 2.7 3 6 3s6-1.3 6-3V4c0-1.7-2.7-3-6-3ZM2 4c0 1.7 2.7 3 6 3s6-1.3 6-3",
-        "width": 200,
-        "height": 120,
-        "collapsedWidth": 200,
-        "collapsedHeight": 120,
-        "allowedParents": [
-          "system"
-        ],
-        "allowedAtRoot": false,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "technology",
-            "label": "Technology",
-            "type": "text"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      },
-      "webapp": {
-        "id": "webapp",
-        "label": "Web App",
-        "color": "#438dd5",
-        "fg": "#fff",
-        "iconPath": "M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm1 2.5V13h10V5.5H3ZM4 3.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z",
-        "width": 220,
-        "height": 140,
-        "collapsedWidth": 220,
-        "collapsedHeight": 140,
-        "allowedParents": [
-          "system"
-        ],
-        "allowedAtRoot": false,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "technology",
-            "label": "Technology",
-            "type": "text"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      },
-      "queue": {
-        "id": "queue",
-        "label": "Queue",
-        "color": "#438dd5",
-        "fg": "#fff",
-        "iconPath": "M4 3a3 2 0 1 0 0 4h8a3 2 0 1 0 0-4H4Zm-2 5.5a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Zm10 0a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Z",
-        "width": 240,
-        "height": 90,
-        "collapsedWidth": 240,
-        "collapsedHeight": 90,
-        "allowedParents": [
-          "system"
-        ],
-        "allowedAtRoot": false,
-        "builtin": true,
-        "properties": [
-          {
-            "key": "description",
-            "label": "Description",
-            "type": "textarea"
-          },
-          {
-            "key": "technology",
-            "label": "Technology",
-            "type": "text"
-          },
-          {
-            "key": "external",
-            "label": "External",
-            "type": "boolean"
-          }
-        ]
-      }
+  "defaultPositions": {
+    "p-customer": {
+      "x": 30,
+      "y": 120,
+      "width": 150,
+      "height": 170
     },
-    "relationTypes": {
-      "uses": {
-        "id": "uses",
-        "label": "Uses",
-        "allowedPairs": [
-          {
-            "from": "person",
-            "to": "system"
-          },
-          {
-            "from": "person",
-            "to": "container"
-          },
-          {
-            "from": "person",
-            "to": "webapp"
-          },
-          {
-            "from": "system",
-            "to": "system"
-          },
-          {
-            "from": "container",
-            "to": "system"
-          },
-          {
-            "from": "container",
-            "to": "container"
-          },
-          {
-            "from": "container",
-            "to": "database"
-          },
-          {
-            "from": "container",
-            "to": "webapp"
-          },
-          {
-            "from": "container",
-            "to": "queue"
-          },
-          {
-            "from": "webapp",
-            "to": "system"
-          },
-          {
-            "from": "webapp",
-            "to": "container"
-          },
-          {
-            "from": "webapp",
-            "to": "database"
-          },
-          {
-            "from": "webapp",
-            "to": "webapp"
-          },
-          {
-            "from": "webapp",
-            "to": "queue"
-          },
-          {
-            "from": "queue",
-            "to": "container"
-          },
-          {
-            "from": "queue",
-            "to": "webapp"
-          },
-          {
-            "from": "queue",
-            "to": "component"
-          },
-          {
-            "from": "component",
-            "to": "component"
-          },
-          {
-            "from": "component",
-            "to": "container"
-          },
-          {
-            "from": "component",
-            "to": "webapp"
-          },
-          {
-            "from": "component",
-            "to": "database"
-          },
-          {
-            "from": "component",
-            "to": "queue"
-          }
-        ],
-        "properties": [
-          {
-            "key": "technology",
-            "label": "Technology",
-            "type": "text"
-          }
-        ],
-        "builtin": true
-      },
-      "delivers": {
-        "id": "delivers",
-        "label": "Delivers to",
-        "allowedPairs": [
-          {
-            "from": "system",
-            "to": "person"
-          },
-          {
-            "from": "container",
-            "to": "person"
-          },
-          {
-            "from": "webapp",
-            "to": "person"
-          }
-        ],
-        "properties": [
-          {
-            "key": "technology",
-            "label": "Channel",
-            "type": "text"
-          }
-        ],
-        "builtin": true
-      }
+    "p-corp": {
+      "x": 260,
+      "y": 120,
+      "width": 150,
+      "height": 170
+    },
+    "p-ops": {
+      "x": 490,
+      "y": 120,
+      "width": 150,
+      "height": 170
+    },
+    "sys-core": {
+      "x": 30,
+      "y": 650,
+      "width": 1230,
+      "height": 1440
+    },
+    "dom-access": {
+      "x": 20,
+      "y": 110,
+      "width": 690,
+      "height": 330
+    },
+    "ctn-apigw": {
+      "x": 20,
+      "y": 110,
+      "width": 300,
+      "height": 200
+    },
+    "ctn-auth": {
+      "x": 370,
+      "y": 110,
+      "width": 300,
+      "height": 200
+    },
+    "dom-banking": {
+      "x": 20,
+      "y": 650,
+      "width": 610,
+      "height": 770
+    },
+    "ctn-payments": {
+      "x": 110,
+      "y": 340,
+      "width": 240,
+      "height": 410
+    },
+    "comp-validator": {
+      "x": 20,
+      "y": 110,
+      "width": 200,
+      "height": 120
+    },
+    "comp-fx": {
+      "x": 20,
+      "y": 270,
+      "width": 200,
+      "height": 120
+    },
+    "ctn-accounts": {
+      "x": 20,
+      "y": 110,
+      "width": 300,
+      "height": 200
+    },
+    "ctn-evtbus": {
+      "x": 370,
+      "y": 178,
+      "width": 220,
+      "height": 95
+    },
+    "dom-risk": {
+      "x": 750,
+      "y": 110,
+      "width": 460,
+      "height": 500
+    },
+    "ctn-fraud": {
+      "x": 20,
+      "y": 280,
+      "width": 300,
+      "height": 200
+    },
+    "ctn-db-acc": {
+      "x": 20,
+      "y": 110,
+      "width": 190,
+      "height": 130
+    },
+    "ctn-db-tx": {
+      "x": 250,
+      "y": 110,
+      "width": 190,
+      "height": 130
+    },
+    "sys-channels": {
+      "x": 2040,
+      "y": 120,
+      "width": 250,
+      "height": 450
+    },
+    "ctn-web": {
+      "x": 20,
+      "y": 110,
+      "width": 210,
+      "height": 140
+    },
+    "ctn-mobile": {
+      "x": 20,
+      "y": 290,
+      "width": 210,
+      "height": 140
+    },
+    "sys-swift": {
+      "x": 720,
+      "y": 120,
+      "width": 360,
+      "height": 260
+    },
+    "sys-cards": {
+      "x": 1160,
+      "y": 120,
+      "width": 360,
+      "height": 260
+    },
+    "sys-kyc": {
+      "x": 1600,
+      "y": 120,
+      "width": 360,
+      "height": 260
     }
+  },
+  "defaultViewport": {
+    "x": 68,
+    "y": 32,
+    "zoom": 0.4
   }
 }
