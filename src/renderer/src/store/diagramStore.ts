@@ -3970,11 +3970,59 @@ export const useDiagramStore = create<DiagramStore>()(
         const i = Math.max(0, Math.min(index, presentationSlides.length - 1))
         const slide = presentationSlides[i]
         set((state) => { state.presentationSlideIndex = i })
-        // Navigate to the view linked to this slide so the canvas reflects it,
-        // without starting presentation mode or loading any model snapshot.
+
+        // Restore inline model snapshot (preferred) or linked milestone snapshot.
+        const inline = (slide as any).modelSnapshot as
+          | { nodes: Record<string, C4Node>; relations: Record<string, C4Relation> }
+          | undefined
+        if (inline) {
+          set((state) => {
+            state.c4Nodes = JSON.parse(JSON.stringify(inline.nodes)) as any
+            state.c4Relations = JSON.parse(JSON.stringify(inline.relations)) as any
+          })
+        } else if (slide.snapshotId) {
+          const snap = get().snapshots.find(s => s.id === slide.snapshotId)
+          if (snap) {
+            set((state) => {
+              state.c4Nodes = JSON.parse(JSON.stringify(snap.nodes)) as any
+              state.c4Relations = JSON.parse(JSON.stringify(snap.relations)) as any
+            })
+          }
+        }
+
+        // Apply saved canvas state (positions + collapsed).
+        if (slide.canvasState) {
+          set((state) => {
+            for (const [id, ns] of Object.entries(slide.canvasState!.nodes)) {
+              const n = state.c4Nodes[id]
+              if (!n) continue
+              n.x = ns.x; n.y = ns.y
+              n.width = ns.width; n.height = ns.height
+              n.collapsed = ns.collapsed
+            }
+          })
+        }
+
+        // Navigate to the view linked to this slide (or reset to "all" if none).
         const targetViewId = (slide as any).viewId ?? null
         if (targetViewId !== get().activeViewId) {
-          get().setActiveView(targetViewId)
+          set((state) => { state.activeViewId = targetViewId })
+        }
+
+        // Re-derive rfNodes / rfEdges.
+        get()._sync()
+
+        // Restore saved viewport, or fit view if none captured.
+        const vp = slide.viewport
+        if (vp && (vp.zoom || vp.x || vp.y)) {
+          requestAnimationFrame(() => _setViewportFn()?.(
+            { x: vp.x, y: vp.y, zoom: vp.zoom },
+            { duration: 400 },
+          ))
+        } else {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => _getFitViewFn()?.())
+          })
         }
       },
 
