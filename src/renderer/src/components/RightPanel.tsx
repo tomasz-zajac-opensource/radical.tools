@@ -943,7 +943,7 @@ function PanelToggle({ side, collapsed, onToggle }: {
 }
 
 export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = false, onToggleCollapsed }: {
-  mode?: 'designer' | 'viewer'
+  mode?: 'designer' | 'viewer' | 'presenter'
   readOnly?: boolean
   collapsed?: boolean
   onToggleCollapsed?: () => void

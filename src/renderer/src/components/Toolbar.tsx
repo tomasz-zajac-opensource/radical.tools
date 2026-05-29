@@ -542,9 +542,16 @@ export function Toolbar(): React.ReactElement {
         <button
           className={`toolbar-mode-btn${appMode === 'viewer' ? ' active' : ''}`}
           onClick={() => setAppMode('viewer')}
-          title="Viewer perspective — explore the model and build/play presentations"
+          title="Viewer perspective — explore the model"
         >
-          <IconPresentation /> Viewer
+          <IconView /> Viewer
+        </button>
+        <button
+          className={`toolbar-mode-btn${appMode === 'presenter' ? ' active' : ''}`}
+          onClick={() => setAppMode('presenter')}
+          title="Presenter perspective — build and play presentations"
+        >
+          <IconPresentation /> Presenter
         </button>
       </div>
 

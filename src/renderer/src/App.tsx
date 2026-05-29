@@ -32,6 +32,7 @@ function AppInner(): React.ReactElement {
   const isPresenting = presentationActive
   const isDesigner = appMode === 'designer'
   const isViewer = appMode === 'viewer'
+  const isPresenter = appMode === 'presenter'
   const isMetamodel = appMode === 'metamodel'
   const isReadOnlyMode = !isDesigner && !isMetamodel
 
@@ -86,10 +87,11 @@ function AppInner(): React.ReactElement {
       {!isPresenting && <Toolbar />}
       {!isPresenting && isDesigner && <LeftPanel mode="designer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {!isPresenting && isViewer && <LeftPanel mode="viewer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
+      {!isPresenting && isPresenter && <LeftPanel mode="presenter" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {isTreemapView ? <TreemapView /> : isSequenceView ? <SequenceView /> : <Canvas />}
       {!isPresenting && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
-      {!isPresenting && !isDesigner && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
-      {!isPresenting && isViewer && <PresenterDock />}
+      {!isPresenting && isViewer && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
+      {!isPresenting && isPresenter && <PresenterDock />}
       <PresentationBar />
       {!isPresenting && isCanvasView && <SelectionActionBar />}
       {!isPresenting && isCanvasView && <EdgeActionBar />}

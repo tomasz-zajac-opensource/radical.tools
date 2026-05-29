@@ -1,7 +1,7 @@
 /**
- * Viewer-mode "explore sandbox" tests.
+ * Viewer-mode and Presenter-mode "explore sandbox" tests.
  *
- * The viewer is meant to be a sandboxed exploration mode: drag,
+ * Both viewer and presenter are sandboxed exploration modes: drag,
  * collapse, smart-layout etc. are all allowed but every mutation is
  * reverted as soon as the user returns to the designer.
  *
@@ -12,7 +12,9 @@
  *   - setAppMode viewer→designer restores the snapshotted c4Nodes /
  *     c4Relations / views / defaultPositions / activeViewId and clears
  *     window.__preModeLayout
- *   - back-compat: the dropped 'presenter' mode is coerced to 'viewer'
+ *   - 'presenter' is a first-class mode distinct from 'viewer'
+ *   - designer→presenter captures __preModeLayout (same sandbox as viewer)
+ *   - presenter→designer restores the snapshot
  *   - toggleCollapse in viewer DOES mutate (allowed in explore mode),
  *     unlike during a live presentation
  */
@@ -87,9 +89,10 @@ describe('setAppMode designer ↔ viewer', () => {
     }
   })
 
-  it("'presenter' is coerced to 'viewer' (back-compat)", () => {
-    useDiagramStore.getState().setAppMode('presenter' as any)
-    expect(useDiagramStore.getState().appMode).toBe('viewer')
+  it("'presenter' is a first-class mode distinct from 'viewer'", () => {
+    useDiagramStore.getState().setAppMode('presenter')
+    expect(useDiagramStore.getState().appMode).toBe('presenter')
+    expect(useDiagramStore.getState().appMode).not.toBe('viewer')
   })
 })
 
@@ -104,6 +107,67 @@ describe('toggleCollapse in viewer', () => {
 
   it('returning to designer reverts the collapse', () => {
     useDiagramStore.getState().setAppMode('viewer')
+    const before = useDiagramStore.getState().c4Nodes['sys1'].collapsed === true
+    useDiagramStore.getState().toggleCollapse('sys1')
+    useDiagramStore.getState().setAppMode('designer')
+    const after = useDiagramStore.getState().c4Nodes['sys1'].collapsed === true
+    expect(after).toBe(before)
+  })
+})
+
+describe('setAppMode designer ↔ presenter', () => {
+  it('designer → presenter captures __preModeLayout snapshot', () => {
+    expect((window as any).__preModeLayout).toBeUndefined()
+    useDiagramStore.getState().setAppMode('presenter')
+    const snap = (window as any).__preModeLayout
+    expect(snap).toBeDefined()
+    expect(snap.c4Nodes).toBeDefined()
+    expect(snap.activeViewId).toBe(initial.activeViewId)
+  })
+
+  it('presenter → designer restores c4Nodes from the snapshot', () => {
+    useDiagramStore.getState().setAppMode('presenter')
+    useDiagramStore.setState((s: any) => {
+      s.c4Nodes['ctn1'].x = 7777
+      s.c4Nodes['ctn1'].y = 7777
+      s.c4Nodes['ctn1'].label = 'PRESENTED'
+      return s
+    })
+    expect(useDiagramStore.getState().c4Nodes['ctn1'].label).toBe('PRESENTED')
+    useDiagramStore.getState().setAppMode('designer')
+    const restored = useDiagramStore.getState().c4Nodes['ctn1']
+    expect(restored.label).toBe(initial.c4Nodes['ctn1'].label)
+    expect(restored.x).toBe(initial.c4Nodes['ctn1'].x)
+    expect(restored.y).toBe(initial.c4Nodes['ctn1'].y)
+    expect((window as any).__preModeLayout).toBeUndefined()
+  })
+
+  it('presenter → designer restores views map', () => {
+    useDiagramStore.getState().setAppMode('presenter')
+    useDiagramStore.setState((s: any) => {
+      const v = Object.values(s.views)[0] as any
+      if (v) v.nodeIds = ['MUTATED_IN_PRESENTER']
+      return s
+    })
+    useDiagramStore.getState().setAppMode('designer')
+    const v0 = Object.values(useDiagramStore.getState().views)[0] as any
+    if (v0) {
+      expect(v0.nodeIds).not.toEqual(['MUTATED_IN_PRESENTER'])
+    }
+  })
+})
+
+describe('toggleCollapse in presenter', () => {
+  it('does mutate c4Nodes (explore mode allows it)', () => {
+    useDiagramStore.getState().setAppMode('presenter')
+    const before = useDiagramStore.getState().c4Nodes['sys1'].collapsed === true
+    useDiagramStore.getState().toggleCollapse('sys1')
+    const after = useDiagramStore.getState().c4Nodes['sys1'].collapsed === true
+    expect(after).toBe(!before)
+  })
+
+  it('returning to designer reverts the collapse', () => {
+    useDiagramStore.getState().setAppMode('presenter')
     const before = useDiagramStore.getState().c4Nodes['sys1'].collapsed === true
     useDiagramStore.getState().toggleCollapse('sys1')
     useDiagramStore.getState().setAppMode('designer')

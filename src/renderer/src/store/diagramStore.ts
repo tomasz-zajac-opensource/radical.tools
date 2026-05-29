@@ -1040,8 +1040,8 @@ interface DiagramStore {
   toggleShowDiff: () => void
 
   // ── app mode ──
-  appMode: 'designer' | 'viewer' | 'metamodel'
-  setAppMode: (mode: 'designer' | 'viewer' | 'metamodel') => void
+  appMode: 'designer' | 'viewer' | 'presenter' | 'metamodel'
+  setAppMode: (mode: 'designer' | 'viewer' | 'presenter' | 'metamodel') => void
 
   // ── metamodel (per document) ──
   metamodel: Metamodel
@@ -3616,10 +3616,6 @@ export const useDiagramStore = create<DiagramStore>()(
 
       // ── App mode ─────────────────────────────────────────────────────
       setAppMode(mode) {
-        // Back-compat: the old 'presenter' mode was merged into 'viewer'.
-        // Coerce any stray callers (or restored state) so we never end up
-        // in the dropped mode.
-        if ((mode as string) === 'presenter') mode = 'viewer'
         // Skip if mode hasn't actually changed — avoids needless physics
         // restarts that visibly fight an active auto-fit loop.
         const prevMode = get().appMode
