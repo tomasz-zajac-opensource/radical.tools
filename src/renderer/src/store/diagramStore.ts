@@ -3880,6 +3880,20 @@ export const useDiagramStore = create<DiagramStore>()(
         // Disable physics while presenting
         get().stopLiveLayout()
 
+        // Auto-activate presentation mode when triggered from outside a running
+        // presentation (e.g. clicking a slide card in the sidebar).  This saves
+        // the current live state so stopPresentation() can restore it, and makes
+        // the PresenterHUD (with its exit button) appear immediately.
+        if (!get().presentationActive) {
+          ;(window as any).__prePresState = {
+            c4Nodes: JSON.parse(JSON.stringify(get().c4Nodes)),
+            c4Relations: JSON.parse(JSON.stringify(get().c4Relations)),
+            activeViewId: get().activeViewId,
+          }
+          set((state) => { state.presentationActive = true })
+          get()._sync()
+        }
+
         // Restore inline model snapshot first (preferred — captured at
         // slide-creation time so it always reflects what was on screen).
         // Fall back to the linked milestone snapshot for legacy slides.

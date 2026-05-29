@@ -12,7 +12,9 @@
  *   - stopPresentation: clears presentationActive, restores
  *     __prePresState, unlocks rfNodes
  *   - goToSlide while not actively presenting replays the captured
- *     viewport via setViewportFn
+ *     viewport via setViewportFn AND auto-activates presentation mode
+ *     (saves __prePresState, sets presentationActive) so the user can
+ *     always exit via stopPresentation / PresenterHUD
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useDiagramStore } from '../src/renderer/src/store/diagramStore'
@@ -39,6 +41,7 @@ beforeEach(() => {
     appMode: 'designer',
   } as any)
   ;(window as any).__rfCurrentViewport = { x: 100, y: 200, zoom: 1.5 }
+  ;(window as any).__prePresState = undefined
   useDiagramStore.getState()._sync()
 })
 
@@ -151,5 +154,47 @@ describe('goToSlide', () => {
         resolve()
       }, 50)
     })
+  })
+
+  it('auto-activates presentation when not presenting: sets presentationActive and saves __prePresState', () => {
+    useDiagramStore.setState((s: any) => {
+      s.c4Nodes['ctn1'].label = 'LIVE-BEFORE-CLICK'
+      return s
+    })
+    useDiagramStore.getState().addPresentationSlide('a')
+    expect(useDiagramStore.getState().presentationActive).toBe(false)
+    expect((window as any).__prePresState).toBeUndefined()
+
+    useDiagramStore.getState().goToSlide(0)
+
+    expect(useDiagramStore.getState().presentationActive).toBe(true)
+    expect((window as any).__prePresState).toBeDefined()
+    expect((window as any).__prePresState.c4Nodes['ctn1'].label).toBe('LIVE-BEFORE-CLICK')
+  })
+
+  it('does NOT overwrite __prePresState on subsequent goToSlide calls (already presenting)', () => {
+    useDiagramStore.getState().addPresentationSlide('a')
+    useDiagramStore.getState().addPresentationSlide('b')
+    useDiagramStore.getState().goToSlide(0) // auto-activates + saves pre-state
+    const savedState = (window as any).__prePresState
+    useDiagramStore.getState().goToSlide(1) // already active — must not overwrite
+    expect((window as any).__prePresState).toBe(savedState) // same object reference
+  })
+
+  it('stopPresentation after auto-activation restores the original live state', () => {
+    useDiagramStore.setState((s: any) => {
+      s.c4Nodes['ctn1'].label = 'ORIGINAL'
+      return s
+    })
+    useDiagramStore.getState().addPresentationSlide('a')
+    useDiagramStore.getState().goToSlide(0) // overwrites c4Nodes from slide snapshot
+    // Verify the slide state is applied (label may differ from original)
+    expect(useDiagramStore.getState().presentationActive).toBe(true)
+
+    useDiagramStore.getState().stopPresentation()
+
+    expect(useDiagramStore.getState().presentationActive).toBe(false)
+    expect(useDiagramStore.getState().c4Nodes['ctn1'].label).toBe('ORIGINAL')
+    expect((window as any).__prePresState).toBeUndefined()
   })
 })

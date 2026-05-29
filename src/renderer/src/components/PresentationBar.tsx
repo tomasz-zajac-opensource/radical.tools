@@ -340,6 +340,7 @@ function PresentationPicker() {
 export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}): React.ReactElement {
   const slides = useDiagramStore(s => s.presentationSlides)
   const idx = useDiagramStore(s => s.presentationSlideIndex)
+  const presentationActive = useDiagramStore(s => s.presentationActive)
   const snapshots = useDiagramStore(s => s.snapshots)
   const views = useDiagramStore(s => s.views)
 
@@ -350,6 +351,7 @@ export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}):
   const linkSnapshotToSlide = useDiagramStore(s => s.linkSnapshotToSlide)
   const linkViewToSlide = useDiagramStore(s => s.linkViewToSlide)
   const startPresentation = useDiagramStore(s => s.startPresentation)
+  const stopPresentation = useDiagramStore(s => s.stopPresentation)
   const goToSlide = useDiagramStore(s => s.goToSlide)
 
   const snapshotNames: Record<string, string> = {}
@@ -357,6 +359,11 @@ export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}):
 
   const viewNames: Record<string, string> = {}
   for (const v of Object.values(views)) viewNames[v.id] = v.name
+
+  const handleSlideSelect = (i: number) => {
+    if (i === idx && presentationActive) stopPresentation()
+    else goToSlide(i)
+  }
 
   return (
     <div className="pres-slides-inline">
@@ -384,7 +391,7 @@ export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}):
             snapshotNames={snapshotNames}
             viewNames={viewNames}
             views={views}
-            onSelect={() => goToSlide(i)}
+            onSelect={() => handleSlideSelect(i)}
             onDelete={() => removePresentationSlide(slide.id)}
             onRename={(name) => renamePresentationSlide(slide.id, name)}
             onCapture={() => captureSlideViewport(slide.id)}
@@ -402,6 +409,7 @@ export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}):
 export function PresenterDock({ readOnly = false }: { readOnly?: boolean } = {}): React.ReactElement {
   const slides = useDiagramStore(s => s.presentationSlides)
   const idx = useDiagramStore(s => s.presentationSlideIndex)
+  const presentationActive = useDiagramStore(s => s.presentationActive)
   const snapshots = useDiagramStore(s => s.snapshots)
   const views = useDiagramStore(s => s.views)
 
@@ -412,6 +420,7 @@ export function PresenterDock({ readOnly = false }: { readOnly?: boolean } = {})
   const linkSnapshotToSlide = useDiagramStore(s => s.linkSnapshotToSlide)
   const linkViewToSlide = useDiagramStore(s => s.linkViewToSlide)
   const startPresentation = useDiagramStore(s => s.startPresentation)
+  const stopPresentation = useDiagramStore(s => s.stopPresentation)
   const goToSlide = useDiagramStore(s => s.goToSlide)
 
   const activeRef = useRef<HTMLDivElement>(null)
@@ -423,6 +432,11 @@ export function PresenterDock({ readOnly = false }: { readOnly?: boolean } = {})
   for (const s of snapshots) snapshotNames[s.id] = s.name
   const viewNames: Record<string, string> = {}
   for (const v of Object.values(views)) viewNames[v.id] = v.name
+
+  const handleSlideSelect = (i: number) => {
+    if (i === idx && presentationActive) stopPresentation()
+    else goToSlide(i)
+  }
 
   return (
     <div className="pres-dock">
@@ -453,7 +467,7 @@ export function PresenterDock({ readOnly = false }: { readOnly?: boolean } = {})
               snapshotNames={snapshotNames}
               viewNames={viewNames}
               views={views}
-              onSelect={() => goToSlide(i)}
+              onSelect={() => handleSlideSelect(i)}
               onDelete={() => removePresentationSlide(slide.id)}
               onRename={(name) => renamePresentationSlide(slide.id, name)}
               onCapture={() => captureSlideViewport(slide.id)}
