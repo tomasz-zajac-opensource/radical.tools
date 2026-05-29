@@ -353,6 +353,7 @@ export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}):
   const startPresentation = useDiagramStore(s => s.startPresentation)
   const stopPresentation = useDiagramStore(s => s.stopPresentation)
   const goToSlide = useDiagramStore(s => s.goToSlide)
+  const previewSlide = useDiagramStore(s => s.previewSlide)
 
   const snapshotNames: Record<string, string> = {}
   for (const s of snapshots) snapshotNames[s.id] = s.name
@@ -361,8 +362,12 @@ export function SlidesColumn({ readOnly = false }: { readOnly?: boolean } = {}):
   for (const v of Object.values(views)) viewNames[v.id] = v.name
 
   const handleSlideSelect = (i: number) => {
-    if (i === idx && presentationActive) stopPresentation()
-    else goToSlide(i)
+    if (presentationActive) {
+      if (i === idx) stopPresentation()
+      else goToSlide(i)
+    } else {
+      previewSlide(i)
+    }
   }
 
   return (
@@ -422,6 +427,7 @@ export function PresenterDock({ readOnly = false }: { readOnly?: boolean } = {})
   const startPresentation = useDiagramStore(s => s.startPresentation)
   const stopPresentation = useDiagramStore(s => s.stopPresentation)
   const goToSlide = useDiagramStore(s => s.goToSlide)
+  const previewSlide = useDiagramStore(s => s.previewSlide)
 
   const activeRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -434,8 +440,12 @@ export function PresenterDock({ readOnly = false }: { readOnly?: boolean } = {})
   for (const v of Object.values(views)) viewNames[v.id] = v.name
 
   const handleSlideSelect = (i: number) => {
-    if (i === idx && presentationActive) stopPresentation()
-    else goToSlide(i)
+    if (presentationActive) {
+      if (i === idx) stopPresentation()
+      else goToSlide(i)
+    } else {
+      previewSlide(i)
+    }
   }
 
   return (

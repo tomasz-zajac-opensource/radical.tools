@@ -1077,6 +1077,7 @@ interface DiagramStore {
   startPresentation: () => void
   stopPresentation: () => void
   goToSlide: (index: number) => void
+  previewSlide: (index: number) => void
   captureSlideViewport: (id: string) => void
   linkSnapshotToSlide: (slideId: string, snapshotId: string | null) => void
   linkViewToSlide: (slideId: string, viewId: string | null) => void
@@ -3832,13 +3833,13 @@ export const useDiagramStore = create<DiagramStore>()(
           c4Relations: JSON.parse(JSON.stringify(get().c4Relations)),
           activeViewId: get().activeViewId,
         }
-        set((state) => { state.presentationActive = true; state.presentationSlideIndex = 0 })
+        set((state) => { state.presentationActive = true })
         // Re-derive rfNodes immediately so the per-node `draggable` flag
         // flips off before the user can grab anything (rfNodes carry
         // draggable per-node, which would otherwise override the
         // ReactFlow nodesDraggable prop until the next _sync).
         get()._sync()
-        setTimeout(() => get().goToSlide(0), 50)
+        setTimeout(() => get().goToSlide(get().presentationSlideIndex), 50)
       },
 
       stopPresentation() {
@@ -3875,20 +3876,6 @@ export const useDiagramStore = create<DiagramStore>()(
 
         // Disable physics while presenting
         get().stopLiveLayout()
-
-        // Auto-activate presentation mode when triggered from outside a running
-        // presentation (e.g. clicking a slide card in the sidebar).  This saves
-        // the current live state so stopPresentation() can restore it, and makes
-        // the PresenterHUD (with its exit button) appear immediately.
-        if (!get().presentationActive) {
-          ;(window as any).__prePresState = {
-            c4Nodes: JSON.parse(JSON.stringify(get().c4Nodes)),
-            c4Relations: JSON.parse(JSON.stringify(get().c4Relations)),
-            activeViewId: get().activeViewId,
-          }
-          set((state) => { state.presentationActive = true })
-          get()._sync()
-        }
 
         // Restore inline model snapshot first (preferred — captured at
         // slide-creation time so it always reflects what was on screen).
@@ -3974,6 +3961,20 @@ export const useDiagramStore = create<DiagramStore>()(
           requestAnimationFrame(() => {
             requestAnimationFrame(() => _getFitViewFn()?.())
           })
+        }
+      },
+
+      previewSlide(index) {
+        const { presentationSlides } = get()
+        if (!presentationSlides.length) return
+        const i = Math.max(0, Math.min(index, presentationSlides.length - 1))
+        const slide = presentationSlides[i]
+        set((state) => { state.presentationSlideIndex = i })
+        // Navigate to the view linked to this slide so the canvas reflects it,
+        // without starting presentation mode or loading any model snapshot.
+        const targetViewId = (slide as any).viewId ?? null
+        if (targetViewId !== get().activeViewId) {
+          get().setActiveView(targetViewId)
         }
       },
 
