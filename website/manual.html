@@ -72,7 +72,8 @@
         <h2>Getting started</h2>
         <p>
           When you launch the app for the first time you'll see the <strong>Welcome screen</strong>.
-          Choose a metamodel (C4 is the default), optionally load the sample <em>Fintech Banking Platform</em>
+          Choose a metamodel — <em>C4</em>, <em>C4 + DDD Domains</em>, or <em>C4 + DDD + Governance</em> —
+          optionally load the sample <em>Fintech Banking Platform</em>
           model, or import an existing <code>.json</code> file. The app opens into <strong>Designer mode</strong>
           with an empty canvas.
         </p>
@@ -85,7 +86,10 @@
           <li><strong>Right panel</strong> — properties of the selected element, plus the view/milestone panel and the AI chat.</li>
         </ul>
         <p>
-          The <strong>toolbar</strong> at the top controls layout, undo/redo, and the Designer ↔ Viewer mode switch.
+          The <strong>toolbar</strong> at the top controls layout, undo/redo, and the
+          Designer&nbsp;/&nbsp;Viewer&nbsp;/&nbsp;Presenter mode switch. <strong>Designer</strong> is the
+          full editing environment; <strong>Viewer</strong> is a read-only sandbox for navigating views;
+          <strong>Presenter</strong> drives the fullscreen slide deck.
           The <strong>Radical menu</strong> (top-left logo button) gives access to model management, metamodel editor,
           theme, Smart Fit, AI settings, and the connection-key preference.
         </p>
@@ -188,11 +192,17 @@
         <h3>Creating and managing views</h3>
         <ol>
           <li>Switch to <strong>Viewer mode</strong> (toolbar, top-right).</li>
-          <li>Click <em>+ New view</em> in the view list on the right panel.</li>
+          <li>Click <em>+ New view</em> in the view list on the right panel, then pick a
+              type — Structure, Flow, Hierarchy, Table, or Matrix.</li>
           <li>Give the view a name (e.g. "System Context", "Payment flow").</li>
           <li>Use the <strong>eye icons</strong> in the node tree to include or exclude elements for this view.</li>
           <li>Each view stores its own layout — rearrange nodes here without affecting other views.</li>
         </ol>
+        <p>
+          You can change a view's type at any time from the view's settings panel (or the
+          <em>Viz</em> dropdown in the view bar), so the same set of elements can be read as a diagram,
+          a table, or a matrix without rebuilding it.
+        </p>
         <h3>View types</h3>
         <div class="doc-table-wrap">
           <table class="doc-table">
@@ -218,6 +228,16 @@
                 <td><strong>Hierarchy</strong></td>
                 <td>Treemap view of the same model, organised by parent-child containment.</td>
                 <td>Domains, subdomains, bounded contexts, teams, and nested ownership structure.</td>
+              </tr>
+              <tr>
+                <td><strong>Table</strong></td>
+                <td>Editable spreadsheet of nodes and relations, with dedicated tabs for ADRs and Fitness Functions.</td>
+                <td>Bulk editing, governance, and reviewing the model as structured data.</td>
+              </tr>
+              <tr>
+                <td><strong>Matrix</strong></td>
+                <td>Dependency Structure Matrix (DSM) — elements on both axes, a marked cell for every relation.</td>
+                <td>Spotting coupling, auditing dependencies, and quickly wiring up relations.</td>
               </tr>
             </tbody>
           </table>
@@ -264,16 +284,66 @@
           <img src="screenshots/hierarchy.png" alt="Hierarchy view in light mode showing a treemap for the Platform system with nested Frontend, Backend, Database, Cache, Auth Service, and End User tiles" />
           <figcaption>Hierarchy view in light mode. The breadcrumb bar lets you drill in and back out, while the size and levels controls tune how much of the containment tree is visible at once.</figcaption>
         </figure>
+        <h3>Table views</h3>
+        <p>
+          Set a view's type to <em>Table</em> to work with the model as an <strong>editable
+          spreadsheet</strong> instead of a diagram. Each row is a node; click any cell to edit its
+          name, description, technology, or type inline. Drag an element type from the palette onto a
+          row to add a child, or drag an existing node to reparent it.
+        </p>
+        <p>
+          The table has four tabs:
+        </p>
+        <ul>
+          <li><strong>All Nodes</strong> — every element as an indented containment tree.</li>
+          <li><strong>ADRs</strong> — Architecture Decision Records with status, context, decision,
+              consequences, and alternatives columns.</li>
+          <li><strong>Fitness Functions</strong> — fitness functions with category, automation,
+              trigger, status, and threshold columns.</li>
+          <li><strong>Relations</strong> — every relation with its source, type, target, label, and
+              technology.</li>
+        </ul>
+        <p>
+          The ADR and Fitness Function tabs require the <em>C4 + DDD + Governance</em> metamodel
+          (see below). The bundled sample model uses it, so you can explore these tabs right away.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/table.png" alt="Table view showing an editable spreadsheet with All Nodes, ADRs, Fitness Functions and Relations tabs; rows show type badges, names and technology" />
+          <figcaption>The Table view as an editable spreadsheet. Switch tabs to manage ADRs and Fitness Functions, or edit any node or relation field inline. Drag a palette type onto a row to nest a new child element.</figcaption>
+        </figure>
+
+        <h3>Matrix views</h3>
+        <p>
+          Set a view's type to <em>Matrix</em> to render a <strong>Dependency Structure Matrix</strong>
+          (DSM): the elements appear on both the rows and the columns, and a coloured dot marks every
+          place where a <em>row → column</em> relation exists. The colour follows the relation type.
+        </p>
+        <ul>
+          <li>Hover a cell to highlight its row and column axes.</li>
+          <li>Click an <strong>empty</strong> cell to create a relation (subject to metamodel rules).</li>
+          <li>Click a <strong>marked</strong> cell to select the relation; click it again to remove it.</li>
+          <li>When a pair has several relations, a count badge appears — click to pick one from a popup.</li>
+        </ul>
+        <p>
+          Matrix views are collapse-aware: relations roll up to the nearest visible ancestor, so a
+          collapsed container shows the aggregated dependencies of everything inside it. In Viewer and
+          Presenter modes the matrix is read-only.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/matrix.png" alt="Matrix view showing a dependency structure matrix with elements on rows and columns and coloured dots where a relation exists" />
+          <figcaption>The Matrix (DSM) view. Every relation is a cell — read coupling at a glance, then click cells to add or remove dependencies without hunting for nodes on a canvas.</figcaption>
+        </figure>
+
         <h3>View layout mode</h3>
         <p>
           Structure and flow views can independently use <em>Auto</em> (Smart Layout) or <em>Tree</em>
           layout. Switch via the view's settings panel. In tree mode the Smart Layout button changes to
-          <em>Tree Layout</em>. Hierarchy views use their own treemap layout and instead expose depth,
-          sizing, and drill-down controls.
+          <em>Tree Layout</em>. Hierarchy, Table and Matrix views don't use canvas layout — they expose
+          their own controls (depth and sizing, spreadsheet tabs, or DSM cells respectively).
         </p>
         <figure class="doc-shot">
           <img src="screenshots/views.png" alt="Views panel showing All elements, System Context, Core Banking Containers and Payments Domain views with a '+ New view' button" />
-          <figcaption>The views panel in Designer mode. Each named view can switch between Structure, Flow, and Hierarchy. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
+          <figcaption>The views panel in Designer mode. Each named view can switch between Structure, Flow, Hierarchy, Table and Matrix. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
         </figure>
       </section>
 
@@ -432,9 +502,37 @@
           and existing nodes re-render with any updated colours.
         </p>
         <h3>Built-in metamodels</h3>
+        <p>
+          Three presets ship built-in. Choose one on the Welcome screen (or via
+          <em>Radical menu → Models → New model</em>):
+        </p>
         <ul>
-          <li><strong>C4</strong> — Person, Software System, Container, Component, Database, Web App, Queue, Domain.</li>
+          <li><strong>C4</strong> — Person, Software System, Container, Component, Database, Web App, Queue.</li>
+          <li><strong>C4 + DDD Domains</strong> — adds a strategic <em>Domain</em> container that nests
+              recursively (Core / Supporting / Generic) above the technical model, plus DDD relations
+              such as <em>Realises</em>, <em>Depends on</em>, and <em>Partnership</em>.</li>
+          <li><strong>C4 + DDD + Governance</strong> — adds two governance node types and links them to
+              architecture elements (see below).</li>
         </ul>
+        <h3>Governance: ADRs &amp; Fitness Functions</h3>
+        <p>
+          The governance metamodel makes architectural intent part of the model itself:
+        </p>
+        <ul>
+          <li><strong>ADR</strong> — an Architecture Decision Record (Nygard / MADR style) with
+              <em>status</em>, <em>date</em>, <em>context</em>, <em>decision</em>,
+              <em>consequences</em>, and <em>alternatives considered</em>.</li>
+          <li><strong>Fitness Function</strong> — an objective, often automated check from
+              <em>Building Evolutionary Architectures</em>, with <em>category</em>,
+              <em>automated</em>, <em>trigger</em>, <em>threshold</em>, and <em>status</em>.</li>
+        </ul>
+        <p>
+          Three governance relations connect them to the architecture: <strong>Constrains</strong>
+          (an ADR or Fitness Function → any element), <strong>Supersedes</strong> (a newer ADR → an
+          older one), and <strong>Implements</strong> (a Fitness Function → the ADR it verifies). Manage
+          these records most comfortably in a <a href="#views">Table view</a>, on its ADRs and Fitness
+          Functions tabs. The bundled sample model uses this metamodel.
+        </p>
         <p>
           You can add custom node types (with a custom label, icon path, and colour) or remove types
           that don't apply to your architecture. Relation types let you define which source and target

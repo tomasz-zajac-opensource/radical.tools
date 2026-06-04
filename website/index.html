@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Radical.Tools - Architecture Modelling Tool</title>
-  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Structure, flow, and hierarchy views built on one shared source of truth. Ships with C4. MIT licensed. Desktop or browser." />
+  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Structure, flow, hierarchy, table and matrix views built on one shared source of truth. Ships with C4, DDD and governance (ADRs & Fitness Functions). MIT licensed. Desktop or browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -78,8 +78,10 @@
           <p class="concept-lead">The vocabulary of your architecture.</p>
           <p>
             Defines what kinds of things can exist: node types, relation types, allowed properties.
-            C4 ships by default - Person, Software System, Container, Component.
-            Extend it or replace it entirely. More metamodels are coming.
+            Three presets ship built-in: <strong>C4</strong> (Person, Software System, Container, Component),
+            <strong>C4 + DDD</strong> (recursive strategic Domains), and
+            <strong>C4 + DDD + Governance</strong> (Architecture Decision Records and Fitness Functions).
+            Extend any of them or replace the metamodel entirely.
           </p>
           <div class="concept-example">
             <code>Person → uses → Software System</code>
@@ -108,13 +110,15 @@
           <p class="concept-lead">A named perspective on the same model.</p>
           <p>
             Different audiences need different levels of detail.
-            Structure views render scoped node-link diagrams such as System Context or Container maps.
-            Flow views bind a sequence to that same model and show numbered interaction steps.
-            Hierarchy views turn containment into a drillable treemap.
-            Each view keeps its own layout or drill state, while the underlying model stays shared.
+            <strong>Structure</strong> views render scoped node-link diagrams such as System Context or Container maps.
+            <strong>Flow</strong> views bind a sequence to that same model and show numbered interaction steps.
+            <strong>Hierarchy</strong> views turn containment into a drillable treemap.
+            <strong>Table</strong> views give you an editable, governance-aware spreadsheet, and
+            <strong>Matrix</strong> views expose dependencies as a DSM grid.
+            Each view keeps its own layout, drill or filter state, while the underlying model stays shared.
           </p>
           <div class="concept-example">
-            <code>Structure / Flow / Hierarchy → one model, three readings</code>
+            <code>Structure / Flow / Hierarchy / Table / Matrix → one model, five readings</code>
             <span class="ce-label">view instance</span>
           </div>
         </div>
@@ -188,6 +192,22 @@
         </div>
 
         <div class="feature-card">
+          <div class="fc-icon fc-blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17.5h7M17.5 14v7"/></svg>
+          </div>
+          <h3>Five View Types</h3>
+          <p>Read the same model as a <strong>Structure</strong> diagram, a numbered <strong>Flow</strong>, a drillable <strong>Hierarchy</strong> treemap, an editable <strong>Table</strong>, or a dependency <strong>Matrix</strong> (DSM) — all always in sync.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="fc-icon fc-orange">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 4.5-3 7.5-8 9-5-1.5-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <h3>Governance Built In</h3>
+          <p>Capture <strong>Architecture Decision Records</strong> and <strong>Fitness Functions</strong> as first-class nodes, then link them to the elements they constrain, supersede, or implement.</p>
+        </div>
+
+        <div class="feature-card">
           <div class="fc-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
           </div>
@@ -237,6 +257,20 @@
           <figcaption>
             <span class="shot-label">Hierarchy</span>
             Treemap-based hierarchy view in light mode. Drill into nested systems and containers, control visible depth, and inspect containment without edge clutter.
+          </figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="screenshots/matrix.png" alt="Matrix view showing a dependency structure matrix (DSM) with elements on rows and columns and coloured dots where a relation exists" />
+          <figcaption>
+            <span class="shot-label">Matrix</span>
+            Dependency Structure Matrix. Every relation is a cell — click an empty cell to create one, a marked cell to select it. Ideal for spotting coupling at a glance.
+          </figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="screenshots/table.png" alt="Table view showing an editable spreadsheet with All Nodes, ADRs, Fitness Functions and Relations tabs" />
+          <figcaption>
+            <span class="shot-label">Table</span>
+            Governance-aware spreadsheet. Edit nodes and relations inline and switch tabs to manage ADRs and Fitness Functions alongside the architecture.
           </figcaption>
         </figure>
       </div>

@@ -1,12 +1,15 @@
 /**
  * Fintech Banking Platform — a sample C4 model demonstrating all capabilities:
- *  - All 8 node types: person, system, domain, container, component, database, webapp, queue
- *  - 3 named views: System Context (static), Core Banking (static), Payments Domain (static)
- *  - 1 dynamic view: Payment Flow (sequence diagram with step badges)
- *  - 1 treemap view: Platform Hierarchy (nested rectangle area chart)
+ *  - All node types incl. governance: person, system, domain, container,
+ *    component, database, webapp, queue, adr, fitness-fn
+ *  - C4 + DDD + Governance metamodel (ADRs & Fitness Functions)
+ *  - 7 named views:
+ *      System Context · Core Banking · Payments Domain (static)
+ *      Payment Flow (dynamic) · Platform Hierarchy (treemap)
+ *      Dependency Matrix (matrix) · Governance (table)
  *  - 1 sequence: Payment Processing (ordered interaction steps)
  *  - 3 milestones tracking platform evolution
- *  - 1 presentation with 6 slides
+ *  - 1 presentation with 8 slides
  */
 
 import type {
@@ -14,6 +17,7 @@ import type {
   NodePosition, Presentation,
 } from '../types/c4'
 import { COLLAPSED_HEIGHT, COLLAPSED_WIDTH } from '../types/c4'
+import { builtInGovernanceMetamodel } from '../types/metamodel'
 import { runSmartLayout } from '../layout/smartLayout'
 import savedSampleData from './fintechSampleData.json'
 
@@ -30,6 +34,21 @@ function nd(
 
 function rl(id: string, src: string, tgt: string, label: string, tech = ''): C4Relation {
   return { id, sourceId: src, targetId: tgt, label, technology: tech }
+}
+
+/** Governance relation carrying an explicit metamodel relationType. */
+function gr(id: string, src: string, tgt: string, relationType: string, label = ''): C4Relation {
+  return { id, sourceId: src, targetId: tgt, relationType, label, technology: '' }
+}
+
+/** ADR governance node — carries MADR-style fields as extra props. */
+function adrNode(id: string, label: string, x: number, y: number, props: Record<string, unknown>): C4Node {
+  return { id, type: 'adr', label, x, y, width: 180, height: 52, collapsed: false, ...props } as C4Node
+}
+
+/** Fitness-function governance node — carries evolutionary-architecture fields. */
+function ffNode(id: string, label: string, description: string, x: number, y: number, props: Record<string, unknown>): C4Node {
+  return { id, type: 'fitness-fn', label, description, x, y, width: 180, height: 52, collapsed: false, ...props } as C4Node
 }
 
 // ── Layout helpers ────────────────────────────────────────────────────────────
@@ -193,6 +212,48 @@ function _makeBaseData(): { allNodes: C4Node[]; allRels: C4Relation[] } {
     nd('sys-swift', 'system', 'SWIFT Network',      'International wire transfer messaging',  'SWIFT MT / ISO 20022', 200,  1060, 360, 260, { external: true }),
     nd('sys-cards', 'system', 'Card Networks',       'Visa / Mastercard authorisation',        'ISO 8583 / Visa API',  620,  1060, 360, 260, { external: true }),
     nd('sys-kyc',   'system', 'KYC / AML Provider', 'Identity verification and AML screening', 'REST / JSON',          1040, 1060, 360, 260, { external: true }),
+
+    // ── Governance: Architecture Decision Records (Nygard / MADR) ─────────────
+    adrNode('adr-evt', 'ADR-001: Event-Driven Core', 2700, 0, {
+      status: 'accepted', date: '2024-02-12',
+      context: 'Synchronous service-to-service calls were creating tight coupling and cascading failures between payments, accounts and fraud.',
+      decision: 'Introduce an Apache Kafka event bus and move all cross-domain communication to asynchronous domain events.',
+      consequences: 'Looser coupling and independent scaling, at the cost of eventual consistency and the need for idempotent consumers.',
+      alternatives: 'Synchronous gRPC mesh; shared database integration.',
+    }),
+    adrNode('adr-ledger', 'ADR-002: Immutable Ledger on PostgreSQL', 2700, 90, {
+      status: 'accepted', date: '2024-03-04',
+      context: 'Financial transactions must be auditable and tamper-evident for regulators.',
+      decision: 'Store transactions in an append-only PostgreSQL ledger with Patroni replication; never update or delete rows.',
+      consequences: 'Strong auditability and point-in-time reconstruction; table growth requires partitioning and archival.',
+      alternatives: 'Mutable balance table; event-store-only persistence.',
+    }),
+    adrNode('adr-jwt', 'ADR-003: Stateless JWT Auth', 2700, 180, {
+      status: 'accepted', date: '2024-01-20',
+      context: 'Session affinity made horizontal scaling of the API tier difficult.',
+      decision: 'Use short-lived signed JWT access tokens issued by Keycloak; validate at the gateway with no server-side session store.',
+      consequences: 'Stateless, horizontally scalable auth; token revocation needs a short TTL plus a denylist.',
+      alternatives: 'Server-side sessions in Redis; opaque tokens with introspection.',
+    }),
+    adrNode('adr-mono', 'ADR-000: Modular Monolith', 2700, 270, {
+      status: 'superseded', date: '2023-09-01',
+      context: 'The initial MVP needed to ship quickly with a small team.',
+      decision: 'Build the platform as a single modular monolith deployed as one unit.',
+      consequences: 'Fast early delivery, but scaling and team autonomy became bottlenecks as the platform grew.',
+      alternatives: 'Microservices from day one.',
+    }),
+
+    // ── Governance: Fitness Functions (Building Evolutionary Architectures) ───
+    ffNode('ff-latency', 'FF: Payment p99 < 250ms',
+      'Continuously asserts that the end-to-end payment path stays within its latency budget.', 2900, 0, {
+      category: 'operational', automated: true, trigger: 'continuous', status: 'active',
+      threshold: 'p99 latency < 250ms measured over any rolling 24h window',
+    }),
+    ffNode('ff-ledger', 'FF: Zero ledger data loss',
+      'Verifies the transaction ledger survives node failure with no committed-record loss.', 2900, 90, {
+      category: 'structural', automated: true, trigger: 'on-deploy', status: 'active',
+      threshold: 'No committed transaction lost during automated chaos / failover tests',
+    }),
   ]
 
   // ── Relations ──────────────────────────────────────────────────────────────
@@ -225,6 +286,17 @@ function _makeBaseData(): { allNodes: C4Node[]; allRels: C4Relation[] } {
     rl('r-pay-swift',   'ctn-payments', 'sys-swift',    'Sends wire transfers',       'SWIFT MT103'),
     rl('r-pay-cards',   'ctn-payments', 'sys-cards',    'Card authorisation',          'ISO 8583'),
     rl('r-acc-kyc',     'ctn-accounts', 'sys-kyc',      'Identity & AML screening',    'REST / JSON'),
+
+    // ── Governance relations (constrains / supersedes / implements) ──────────
+    gr('g-adrEvt-evtbus',  'adr-evt',    'ctn-evtbus',   'constrains', 'Async via events'),
+    gr('g-adrEvt-pay',     'adr-evt',    'ctn-payments', 'constrains'),
+    gr('g-adrLedger-dbtx', 'adr-ledger', 'ctn-db-tx',    'constrains', 'Append-only'),
+    gr('g-adrJwt-auth',    'adr-jwt',    'ctn-auth',     'constrains', 'Stateless tokens'),
+    gr('g-adrEvt-mono',    'adr-evt',    'adr-mono',     'supersedes'),
+    gr('g-ffLat-pay',      'ff-latency', 'ctn-payments', 'constrains', 'Latency budget'),
+    gr('g-ffLat-impl',     'ff-latency', 'adr-evt',      'implements'),
+    gr('g-ffLedger-dbtx',  'ff-ledger',  'ctn-db-tx',    'constrains', 'Durability'),
+    gr('g-ffLedger-impl',  'ff-ledger',  'adr-ledger',   'implements'),
   ]
 
   return { allNodes, allRels }
@@ -299,6 +371,23 @@ const TREEMAP_IDS = [
   'sys-channels', 'ctn-web', 'ctn-mobile',
 ]
 
+// Matrix (DSM): the concrete services / stores that exchange traffic
+const MATRIX_IDS = [
+  'ctn-web', 'ctn-mobile', 'ctn-apigw', 'ctn-auth',
+  'ctn-payments', 'ctn-accounts', 'ctn-evtbus', 'ctn-fraud',
+  'ctn-db-acc', 'ctn-db-tx',
+]
+
+// Governance table: architecture + decisions + fitness functions together
+const GOVERNANCE_IDS = [
+  'sys-core',
+  'dom-access',  'ctn-apigw', 'ctn-auth',
+  'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-accounts', 'ctn-evtbus',
+  'dom-risk',    'ctn-fraud', 'ctn-db-acc', 'ctn-db-tx',
+  'adr-evt', 'adr-ledger', 'adr-jwt', 'adr-mono',
+  'ff-latency', 'ff-ledger',
+]
+
 // ── Milestone node / relation subsets ─────────────────────────────────────────
 
 // v1 – MVP: API gateway + auth + accounts only
@@ -333,7 +422,9 @@ function _buildPresentations(): Presentation[] {
       { id: 'slide-payments', name: '3 – Payments Domain',     snapshotId: null,       viewId: 'view-payments', viewport: { x: 100, y: 60,  zoom: 0.55 } },
       { id: 'slide-payflow',  name: '4 – Payment Flow',        snapshotId: null,       viewId: 'view-payflow',  viewport: { x: 100, y: 60,  zoom: 0.55 } },
       { id: 'slide-treemap',  name: '5 – Platform Hierarchy',  snapshotId: null,       viewId: 'view-treemap',  viewport: { x: 80,  y: 80,  zoom: 0.6  } },
-      { id: 'slide-v1',       name: '6 – v1 MVP (Milestone)',  snapshotId: 'snap-v1',  viewId: null,            viewport: { x: 200, y: 80,  zoom: 0.65 } },
+      { id: 'slide-matrix',   name: '6 – Dependency Matrix',   snapshotId: null,       viewId: 'view-matrix',     viewport: { x: 0, y: 0, zoom: 1 } },
+      { id: 'slide-governance', name: '7 – Governance',        snapshotId: null,       viewId: 'view-governance', viewport: { x: 0, y: 0, zoom: 1 } },
+      { id: 'slide-v1',       name: '8 – v1 MVP (Milestone)',  snapshotId: 'snap-v1',  viewId: null,            viewport: { x: 200, y: 80,  zoom: 0.65 } },
     ],
   }]
 }
@@ -364,7 +455,9 @@ export async function loadFintechSample(): Promise<DiagramData> {
  */
 export function buildFintechSampleRaw(): DiagramData {
   if ((savedSampleData as { nodes?: unknown }).nodes) {
-    return JSON.parse(JSON.stringify(savedSampleData)) as DiagramData
+    const data = JSON.parse(JSON.stringify(savedSampleData)) as DiagramData
+    if (!data.metamodel) data.metamodel = builtInGovernanceMetamodel()
+    return data
   }
 
   const { allNodes, allRels } = _makeBaseData()
@@ -401,6 +494,8 @@ export function buildFintechSampleRaw(): DiagramData {
     { id: 'view-payments', name: 'Payments Domain',     kind: 'static',  nodeIds: PAY_IDS,      positions: mainPositions, viewport: { x: 100, y: 60, zoom: 0.55 } },
     { id: 'view-payflow',  name: 'Payment Flow',        kind: 'dynamic', nodeIds: PAYFLOW_IDS,  positions: mainPositions, viewport: { x: 100, y: 60, zoom: 0.55 }, sequenceId: 'seq-payment-flow' },
     { id: 'view-treemap',  name: 'Platform Hierarchy',  kind: 'treemap', nodeIds: TREEMAP_IDS,  positions: mainPositions, viewport: { x: 80,  y: 80, zoom: 0.6  } },
+    { id: 'view-matrix',   name: 'Dependency Matrix',   kind: 'matrix',  nodeIds: MATRIX_IDS,   positions: mainPositions, viewport: { x: 0,   y: 0,  zoom: 1    } },
+    { id: 'view-governance', name: 'Governance',        kind: 'table',   nodeIds: GOVERNANCE_IDS, positions: mainPositions, viewport: { x: 0, y: 0, zoom: 1 } },
   ]
 
   return {
@@ -411,6 +506,7 @@ export function buildFintechSampleRaw(): DiagramData {
     snapshots,
     presentations: _buildPresentations(),
     defaultPositions: mainPositions,
+    metamodel: builtInGovernanceMetamodel(),
   }
 }
 
@@ -418,7 +514,9 @@ export async function buildFintechSample(): Promise<DiagramData> {
 
   // ── If a pre-computed layout is bundled, use it directly ──────────────────
   if ((savedSampleData as { nodes?: unknown }).nodes) {
-    return JSON.parse(JSON.stringify(savedSampleData)) as DiagramData
+    const data = JSON.parse(JSON.stringify(savedSampleData)) as DiagramData
+    if (!data.metamodel) data.metamodel = builtInGovernanceMetamodel()
+    return data
   }
 
   // ── Otherwise build programmatically + apply smart layout ─────────────────
@@ -488,6 +586,8 @@ export async function buildFintechSample(): Promise<DiagramData> {
     { id: 'view-payments', name: 'Payments Domain',    kind: 'static',  nodeIds: PAY_IDS,      positions: payPositions,     viewport: { x: 100, y: 60, zoom: 0.55 } },
     { id: 'view-payflow',  name: 'Payment Flow',       kind: 'dynamic', nodeIds: PAYFLOW_IDS,  positions: payflowPositions, viewport: { x: 100, y: 60, zoom: 0.55 }, sequenceId: 'seq-payment-flow' },
     { id: 'view-treemap',  name: 'Platform Hierarchy', kind: 'treemap', nodeIds: TREEMAP_IDS,  positions: mainPositions,    viewport: { x: 80,  y: 80, zoom: 0.6  } },
+    { id: 'view-matrix',   name: 'Dependency Matrix',  kind: 'matrix',  nodeIds: MATRIX_IDS,   positions: mainPositions,    viewport: { x: 0,   y: 0,  zoom: 1    } },
+    { id: 'view-governance', name: 'Governance',       kind: 'table',   nodeIds: GOVERNANCE_IDS, positions: mainPositions,  viewport: { x: 0, y: 0, zoom: 1 } },
   ]
 
   return {
@@ -498,5 +598,6 @@ export async function buildFintechSample(): Promise<DiagramData> {
     snapshots,
     presentations: _buildPresentations(),
     defaultPositions: mainPositions,
+    metamodel: builtInGovernanceMetamodel(),
   }
 }

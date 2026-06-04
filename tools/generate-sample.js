@@ -151,6 +151,11 @@ function rl(id, src, tgt, label, tech) {
   return { id, sourceId: src, targetId: tgt, label, technology: tech || '' }
 }
 
+/** Governance relation with an explicit metamodel relationType. */
+function gr(id, src, tgt, relationType, label) {
+  return { id, sourceId: src, targetId: tgt, relationType, label: label || '', technology: '' }
+}
+
 function buildViewSubset(viewNodeIds, allNodeMap) {
   const result = {}
   for (const id of viewNodeIds) {
@@ -282,6 +287,48 @@ function makeBaseData() {
     nd('sys-swift', 'system', 'SWIFT Network',      'International wire transfer messaging',   'SWIFT MT / ISO 20022', 200,  1060, 360, 260, { external: true }),
     nd('sys-cards', 'system', 'Card Networks',       'Visa / Mastercard authorisation',         'ISO 8583 / Visa API',  620,  1060, 360, 260, { external: true }),
     nd('sys-kyc',   'system', 'KYC / AML Provider', 'Identity verification and AML screening', 'REST / JSON',          1040, 1060, 360, 260, { external: true }),
+
+    // ── Governance: Architecture Decision Records (Nygard / MADR) ─────────────
+    nd('adr-evt', 'adr', 'ADR-001: Event-Driven Core', '', '', 2700, 0, 180, 52, {
+      status: 'accepted', date: '2024-02-12',
+      context: 'Synchronous service-to-service calls were creating tight coupling and cascading failures between payments, accounts and fraud.',
+      decision: 'Introduce an Apache Kafka event bus and move all cross-domain communication to asynchronous domain events.',
+      consequences: 'Looser coupling and independent scaling, at the cost of eventual consistency and the need for idempotent consumers.',
+      alternatives: 'Synchronous gRPC mesh; shared database integration.',
+    }),
+    nd('adr-ledger', 'adr', 'ADR-002: Immutable Ledger on PostgreSQL', '', '', 2700, 90, 180, 52, {
+      status: 'accepted', date: '2024-03-04',
+      context: 'Financial transactions must be auditable and tamper-evident for regulators.',
+      decision: 'Store transactions in an append-only PostgreSQL ledger with Patroni replication; never update or delete rows.',
+      consequences: 'Strong auditability and point-in-time reconstruction; table growth requires partitioning and archival.',
+      alternatives: 'Mutable balance table; event-store-only persistence.',
+    }),
+    nd('adr-jwt', 'adr', 'ADR-003: Stateless JWT Auth', '', '', 2700, 180, 180, 52, {
+      status: 'accepted', date: '2024-01-20',
+      context: 'Session affinity made horizontal scaling of the API tier difficult.',
+      decision: 'Use short-lived signed JWT access tokens issued by Keycloak; validate at the gateway with no server-side session store.',
+      consequences: 'Stateless, horizontally scalable auth; token revocation needs a short TTL plus a denylist.',
+      alternatives: 'Server-side sessions in Redis; opaque tokens with introspection.',
+    }),
+    nd('adr-mono', 'adr', 'ADR-000: Modular Monolith', '', '', 2700, 270, 180, 52, {
+      status: 'superseded', date: '2023-09-01',
+      context: 'The initial MVP needed to ship quickly with a small team.',
+      decision: 'Build the platform as a single modular monolith deployed as one unit.',
+      consequences: 'Fast early delivery, but scaling and team autonomy became bottlenecks as the platform grew.',
+      alternatives: 'Microservices from day one.',
+    }),
+
+    // ── Governance: Fitness Functions (Building Evolutionary Architectures) ───
+    nd('ff-latency', 'fitness-fn', 'FF: Payment p99 < 250ms',
+      'Continuously asserts that the end-to-end payment path stays within its latency budget.', '', 2900, 0, 180, 52, {
+      category: 'operational', automated: true, trigger: 'continuous', status: 'active',
+      threshold: 'p99 latency < 250ms measured over any rolling 24h window',
+    }),
+    nd('ff-ledger', 'fitness-fn', 'FF: Zero ledger data loss',
+      'Verifies the transaction ledger survives node failure with no committed-record loss.', '', 2900, 90, 180, 52, {
+      category: 'structural', automated: true, trigger: 'on-deploy', status: 'active',
+      threshold: 'No committed transaction lost during automated chaos / failover tests',
+    }),
   ]
 
   const allRels = [
@@ -301,6 +348,17 @@ function makeBaseData() {
     rl('r-pay-swift',   'ctn-payments', 'sys-swift',    'Sends wire transfers',       'SWIFT MT103'),
     rl('r-pay-cards',   'ctn-payments', 'sys-cards',    'Card authorisation',          'ISO 8583'),
     rl('r-acc-kyc',     'ctn-accounts', 'sys-kyc',      'Identity & AML screening',    'REST / JSON'),
+
+    // ── Governance relations (constrains / supersedes / implements) ──────────
+    gr('g-adrEvt-evtbus',  'adr-evt',    'ctn-evtbus',   'constrains', 'Async via events'),
+    gr('g-adrEvt-pay',     'adr-evt',    'ctn-payments', 'constrains'),
+    gr('g-adrLedger-dbtx', 'adr-ledger', 'ctn-db-tx',    'constrains', 'Append-only'),
+    gr('g-adrJwt-auth',    'adr-jwt',    'ctn-auth',     'constrains', 'Stateless tokens'),
+    gr('g-adrEvt-mono',    'adr-evt',    'adr-mono',     'supersedes'),
+    gr('g-ffLat-pay',      'ff-latency', 'ctn-payments', 'constrains', 'Latency budget'),
+    gr('g-ffLat-impl',     'ff-latency', 'adr-evt',      'implements'),
+    gr('g-ffLedger-dbtx',  'ff-ledger',  'ctn-db-tx',    'constrains', 'Durability'),
+    gr('g-ffLedger-impl',  'ff-ledger',  'adr-ledger',   'implements'),
   ]
 
   return { allNodes, allRels }
@@ -342,6 +400,23 @@ const TREEMAP_IDS = [
   'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-accounts', 'ctn-evtbus',
   'dom-risk', 'ctn-fraud', 'ctn-db-acc', 'ctn-db-tx',
   'sys-channels', 'ctn-web', 'ctn-mobile',
+]
+
+// Matrix (DSM): the concrete services/stores that exchange traffic
+const MATRIX_IDS = [
+  'ctn-web', 'ctn-mobile', 'ctn-apigw', 'ctn-auth',
+  'ctn-payments', 'ctn-accounts', 'ctn-evtbus', 'ctn-fraud',
+  'ctn-db-acc', 'ctn-db-tx',
+]
+
+// Governance table: architecture + decisions + fitness functions together
+const GOVERNANCE_IDS = [
+  'sys-core',
+  'dom-access', 'ctn-apigw', 'ctn-auth',
+  'dom-banking', 'ctn-payments', 'comp-validator', 'comp-fx', 'ctn-accounts', 'ctn-evtbus',
+  'dom-risk', 'ctn-fraud', 'ctn-db-acc', 'ctn-db-tx',
+  'adr-evt', 'adr-ledger', 'adr-jwt', 'adr-mono',
+  'ff-latency', 'ff-ledger',
 ]
 
 const V1_NODES = [
@@ -465,6 +540,8 @@ async function main() {
       { id: 'view-payments', name: 'Payments Domain',    kind: 'static',  nodeIds: PAY_IDS,     positions: payPositions,     viewport: payVp     },
       { id: 'view-payflow',  name: 'Payment Flow',       kind: 'dynamic', nodeIds: PAYFLOW_IDS, positions: payflowPositions, viewport: payflowVp, sequenceId: 'seq-payment-flow' },
       { id: 'view-treemap',  name: 'Platform Hierarchy', kind: 'treemap', nodeIds: TREEMAP_IDS, positions: treemapPositions, viewport: treemapVp },
+      { id: 'view-matrix',   name: 'Dependency Matrix', kind: 'matrix', nodeIds: MATRIX_IDS, positions: defaultPositions, viewport: { x: 0, y: 0, zoom: 1 } },
+      { id: 'view-governance', name: 'Governance', kind: 'table', nodeIds: GOVERNANCE_IDS, positions: defaultPositions, viewport: { x: 0, y: 0, zoom: 1 } },
     ],
     snapshots: [
       { id: 'snap-v1', name: 'v1 – Core & Accounts',   timestamp: Date.now() - 90 * 86400000, nodes: v1NodeMap, relations: Object.fromEntries(v1RelList.map(r => [r.id, r])) },
@@ -480,7 +557,9 @@ async function main() {
         { id: 'slide-payments', name: '3 – Payments Domain',     snapshotId: null,      viewId: 'view-payments', viewport: payVp     },
         { id: 'slide-payflow',  name: '4 – Payment Flow',        snapshotId: null,      viewId: 'view-payflow',  viewport: payflowVp },
         { id: 'slide-treemap',  name: '5 – Platform Hierarchy',  snapshotId: null,      viewId: 'view-treemap',  viewport: treemapVp },
-        { id: 'slide-v1',       name: '6 – v1 MVP (Milestone)',  snapshotId: 'snap-v1', viewId: null,            viewport: v1Vp      },
+        { id: 'slide-matrix',   name: '6 – Dependency Matrix',   snapshotId: null,      viewId: 'view-matrix',     viewport: { x: 0, y: 0, zoom: 1 } },
+        { id: 'slide-governance', name: '7 – Governance',        snapshotId: null,      viewId: 'view-governance', viewport: { x: 0, y: 0, zoom: 1 } },
+        { id: 'slide-v1',       name: '8 – v1 MVP (Milestone)',  snapshotId: 'snap-v1', viewId: null,            viewport: v1Vp      },
       ],
     }],
     defaultPositions,

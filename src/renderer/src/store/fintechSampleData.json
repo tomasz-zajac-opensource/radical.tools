@@ -6,7 +6,7 @@
       "label": "Retail Customer",
       "description": "Individual banking customer accessing via web and mobile",
       "technology": "",
-      "x": 30,
+      "x": 290,
       "y": 120,
       "width": 150,
       "height": 170,
@@ -18,7 +18,7 @@
       "label": "Corporate Client",
       "description": "Business client using treasury and bulk-payment APIs",
       "technology": "",
-      "x": 260,
+      "x": 520,
       "y": 120,
       "width": 150,
       "height": 170,
@@ -30,7 +30,7 @@
       "label": "Bank Operator",
       "description": "Internal staff managing operations and support",
       "technology": "",
-      "x": 490,
+      "x": 750,
       "y": 120,
       "width": 150,
       "height": 170,
@@ -42,8 +42,8 @@
       "label": "Core Banking Platform",
       "description": "Central microservices platform — all banking domain logic",
       "technology": "Kubernetes / Istio",
-      "x": 30,
-      "y": 650,
+      "x": 800,
+      "y": 516,
       "width": 1230,
       "height": 1440,
       "collapsed": false
@@ -223,8 +223,8 @@
       "label": "Digital Channels",
       "description": "Customer-facing web portal and native mobile app",
       "technology": "React / React Native",
-      "x": 2040,
-      "y": 120,
+      "x": 470,
+      "y": 516,
       "width": 250,
       "height": 450,
       "collapsed": false
@@ -261,7 +261,7 @@
       "label": "SWIFT Network",
       "description": "International wire transfer messaging",
       "technology": "SWIFT MT / ISO 20022",
-      "x": 720,
+      "x": 1500,
       "y": 120,
       "width": 360,
       "height": 260,
@@ -274,7 +274,7 @@
       "label": "Card Networks",
       "description": "Visa / Mastercard authorisation",
       "technology": "ISO 8583 / Visa API",
-      "x": 1160,
+      "x": 1940,
       "y": 120,
       "width": 360,
       "height": 260,
@@ -287,12 +287,118 @@
       "label": "KYC / AML Provider",
       "description": "Identity verification and AML screening",
       "technology": "REST / JSON",
-      "x": 1600,
-      "y": 120,
+      "x": 30,
+      "y": 516,
       "width": 360,
       "height": 260,
       "collapsed": false,
       "external": true
+    },
+    {
+      "id": "adr-evt",
+      "type": "adr",
+      "label": "ADR-001: Event-Driven Core",
+      "description": "",
+      "technology": "",
+      "x": 1240,
+      "y": 252,
+      "width": 180,
+      "height": 52,
+      "collapsed": false,
+      "status": "accepted",
+      "date": "2024-02-12",
+      "context": "Synchronous service-to-service calls were creating tight coupling and cascading failures between payments, accounts and fraud.",
+      "decision": "Introduce an Apache Kafka event bus and move all cross-domain communication to asynchronous domain events.",
+      "consequences": "Looser coupling and independent scaling, at the cost of eventual consistency and the need for idempotent consumers.",
+      "alternatives": "Synchronous gRPC mesh; shared database integration."
+    },
+    {
+      "id": "adr-ledger",
+      "type": "adr",
+      "label": "ADR-002: Immutable Ledger on PostgreSQL",
+      "description": "",
+      "technology": "",
+      "x": 980,
+      "y": 252,
+      "width": 180,
+      "height": 52,
+      "collapsed": false,
+      "status": "accepted",
+      "date": "2024-03-04",
+      "context": "Financial transactions must be auditable and tamper-evident for regulators.",
+      "decision": "Store transactions in an append-only PostgreSQL ledger with Patroni replication; never update or delete rows.",
+      "consequences": "Strong auditability and point-in-time reconstruction; table growth requires partitioning and archival.",
+      "alternatives": "Mutable balance table; event-store-only persistence."
+    },
+    {
+      "id": "adr-jwt",
+      "type": "adr",
+      "label": "ADR-003: Stateless JWT Auth",
+      "description": "",
+      "technology": "",
+      "x": 30,
+      "y": 120,
+      "width": 180,
+      "height": 52,
+      "collapsed": false,
+      "status": "accepted",
+      "date": "2024-01-20",
+      "context": "Session affinity made horizontal scaling of the API tier difficult.",
+      "decision": "Use short-lived signed JWT access tokens issued by Keycloak; validate at the gateway with no server-side session store.",
+      "consequences": "Stateless, horizontally scalable auth; token revocation needs a short TTL plus a denylist.",
+      "alternatives": "Server-side sessions in Redis; opaque tokens with introspection."
+    },
+    {
+      "id": "adr-mono",
+      "type": "adr",
+      "label": "ADR-000: Modular Monolith",
+      "description": "",
+      "technology": "",
+      "x": 1240,
+      "y": 384,
+      "width": 180,
+      "height": 52,
+      "collapsed": false,
+      "status": "superseded",
+      "date": "2023-09-01",
+      "context": "The initial MVP needed to ship quickly with a small team.",
+      "decision": "Build the platform as a single modular monolith deployed as one unit.",
+      "consequences": "Fast early delivery, but scaling and team autonomy became bottlenecks as the platform grew.",
+      "alternatives": "Microservices from day one."
+    },
+    {
+      "id": "ff-latency",
+      "type": "fitness-fn",
+      "label": "FF: Payment p99 < 250ms",
+      "description": "Continuously asserts that the end-to-end payment path stays within its latency budget.",
+      "technology": "",
+      "x": 1240,
+      "y": 120,
+      "width": 180,
+      "height": 52,
+      "collapsed": false,
+      "category": "operational",
+      "automated": true,
+      "trigger": "continuous",
+      "status": "active",
+      "threshold": "p99 latency < 250ms measured over any rolling 24h window"
+    },
+    {
+      "id": "ff-ledger",
+      "type": "fitness-fn",
+      "label": "FF: Zero ledger data loss",
+      "description": "Verifies the transaction ledger survives node failure with no committed-record loss.",
+      "technology": "",
+      "x": 980,
+      "y": 120,
+      "width": 180,
+      "height": 52,
+      "collapsed": false,
+      "category": "structural",
+      "automated": true,
+      "trigger": "on-deploy",
+      "status": "active",
+      "threshold": "No committed transaction lost during automated chaos / failover tests"
     }
   ],
   "relations": [
@@ -407,6 +513,78 @@
       "targetId": "sys-kyc",
       "label": "Identity & AML screening",
       "technology": "REST / JSON"
+    },
+    {
+      "id": "g-adrEvt-evtbus",
+      "sourceId": "adr-evt",
+      "targetId": "ctn-evtbus",
+      "relationType": "constrains",
+      "label": "Async via events",
+      "technology": ""
+    },
+    {
+      "id": "g-adrEvt-pay",
+      "sourceId": "adr-evt",
+      "targetId": "ctn-payments",
+      "relationType": "constrains",
+      "label": "",
+      "technology": ""
+    },
+    {
+      "id": "g-adrLedger-dbtx",
+      "sourceId": "adr-ledger",
+      "targetId": "ctn-db-tx",
+      "relationType": "constrains",
+      "label": "Append-only",
+      "technology": ""
+    },
+    {
+      "id": "g-adrJwt-auth",
+      "sourceId": "adr-jwt",
+      "targetId": "ctn-auth",
+      "relationType": "constrains",
+      "label": "Stateless tokens",
+      "technology": ""
+    },
+    {
+      "id": "g-adrEvt-mono",
+      "sourceId": "adr-evt",
+      "targetId": "adr-mono",
+      "relationType": "supersedes",
+      "label": "",
+      "technology": ""
+    },
+    {
+      "id": "g-ffLat-pay",
+      "sourceId": "ff-latency",
+      "targetId": "ctn-payments",
+      "relationType": "constrains",
+      "label": "Latency budget",
+      "technology": ""
+    },
+    {
+      "id": "g-ffLat-impl",
+      "sourceId": "ff-latency",
+      "targetId": "adr-evt",
+      "relationType": "implements",
+      "label": "",
+      "technology": ""
+    },
+    {
+      "id": "g-ffLedger-dbtx",
+      "sourceId": "ff-ledger",
+      "targetId": "ctn-db-tx",
+      "relationType": "constrains",
+      "label": "Durability",
+      "technology": ""
+    },
+    {
+      "id": "g-ffLedger-impl",
+      "sourceId": "ff-ledger",
+      "targetId": "adr-ledger",
+      "relationType": "implements",
+      "label": "",
+      "technology": ""
     }
   ],
   "sequences": [
@@ -586,6 +764,42 @@
           "y": 720,
           "width": 360,
           "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
         }
       },
       "viewport": {
@@ -616,19 +830,19 @@
       ],
       "positions": {
         "p-customer": {
-          "x": 30,
+          "x": 290,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "p-corp": {
-          "x": 260,
+          "x": 520,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "p-ops": {
-          "x": 490,
+          "x": 750,
           "y": 120,
           "width": 150,
           "height": 170
@@ -718,8 +932,8 @@
           "height": 130
         },
         "sys-channels": {
-          "x": 2040,
-          "y": 120,
+          "x": 470,
+          "y": 516,
           "width": 250,
           "height": 450
         },
@@ -736,22 +950,58 @@
           "height": 140
         },
         "sys-swift": {
-          "x": 720,
+          "x": 1500,
           "y": 120,
           "width": 360,
           "height": 260
         },
         "sys-cards": {
-          "x": 1160,
+          "x": 1940,
           "y": 120,
           "width": 360,
           "height": 260
         },
         "sys-kyc": {
-          "x": 1600,
-          "y": 120,
+          "x": 30,
+          "y": 516,
           "width": 360,
           "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
         }
       },
       "viewport": {
@@ -789,13 +1039,13 @@
           "height": 170
         },
         "p-corp": {
-          "x": 260,
+          "x": 520,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "p-ops": {
-          "x": 490,
+          "x": 750,
           "y": 120,
           "width": 150,
           "height": 170
@@ -915,10 +1165,46 @@
           "height": 260
         },
         "sys-kyc": {
-          "x": 1600,
-          "y": 120,
+          "x": 30,
+          "y": 516,
           "width": 360,
           "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
         }
       },
       "viewport": {
@@ -956,13 +1242,13 @@
           "height": 170
         },
         "p-corp": {
-          "x": 260,
+          "x": 520,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "p-ops": {
-          "x": 490,
+          "x": 750,
           "y": 120,
           "width": 150,
           "height": 170
@@ -1076,16 +1362,52 @@
           "height": 260
         },
         "sys-cards": {
-          "x": 1160,
+          "x": 1940,
           "y": 120,
           "width": 360,
           "height": 260
         },
         "sys-kyc": {
-          "x": 1600,
-          "y": 120,
+          "x": 30,
+          "y": 516,
           "width": 360,
           "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
         }
       },
       "viewport": {
@@ -1120,26 +1442,26 @@
       ],
       "positions": {
         "p-customer": {
-          "x": 30,
+          "x": 290,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "p-corp": {
-          "x": 260,
+          "x": 520,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "p-ops": {
-          "x": 490,
+          "x": 750,
           "y": 120,
           "width": 150,
           "height": 170
         },
         "sys-core": {
-          "x": 30,
-          "y": 650,
+          "x": 800,
+          "y": 516,
           "width": 1230,
           "height": 1440
         },
@@ -1222,8 +1544,8 @@
           "height": 130
         },
         "sys-channels": {
-          "x": 2040,
-          "y": 120,
+          "x": 470,
+          "y": 516,
           "width": 250,
           "height": 450
         },
@@ -1240,22 +1562,58 @@
           "height": 140
         },
         "sys-swift": {
-          "x": 720,
+          "x": 1500,
           "y": 120,
           "width": 360,
           "height": 260
         },
         "sys-cards": {
-          "x": 1160,
+          "x": 1940,
           "y": 120,
           "width": 360,
           "height": 260
         },
         "sys-kyc": {
-          "x": 1600,
-          "y": 120,
+          "x": 30,
+          "y": 516,
           "width": 360,
           "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
         }
       },
       "viewport": {
@@ -1263,13 +1621,419 @@
         "y": 80,
         "zoom": 0.6
       }
+    },
+    {
+      "id": "view-matrix",
+      "name": "Dependency Matrix",
+      "kind": "matrix",
+      "nodeIds": [
+        "ctn-web",
+        "ctn-mobile",
+        "ctn-apigw",
+        "ctn-auth",
+        "ctn-payments",
+        "ctn-accounts",
+        "ctn-evtbus",
+        "ctn-fraud",
+        "ctn-db-acc",
+        "ctn-db-tx"
+      ],
+      "positions": {
+        "p-customer": {
+          "x": 290,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-corp": {
+          "x": 520,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-ops": {
+          "x": 750,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "sys-core": {
+          "x": 800,
+          "y": 516,
+          "width": 1230,
+          "height": 1440
+        },
+        "dom-access": {
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330
+        },
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-auth": {
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "dom-banking": {
+          "x": 20,
+          "y": 650,
+          "width": 610,
+          "height": 770
+        },
+        "ctn-payments": {
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410
+        },
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
+        },
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 750,
+          "y": 110,
+          "width": 460,
+          "height": 500
+        },
+        "ctn-fraud": {
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "ctn-db-tx": {
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "sys-channels": {
+          "x": 470,
+          "y": 516,
+          "width": 250,
+          "height": 450
+        },
+        "ctn-web": {
+          "x": 20,
+          "y": 110,
+          "width": 210,
+          "height": 140
+        },
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
+          "height": 140
+        },
+        "sys-swift": {
+          "x": 1500,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-cards": {
+          "x": 1940,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-kyc": {
+          "x": 30,
+          "y": 516,
+          "width": 360,
+          "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
+    },
+    {
+      "id": "view-governance",
+      "name": "Governance",
+      "kind": "table",
+      "nodeIds": [
+        "sys-core",
+        "dom-access",
+        "ctn-apigw",
+        "ctn-auth",
+        "dom-banking",
+        "ctn-payments",
+        "comp-validator",
+        "comp-fx",
+        "ctn-accounts",
+        "ctn-evtbus",
+        "dom-risk",
+        "ctn-fraud",
+        "ctn-db-acc",
+        "ctn-db-tx",
+        "adr-evt",
+        "adr-ledger",
+        "adr-jwt",
+        "adr-mono",
+        "ff-latency",
+        "ff-ledger"
+      ],
+      "positions": {
+        "p-customer": {
+          "x": 290,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-corp": {
+          "x": 520,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "p-ops": {
+          "x": 750,
+          "y": 120,
+          "width": 150,
+          "height": 170
+        },
+        "sys-core": {
+          "x": 800,
+          "y": 516,
+          "width": 1230,
+          "height": 1440
+        },
+        "dom-access": {
+          "x": 20,
+          "y": 110,
+          "width": 690,
+          "height": 330
+        },
+        "ctn-apigw": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-auth": {
+          "x": 370,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "dom-banking": {
+          "x": 20,
+          "y": 650,
+          "width": 610,
+          "height": 770
+        },
+        "ctn-payments": {
+          "x": 110,
+          "y": 340,
+          "width": 240,
+          "height": 410
+        },
+        "comp-validator": {
+          "x": 20,
+          "y": 110,
+          "width": 200,
+          "height": 120
+        },
+        "comp-fx": {
+          "x": 20,
+          "y": 270,
+          "width": 200,
+          "height": 120
+        },
+        "ctn-accounts": {
+          "x": 20,
+          "y": 110,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-evtbus": {
+          "x": 370,
+          "y": 178,
+          "width": 220,
+          "height": 95
+        },
+        "dom-risk": {
+          "x": 750,
+          "y": 110,
+          "width": 460,
+          "height": 500
+        },
+        "ctn-fraud": {
+          "x": 20,
+          "y": 280,
+          "width": 300,
+          "height": 200
+        },
+        "ctn-db-acc": {
+          "x": 20,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "ctn-db-tx": {
+          "x": 250,
+          "y": 110,
+          "width": 190,
+          "height": 130
+        },
+        "sys-channels": {
+          "x": 470,
+          "y": 516,
+          "width": 250,
+          "height": 450
+        },
+        "ctn-web": {
+          "x": 20,
+          "y": 110,
+          "width": 210,
+          "height": 140
+        },
+        "ctn-mobile": {
+          "x": 20,
+          "y": 290,
+          "width": 210,
+          "height": 140
+        },
+        "sys-swift": {
+          "x": 1500,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-cards": {
+          "x": 1940,
+          "y": 120,
+          "width": 360,
+          "height": 260
+        },
+        "sys-kyc": {
+          "x": 30,
+          "y": 516,
+          "width": 360,
+          "height": 260
+        },
+        "adr-evt": {
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-ledger": {
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52
+        },
+        "adr-jwt": {
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "adr-mono": {
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52
+        },
+        "ff-latency": {
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        },
+        "ff-ledger": {
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52
+        }
+      },
+      "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+      }
     }
   ],
   "snapshots": [
     {
       "id": "snap-v1",
       "name": "v1 – Core & Accounts",
-      "timestamp": 1772284199727,
+      "timestamp": 1772808197999,
       "nodes": {
         "p-customer": {
           "id": "p-customer",
@@ -1453,7 +2217,7 @@
     {
       "id": "snap-v2",
       "name": "v2 – Payments & Events",
-      "timestamp": 1776172199728,
+      "timestamp": 1776696197999,
       "nodes": {
         "p-customer": {
           "id": "p-customer",
@@ -1750,7 +2514,7 @@
     {
       "id": "snap-v3",
       "name": "v3 – Full Platform",
-      "timestamp": 1780060199728,
+      "timestamp": 1780584197999,
       "nodes": {
         "p-customer": {
           "id": "p-customer",
@@ -1758,7 +2522,7 @@
           "label": "Retail Customer",
           "description": "Individual banking customer accessing via web and mobile",
           "technology": "",
-          "x": 30,
+          "x": 290,
           "y": 120,
           "width": 150,
           "height": 170,
@@ -1770,7 +2534,7 @@
           "label": "Corporate Client",
           "description": "Business client using treasury and bulk-payment APIs",
           "technology": "",
-          "x": 260,
+          "x": 520,
           "y": 120,
           "width": 150,
           "height": 170,
@@ -1782,7 +2546,7 @@
           "label": "Bank Operator",
           "description": "Internal staff managing operations and support",
           "technology": "",
-          "x": 490,
+          "x": 750,
           "y": 120,
           "width": 150,
           "height": 170,
@@ -1794,8 +2558,8 @@
           "label": "Core Banking Platform",
           "description": "Central microservices platform — all banking domain logic",
           "technology": "Kubernetes / Istio",
-          "x": 30,
-          "y": 650,
+          "x": 800,
+          "y": 516,
           "width": 1230,
           "height": 1440,
           "collapsed": false
@@ -1975,8 +2739,8 @@
           "label": "Digital Channels",
           "description": "Customer-facing web portal and native mobile app",
           "technology": "React / React Native",
-          "x": 2040,
-          "y": 120,
+          "x": 470,
+          "y": 516,
           "width": 250,
           "height": 450,
           "collapsed": false
@@ -2013,7 +2777,7 @@
           "label": "SWIFT Network",
           "description": "International wire transfer messaging",
           "technology": "SWIFT MT / ISO 20022",
-          "x": 720,
+          "x": 1500,
           "y": 120,
           "width": 360,
           "height": 260,
@@ -2026,7 +2790,7 @@
           "label": "Card Networks",
           "description": "Visa / Mastercard authorisation",
           "technology": "ISO 8583 / Visa API",
-          "x": 1160,
+          "x": 1940,
           "y": 120,
           "width": 360,
           "height": 260,
@@ -2039,12 +2803,118 @@
           "label": "KYC / AML Provider",
           "description": "Identity verification and AML screening",
           "technology": "REST / JSON",
-          "x": 1600,
-          "y": 120,
+          "x": 30,
+          "y": 516,
           "width": 360,
           "height": 260,
           "collapsed": false,
           "external": true
+        },
+        "adr-evt": {
+          "id": "adr-evt",
+          "type": "adr",
+          "label": "ADR-001: Event-Driven Core",
+          "description": "",
+          "technology": "",
+          "x": 1240,
+          "y": 252,
+          "width": 180,
+          "height": 52,
+          "collapsed": false,
+          "status": "accepted",
+          "date": "2024-02-12",
+          "context": "Synchronous service-to-service calls were creating tight coupling and cascading failures between payments, accounts and fraud.",
+          "decision": "Introduce an Apache Kafka event bus and move all cross-domain communication to asynchronous domain events.",
+          "consequences": "Looser coupling and independent scaling, at the cost of eventual consistency and the need for idempotent consumers.",
+          "alternatives": "Synchronous gRPC mesh; shared database integration."
+        },
+        "adr-ledger": {
+          "id": "adr-ledger",
+          "type": "adr",
+          "label": "ADR-002: Immutable Ledger on PostgreSQL",
+          "description": "",
+          "technology": "",
+          "x": 980,
+          "y": 252,
+          "width": 180,
+          "height": 52,
+          "collapsed": false,
+          "status": "accepted",
+          "date": "2024-03-04",
+          "context": "Financial transactions must be auditable and tamper-evident for regulators.",
+          "decision": "Store transactions in an append-only PostgreSQL ledger with Patroni replication; never update or delete rows.",
+          "consequences": "Strong auditability and point-in-time reconstruction; table growth requires partitioning and archival.",
+          "alternatives": "Mutable balance table; event-store-only persistence."
+        },
+        "adr-jwt": {
+          "id": "adr-jwt",
+          "type": "adr",
+          "label": "ADR-003: Stateless JWT Auth",
+          "description": "",
+          "technology": "",
+          "x": 30,
+          "y": 120,
+          "width": 180,
+          "height": 52,
+          "collapsed": false,
+          "status": "accepted",
+          "date": "2024-01-20",
+          "context": "Session affinity made horizontal scaling of the API tier difficult.",
+          "decision": "Use short-lived signed JWT access tokens issued by Keycloak; validate at the gateway with no server-side session store.",
+          "consequences": "Stateless, horizontally scalable auth; token revocation needs a short TTL plus a denylist.",
+          "alternatives": "Server-side sessions in Redis; opaque tokens with introspection."
+        },
+        "adr-mono": {
+          "id": "adr-mono",
+          "type": "adr",
+          "label": "ADR-000: Modular Monolith",
+          "description": "",
+          "technology": "",
+          "x": 1240,
+          "y": 384,
+          "width": 180,
+          "height": 52,
+          "collapsed": false,
+          "status": "superseded",
+          "date": "2023-09-01",
+          "context": "The initial MVP needed to ship quickly with a small team.",
+          "decision": "Build the platform as a single modular monolith deployed as one unit.",
+          "consequences": "Fast early delivery, but scaling and team autonomy became bottlenecks as the platform grew.",
+          "alternatives": "Microservices from day one."
+        },
+        "ff-latency": {
+          "id": "ff-latency",
+          "type": "fitness-fn",
+          "label": "FF: Payment p99 < 250ms",
+          "description": "Continuously asserts that the end-to-end payment path stays within its latency budget.",
+          "technology": "",
+          "x": 1240,
+          "y": 120,
+          "width": 180,
+          "height": 52,
+          "collapsed": false,
+          "category": "operational",
+          "automated": true,
+          "trigger": "continuous",
+          "status": "active",
+          "threshold": "p99 latency < 250ms measured over any rolling 24h window"
+        },
+        "ff-ledger": {
+          "id": "ff-ledger",
+          "type": "fitness-fn",
+          "label": "FF: Zero ledger data loss",
+          "description": "Verifies the transaction ledger survives node failure with no committed-record loss.",
+          "technology": "",
+          "x": 980,
+          "y": 120,
+          "width": 180,
+          "height": 52,
+          "collapsed": false,
+          "category": "structural",
+          "automated": true,
+          "trigger": "on-deploy",
+          "status": "active",
+          "threshold": "No committed transaction lost during automated chaos / failover tests"
         }
       },
       "relations": {
@@ -2159,6 +3029,78 @@
           "targetId": "sys-kyc",
           "label": "Identity & AML screening",
           "technology": "REST / JSON"
+        },
+        "g-adrEvt-evtbus": {
+          "id": "g-adrEvt-evtbus",
+          "sourceId": "adr-evt",
+          "targetId": "ctn-evtbus",
+          "relationType": "constrains",
+          "label": "Async via events",
+          "technology": ""
+        },
+        "g-adrEvt-pay": {
+          "id": "g-adrEvt-pay",
+          "sourceId": "adr-evt",
+          "targetId": "ctn-payments",
+          "relationType": "constrains",
+          "label": "",
+          "technology": ""
+        },
+        "g-adrLedger-dbtx": {
+          "id": "g-adrLedger-dbtx",
+          "sourceId": "adr-ledger",
+          "targetId": "ctn-db-tx",
+          "relationType": "constrains",
+          "label": "Append-only",
+          "technology": ""
+        },
+        "g-adrJwt-auth": {
+          "id": "g-adrJwt-auth",
+          "sourceId": "adr-jwt",
+          "targetId": "ctn-auth",
+          "relationType": "constrains",
+          "label": "Stateless tokens",
+          "technology": ""
+        },
+        "g-adrEvt-mono": {
+          "id": "g-adrEvt-mono",
+          "sourceId": "adr-evt",
+          "targetId": "adr-mono",
+          "relationType": "supersedes",
+          "label": "",
+          "technology": ""
+        },
+        "g-ffLat-pay": {
+          "id": "g-ffLat-pay",
+          "sourceId": "ff-latency",
+          "targetId": "ctn-payments",
+          "relationType": "constrains",
+          "label": "Latency budget",
+          "technology": ""
+        },
+        "g-ffLat-impl": {
+          "id": "g-ffLat-impl",
+          "sourceId": "ff-latency",
+          "targetId": "adr-evt",
+          "relationType": "implements",
+          "label": "",
+          "technology": ""
+        },
+        "g-ffLedger-dbtx": {
+          "id": "g-ffLedger-dbtx",
+          "sourceId": "ff-ledger",
+          "targetId": "ctn-db-tx",
+          "relationType": "constrains",
+          "label": "Durability",
+          "technology": ""
+        },
+        "g-ffLedger-impl": {
+          "id": "g-ffLedger-impl",
+          "sourceId": "ff-ledger",
+          "targetId": "adr-ledger",
+          "relationType": "implements",
+          "label": "",
+          "technology": ""
         }
       }
     }
@@ -2224,8 +3166,30 @@
           }
         },
         {
+          "id": "slide-matrix",
+          "name": "6 – Dependency Matrix",
+          "snapshotId": null,
+          "viewId": "view-matrix",
+          "viewport": {
+            "x": 0,
+            "y": 0,
+            "zoom": 1
+          }
+        },
+        {
+          "id": "slide-governance",
+          "name": "7 – Governance",
+          "snapshotId": null,
+          "viewId": "view-governance",
+          "viewport": {
+            "x": 0,
+            "y": 0,
+            "zoom": 1
+          }
+        },
+        {
           "id": "slide-v1",
-          "name": "6 – v1 MVP (Milestone)",
+          "name": "8 – v1 MVP (Milestone)",
           "snapshotId": "snap-v1",
           "viewId": null,
           "viewport": {
@@ -2239,26 +3203,26 @@
   ],
   "defaultPositions": {
     "p-customer": {
-      "x": 30,
+      "x": 290,
       "y": 120,
       "width": 150,
       "height": 170
     },
     "p-corp": {
-      "x": 260,
+      "x": 520,
       "y": 120,
       "width": 150,
       "height": 170
     },
     "p-ops": {
-      "x": 490,
+      "x": 750,
       "y": 120,
       "width": 150,
       "height": 170
     },
     "sys-core": {
-      "x": 30,
-      "y": 650,
+      "x": 800,
+      "y": 516,
       "width": 1230,
       "height": 1440
     },
@@ -2341,8 +3305,8 @@
       "height": 130
     },
     "sys-channels": {
-      "x": 2040,
-      "y": 120,
+      "x": 470,
+      "y": 516,
       "width": 250,
       "height": 450
     },
@@ -2359,22 +3323,58 @@
       "height": 140
     },
     "sys-swift": {
-      "x": 720,
+      "x": 1500,
       "y": 120,
       "width": 360,
       "height": 260
     },
     "sys-cards": {
-      "x": 1160,
+      "x": 1940,
       "y": 120,
       "width": 360,
       "height": 260
     },
     "sys-kyc": {
-      "x": 1600,
-      "y": 120,
+      "x": 30,
+      "y": 516,
       "width": 360,
       "height": 260
+    },
+    "adr-evt": {
+      "x": 1240,
+      "y": 252,
+      "width": 180,
+      "height": 52
+    },
+    "adr-ledger": {
+      "x": 980,
+      "y": 252,
+      "width": 180,
+      "height": 52
+    },
+    "adr-jwt": {
+      "x": 30,
+      "y": 120,
+      "width": 180,
+      "height": 52
+    },
+    "adr-mono": {
+      "x": 1240,
+      "y": 384,
+      "width": 180,
+      "height": 52
+    },
+    "ff-latency": {
+      "x": 1240,
+      "y": 120,
+      "width": 180,
+      "height": 52
+    },
+    "ff-ledger": {
+      "x": 980,
+      "y": 120,
+      "width": 180,
+      "height": 52
     }
   },
   "defaultViewport": {
