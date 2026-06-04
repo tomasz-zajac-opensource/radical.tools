@@ -66,11 +66,32 @@ export function WikiView(): React.ReactElement {
 
   const view = activeViewId ? views[activeViewId] : null
   const focusId = view?.wikiFocusId ?? null
-  const focus = focusId ? c4Nodes[focusId] : null
 
   const [filter, setFilter] = useState('')
 
-  const nodeList = useMemo(() => Object.values(c4Nodes), [c4Nodes])
+  // Respect the right-panel visibility filter: a view's nodeIds defines the
+  // visible set (empty = show all). Ancestors are included so the hierarchy
+  // stays navigable, mirroring the canvas/treemap behaviour.
+  const visibleSet = useMemo<Set<string> | null>(() => {
+    if (!view || view.nodeIds.length === 0) return null
+    const result = new Set<string>()
+    for (const id of view.nodeIds) {
+      let cur: string | undefined = id
+      while (cur && c4Nodes[cur]) {
+        result.add(cur)
+        cur = c4Nodes[cur].parentId ?? undefined
+      }
+    }
+    return result
+  }, [view, c4Nodes])
+
+  const focusNode = focusId ? c4Nodes[focusId] : null
+  const focus = focusNode && (!visibleSet || visibleSet.has(focusNode.id)) ? focusNode : null
+
+  const nodeList = useMemo(
+    () => Object.values(c4Nodes).filter((n) => !visibleSet || visibleSet.has(n.id)),
+    [c4Nodes, visibleSet],
+  )
 
   const childrenOf = useMemo(() => {
     const map: Record<string, C4Node[]> = {}
@@ -113,6 +134,7 @@ export function WikiView(): React.ReactElement {
             node={focus}
             nodes={c4Nodes}
             relations={c4Relations}
+            visibleSet={visibleSet}
             metamodel={metamodel}
             updateNode={updateNode}
             updateRelation={updateRelation}
@@ -266,6 +288,7 @@ function WikiElementPage({
   node,
   nodes,
   relations,
+  visibleSet,
   metamodel,
   updateNode,
   updateRelation,
@@ -276,6 +299,7 @@ function WikiElementPage({
   node: C4Node
   nodes: Record<string, C4Node>
   relations: Record<string, C4Relation>
+  visibleSet: Set<string> | null
   metamodel: Metamodel
   updateNode: UpdateNode
   updateRelation: UpdateRelation
@@ -298,18 +322,24 @@ function WikiElementPage({
   const children = useMemo(
     () =>
       Object.values(nodes)
-        .filter((n) => n.parentId === node.id)
+        .filter((n) => n.parentId === node.id && (!visibleSet || visibleSet.has(n.id)))
         .sort((a, b) => a.label.localeCompare(b.label)),
-    [nodes, node.id],
+    [nodes, node.id, visibleSet],
   )
 
   const outgoing = useMemo(
-    () => Object.values(relations).filter((r) => r.sourceId === node.id),
-    [relations, node.id],
+    () =>
+      Object.values(relations).filter(
+        (r) => r.sourceId === node.id && (!visibleSet || visibleSet.has(r.targetId)),
+      ),
+    [relations, node.id, visibleSet],
   )
   const incoming = useMemo(
-    () => Object.values(relations).filter((r) => r.targetId === node.id),
-    [relations, node.id],
+    () =>
+      Object.values(relations).filter(
+        (r) => r.targetId === node.id && (!visibleSet || visibleSet.has(r.sourceId)),
+      ),
+    [relations, node.id, visibleSet],
   )
 
   const nodeTypeDef = metamodel?.nodeTypes[node.type]
