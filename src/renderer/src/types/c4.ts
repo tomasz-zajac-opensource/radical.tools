@@ -75,8 +75,9 @@ export interface DiagramView {
    * 'static' (default) = ordinary filtered view.
    * 'dynamic' = shows step-number badges on edges from the linked sequence.
    * 'treemap' = renders the element hierarchy as nested coloured rectangles.
+   * 'table'   = governance-aware spreadsheet view of nodes and relations.
    */
-  kind?: 'static' | 'dynamic' | 'treemap'
+  kind?: 'static' | 'dynamic' | 'treemap' | 'table'
   /** ID of the DiagramSequence to visualise when kind='dynamic' */
   sequenceId?: string
   /** C4 node IDs included in this view. Ancestors are auto-included. */

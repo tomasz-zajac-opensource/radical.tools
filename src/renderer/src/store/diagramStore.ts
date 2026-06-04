@@ -926,8 +926,8 @@ interface DiagramStore {
   hideRelationFromView: (viewId: string, relationId: string) => void
   /** Reverse `hideRelationFromView`. */
   unhideRelationInView: (viewId: string, relationId: string) => void
-  /** Switch a view between 'static', 'dynamic', and 'treemap'. */
-  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap') => void
+  /** Switch a view between 'static', 'dynamic', 'treemap', and 'table'. */
+  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap' | 'table') => void
   /** Persist treemap drill-down focus (null = top "All"). */
   setTreemapFocus: (viewId: string, focusId: string | null) => void
   /** Choose how treemap rectangles are sized for a view. */

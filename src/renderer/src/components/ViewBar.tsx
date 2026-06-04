@@ -115,7 +115,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
             value={activeView?.kind ?? 'static'}
             disabled={!activeView}
             onChange={(e) =>
-              activeView && setViewKind(activeView.id, e.target.value as 'static' | 'dynamic' | 'treemap')
+              activeView && setViewKind(activeView.id, e.target.value as 'static' | 'dynamic' | 'treemap' | 'table')
             }
             style={{
               fontSize: 11,
@@ -130,10 +130,11 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
             <option value="static">Structure</option>
             <option value="dynamic">Flow</option>
             <option value="treemap">Hierarchy</option>
+            <option value="table">Table</option>
           </select>
         </label>
       )}
-      {!readOnly && (activeView?.kind ?? 'static') !== 'treemap' && (
+      {!readOnly && (activeView?.kind ?? 'static') !== 'treemap' && (activeView?.kind ?? 'static') !== 'table' && (
         <label
           className="view-layout-mode"
           title={
