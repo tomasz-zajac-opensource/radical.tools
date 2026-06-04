@@ -143,21 +143,17 @@ export function builtInC4Metamodel(): Metamodel {
 
   // Relation rules.
   //
-  // "Uses" — initiator → callee. Forbids things like:
-  //   • person → person  (people don't "call" each other in a C4 model)
-  //   • system → person  (use "Delivers to" instead)
-  //   • database → *     (passive store, never initiates)
-  //   • component → person / system  (components live inside a container and
-  //                                   should not reach external actors directly)
-  //
-  // "Delivers to" — system / UI surface notifies or returns info to a person.
-  const usesPairs: RelationPair[] = [
+  // "Interacts" — any meaningful interaction between C4 elements:
+  //   initiator calls/uses/delivers-to a target.
+  //   Forbids database → * (passive store, never initiates).
+  const interactsPairs: RelationPair[] = [
     // Person interacts with the system surface
     { from: 'person', to: 'system' },
     { from: 'person', to: 'container' },
     { from: 'person', to: 'webapp' },
 
-    // System-level dependencies (external systems, or cross-boundary to containers)
+    // System-level dependencies
+    { from: 'system', to: 'person' },
     { from: 'system', to: 'system' },
     { from: 'system', to: 'container' },
     { from: 'system', to: 'database' },
@@ -165,13 +161,15 @@ export function builtInC4Metamodel(): Metamodel {
     { from: 'system', to: 'queue' },
 
     // Container-level calls
+    { from: 'container', to: 'person' },
     { from: 'container', to: 'system' },
     { from: 'container', to: 'container' },
     { from: 'container', to: 'database' },
     { from: 'container', to: 'webapp' },
     { from: 'container', to: 'queue' },
 
-    // Web / UI container behaves like a container
+    // Web / UI container
+    { from: 'webapp', to: 'person' },
     { from: 'webapp', to: 'system' },
     { from: 'webapp', to: 'container' },
     { from: 'webapp', to: 'database' },
@@ -183,7 +181,7 @@ export function builtInC4Metamodel(): Metamodel {
     { from: 'queue', to: 'webapp' },
     { from: 'queue', to: 'component' },
 
-    // Component-level calls (within a container, or to peer containers/stores)
+    // Component-level calls
     { from: 'component', to: 'component' },
     { from: 'component', to: 'container' },
     { from: 'component', to: 'webapp' },
@@ -191,28 +189,13 @@ export function builtInC4Metamodel(): Metamodel {
     { from: 'component', to: 'queue' },
   ]
 
-  const deliversPairs: RelationPair[] = [
-    { from: 'system',    to: 'person' },
-    { from: 'container', to: 'person' },
-    { from: 'webapp',    to: 'person' },
-  ]
-
   const relationTypes: Record<string, RelationTypeDef> = {
-    uses: {
-      id: 'uses',
-      label: 'Uses',
-      allowedPairs: usesPairs,
+    interacts: {
+      id: 'interacts',
+      label: 'Interacts',
+      allowedPairs: interactsPairs,
       properties: [
         { key: 'technology', label: 'Technology', type: 'text' },
-      ],
-      builtin: true,
-    },
-    delivers: {
-      id: 'delivers',
-      label: 'Delivers to',
-      allowedPairs: deliversPairs,
-      properties: [
-        { key: 'technology', label: 'Channel', type: 'text' },
       ],
       builtin: true,
     },
@@ -340,7 +323,145 @@ export function builtInDddC4Metamodel(): Metamodel {
   }
 }
 
-// ── Registry of selectable built-in metamodels ─────────────────────────────
+// ── Built-in C4 + DDD + Governance preset ──────────────────────────────────
+//
+// Extends C4 + DDD with two governance node types and three relation types:
+//   • adr         — Architecture Decision Record (Nygard / MADR format)
+//   • fitness-fn  — Fitness Function (Building Evolutionary Architectures)
+//   • constrains  — adr / fitness-fn → any C4 element
+//   • supersedes  — adr → adr (replaces an older decision)
+//   • implements  — fitness-fn → adr ("this FF verifies ADR-003")
+
+export function builtInGovernanceMetamodel(): Metamodel {
+  const base = builtInDddC4Metamodel()
+
+  const adrProps: PropertyDef[] = [
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'enum',
+      options: ['proposed', 'accepted', 'deprecated', 'superseded'],
+      default: 'proposed',
+    },
+    { key: 'date',         label: 'Date',                   type: 'text' },
+    { key: 'context',      label: 'Context',                type: 'textarea' },
+    { key: 'decision',     label: 'Decision',               type: 'textarea' },
+    { key: 'consequences', label: 'Consequences',           type: 'textarea' },
+    { key: 'alternatives', label: 'Alternatives considered', type: 'textarea' },
+  ]
+
+  const adr: NodeTypeDef = {
+    id: 'adr',
+    label: 'ADR',
+    color: '#92400e',
+    fg: '#fff',
+    iconPath: TYPE_ICON_PATHS['adr'],
+    width: NODE_SIZES['adr'].width,
+    height: NODE_SIZES['adr'].height,
+    collapsedWidth: COLLAPSED_WIDTH['adr'],
+    collapsedHeight: COLLAPSED_HEIGHT['adr'],
+    allowedParents: ['system', 'domain'],
+    allowedAtRoot: true,
+    builtin: true,
+    properties: adrProps,
+  }
+
+  const fitnessFnProps: PropertyDef[] = [
+    { key: 'description', label: 'Description', type: 'textarea' },
+    {
+      key: 'category',
+      label: 'Category',
+      type: 'enum',
+      options: ['structural', 'operational', 'process', 'holistic'],
+      default: 'structural',
+    },
+    { key: 'automated', label: 'Automated', type: 'boolean', default: false },
+    {
+      key: 'trigger',
+      label: 'Trigger',
+      type: 'enum',
+      options: ['on-deploy', 'continuous', 'periodic'],
+      default: 'on-deploy',
+    },
+    { key: 'threshold', label: 'Threshold / Success criteria', type: 'text' },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'enum',
+      options: ['proposed', 'active', 'deprecated'],
+      default: 'proposed',
+    },
+  ]
+
+  const fitnessFn: NodeTypeDef = {
+    id: 'fitness-fn',
+    label: 'Fitness Function',
+    color: '#5b21b6',
+    fg: '#fff',
+    iconPath: TYPE_ICON_PATHS['fitness-fn'],
+    width: NODE_SIZES['fitness-fn'].width,
+    height: NODE_SIZES['fitness-fn'].height,
+    collapsedWidth: COLLAPSED_WIDTH['fitness-fn'],
+    collapsedHeight: COLLAPSED_HEIGHT['fitness-fn'],
+    allowedParents: ['system', 'domain'],
+    allowedAtRoot: true,
+    builtin: true,
+    properties: fitnessFnProps,
+  }
+
+  const constraintSources = ['adr', 'fitness-fn'] as const
+  const constraintTargets = ['person', 'system', 'domain', 'container', 'component', 'database', 'webapp', 'queue'] as const
+  const constrainsPairs: RelationPair[] = constraintSources.flatMap(from =>
+    constraintTargets.map(to => ({ from, to })),
+  )
+
+  const constrains: RelationTypeDef = {
+    id: 'constrains',
+    label: 'Constrains',
+    allowedPairs: constrainsPairs,
+    properties: [
+      { key: 'description', label: 'Note', type: 'text' },
+    ],
+    color: '#dc2626',
+    builtin: true,
+  }
+
+  const supersedes: RelationTypeDef = {
+    id: 'supersedes',
+    label: 'Supersedes',
+    allowedPairs: [{ from: 'adr', to: 'adr' }],
+    properties: [],
+    color: '#f59e0b',
+    builtin: true,
+  }
+
+  const implements_: RelationTypeDef = {
+    id: 'implements',
+    label: 'Implements',
+    allowedPairs: [{ from: 'fitness-fn', to: 'adr' }],
+    properties: [],
+    color: '#7c3aed',
+    builtin: true,
+  }
+
+  return {
+    id: 'c4-ddd-governance-builtin',
+    name: 'C4 + DDD + Governance',
+    nodeTypes: {
+      ...base.nodeTypes,
+      adr,
+      'fitness-fn': fitnessFn,
+    },
+    relationTypes: {
+      ...base.relationTypes,
+      constrains,
+      supersedes,
+      implements: implements_,
+    },
+  }
+}
+
+
 
 export interface MetamodelPreset {
   id: string
@@ -362,6 +483,12 @@ export function availableMetamodels(): MetamodelPreset[] {
       name: 'C4 + DDD Domains',
       description: 'C4 extended with strategic DDD: a Domain container that nests recursively (Core / Supporting / Generic) above the technical model.',
       build: builtInDddC4Metamodel,
+    },
+    {
+      id: 'c4-ddd-governance-builtin',
+      name: 'C4 + DDD + Governance',
+      description: 'C4 + DDD extended with governance: ADR (Architecture Decision Records) and Fitness Functions linked to architecture elements via Constrains, Supersedes, and Implements relations.',
+      build: builtInGovernanceMetamodel,
     },
   ]
 }
@@ -388,6 +515,25 @@ export function isRelationAllowed(
   if (rts.length === 0) return true
   if (rts.some(rt => rt.allowedPairs.length === 0)) return true
   return rts.some(rt => rt.allowedPairs.some(p => p.from === fromType && p.to === toType))
+}
+
+/**
+ * Returns the id of the unique restricted relation type that permits the
+ * given (fromType, toType) pair, or `undefined` when zero or multiple types
+ * match.  "Restricted" means the type's `allowedPairs` list is non-empty.
+ * Catch-all types (empty allowedPairs) are ignored so that e.g. the `uses`
+ * type does not shadow a more specific one.
+ */
+export function inferRelationType(
+  metamodel: Metamodel | undefined,
+  fromType: string,
+  toType: string,
+): string | undefined {
+  if (!metamodel) return undefined
+  const matches = Object.values(metamodel.relationTypes).filter(
+    rt => rt.allowedPairs.length > 0 && rt.allowedPairs.some(p => p.from === fromType && p.to === toType),
+  )
+  return matches.length === 1 ? matches[0].id : undefined
 }
 
 /**

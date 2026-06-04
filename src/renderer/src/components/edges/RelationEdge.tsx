@@ -332,7 +332,7 @@ export const RelationEdge = memo(
           </>
         )}
 
-        {(data?.label || data?.technology) && (
+        {(data?.label || data?.technology || data?.relationType) && (
           <EdgeLabelRenderer>
             <div
               style={{
@@ -353,7 +353,10 @@ export const RelationEdge = memo(
               }}
               className="nodrag nopan"
             >
-              {data.label && <div>{data.label}</div>}
+              {data.label
+                ? <div>{data.label}</div>
+                : data.relationType && <div style={{ opacity: 0.6, fontStyle: 'italic' }}>{data.relationType}</div>
+              }
               {data.technology && (
                 <div style={{ fontStyle: 'italic', opacity: 0.7, fontSize: 10 }}>
                   [{data.technology}]

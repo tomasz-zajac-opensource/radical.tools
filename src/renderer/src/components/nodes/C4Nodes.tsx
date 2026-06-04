@@ -575,3 +575,120 @@ export const DomainNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
 })
 
 DomainNode.displayName = 'DomainNode'
+
+// ─── ADR Node ─────────────────────────────────────────────────────────────────
+//
+// Compact pill: amber header strip + label on one line.
+
+const ADR_COLOR = '#92400e'
+
+export const AdrNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const node = useDiagramStore(s => s.c4Nodes[data.c4id])
+  const status = (node as unknown as Record<string, string> | undefined)?.status ?? 'proposed'
+  const statusColor: Record<string, string> = {
+    proposed:   '#fbbf24',
+    accepted:   '#34d399',
+    deprecated: '#9ca3af',
+    superseded: '#f87171',
+  }
+  const badge = statusColor[status] ?? '#9ca3af'
+
+  return (
+    <div
+      className="c4-node"
+      style={{
+        position: 'relative',
+        width: data.width,
+        height: data.height,
+        background: ADR_COLOR,
+        border: `2px solid ${selected ? 'var(--accent)' : 'rgba(0,0,0,0.25)'}`,
+        borderRadius: 6,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      {/* Row 1: type + status badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 7px', background: 'rgba(0,0,0,0.25)' }}>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>
+          ADR
+        </span>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', background: badge, color: '#000', padding: '1px 4px', borderRadius: 2 }}>
+          {status}
+        </span>
+      </div>
+
+      {/* Row 2: label */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 7px', overflow: 'hidden' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+          {data.label}
+        </span>
+      </div>
+    </div>
+  )
+})
+
+AdrNode.displayName = 'AdrNode'
+
+// ─── Fitness Function Node ────────────────────────────────────────────────────
+//
+// Compact pill: purple header strip + label on one line.
+
+const FF_COLOR = '#5b21b6'
+
+export const FitnessFnNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const node = useDiagramStore(s => s.c4Nodes[data.c4id])
+  const extra = node as unknown as Record<string, string> | undefined
+  const automated = !!(node as unknown as Record<string, unknown> | undefined)?.automated
+  const status    = extra?.status ?? 'proposed'
+
+  const statusColor: Record<string, string> = {
+    proposed:   '#fbbf24',
+    active:     '#34d399',
+    deprecated: '#9ca3af',
+  }
+  const badge = statusColor[status] ?? '#9ca3af'
+
+  return (
+    <div
+      className="c4-node"
+      style={{
+        position: 'relative',
+        width: data.width,
+        height: data.height,
+        background: FF_COLOR,
+        border: `2px solid ${selected ? 'var(--accent)' : 'rgba(0,0,0,0.25)'}`,
+        borderRadius: 6,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      {/* Row 1: type + auto chip + status badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 7px', background: 'rgba(0,0,0,0.25)' }}>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>
+          FF{automated && <span style={{ marginLeft: 4, background: 'rgba(52,211,153,0.4)', color: '#d1fae5', padding: '0 3px', borderRadius: 2 }}>auto</span>}
+        </span>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', background: badge, color: '#000', padding: '1px 4px', borderRadius: 2 }}>
+          {status}
+        </span>
+      </div>
+
+      {/* Row 2: label */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 7px', overflow: 'hidden' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+          {data.label}
+        </span>
+      </div>
+    </div>
+  )
+})
+
+FitnessFnNode.displayName = 'FitnessFnNode'
+

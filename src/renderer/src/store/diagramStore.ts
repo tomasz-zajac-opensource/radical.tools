@@ -37,6 +37,7 @@ import {
   isRelationAllowed,
   isParentAllowed,
   canAddMoreOfType,
+  inferRelationType,
 } from '../types/metamodel'
 import { applyElkLayout, applyTreeLayout } from '../layout/elkLayout'
 import { applyColaLayout } from '../layout/colaLayout'
@@ -626,12 +627,19 @@ function deriveRFNodes(
     const hasChildren = parentSet.has(n.id)
     const collapsed = isEffectivelyCollapsed(n, viewCollapsedSet, expandedSet)
     const isGhost = ghostIds?.has(n.id) ?? false
-    const effHeight =
-      isContainerType(n.type) && (collapsed || !hasChildren)
+
+    // Fixed-size node types always render at canonical NODE_SIZES regardless of
+    // what is stored in the document (handles legacy nodes created with old sizes).
+    const isFixedSize = n.type === 'adr' || n.type === 'fitness-fn'
+
+    const effHeight = isFixedSize
+      ? NODE_SIZES[n.type].height
+      : isContainerType(n.type) && (collapsed || !hasChildren)
         ? COLLAPSED_HEIGHT[n.type]
         : n.height
-    const effWidth =
-      isContainerType(n.type) && (collapsed || !hasChildren)
+    const effWidth = isFixedSize
+      ? NODE_SIZES[n.type].width
+      : isContainerType(n.type) && (collapsed || !hasChildren)
         ? COLLAPSED_WIDTH[n.type]
         : n.width
 
@@ -778,6 +786,7 @@ function deriveRFEdges(
         originalTargetId: rel.targetId,
         label: rel.label,
         technology: rel.technology,
+        relationType: rel.relationType,
         isVirtual,
       },
     })
@@ -1664,11 +1673,16 @@ export const useDiagramStore = create<DiagramStore>()(
           )
           return
         }
+        // Auto-infer relationType from metamodel when not explicitly provided.
+        const relationType =
+          rel.relationType ?? (src && dst
+            ? inferRelationType(state0.metamodel, src.type, dst.type)
+            : undefined)
         get()._pushUndo()
         get()._markMilestoneEdit()
         const id = uid()
         set((state) => {
-          state.c4Relations[id] = { id, ...rel }
+          state.c4Relations[id] = { id, ...rel, ...(relationType ? { relationType } : {}) }
         })
         get()._sync()
         _liveLayout?.invalidate()

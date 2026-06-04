@@ -1230,6 +1230,7 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
   const selectedEdgeId = useDiagramStore((s) => s.selectedEdgeId)
   const c4Nodes = useDiagramStore((s) => s.c4Nodes)
   const c4Relations = useDiagramStore((s) => s.c4Relations)
+  const metamodel = useDiagramStore((s) => s.metamodel)
   const updateNode = useDiagramStore((s) => s.updateNode)
   const removeNode = useDiagramStore((s) => s.removeNode)
   const updateRelation = useDiagramStore((s) => s.updateRelation)
@@ -1241,19 +1242,21 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
   if (selectedNodeId && c4Nodes[selectedNodeId]) {
     const node = c4Nodes[selectedNodeId]
 
+    // Generic field renderer — handles built-in typed fields and arbitrary
+    // extra properties stored on the node by the metamodel property definitions.
     const field = (
       label: string,
-      key: keyof typeof node,
+      key: string,
       type: 'text' | 'textarea' | 'checkbox' = 'text'
     ) => {
-      const value = node[key]
+      const value = (node as unknown as Record<string, unknown>)[key]
       const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         if (readOnly) return
         updateNode(node.id, {
           [key]: type === 'checkbox'
             ? (e.target as HTMLInputElement).checked
             : e.target.value,
-        })
+        } as Parameters<typeof updateNode>[1])
       }
       if (type === 'checkbox') {
         return (
@@ -1285,7 +1288,87 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
       )
     }
 
-    const parentSelector = (node.type === 'container' || node.type === 'component' || node.type === 'database' || node.type === 'webapp' || node.type === 'queue') ? (
+    // Renders a metamodel PropertyDef as a form control, including enum selects.
+    const metamodelField = (p: { key: string; label: string; type: string; options?: string[] }) => {
+      const value = (node as unknown as Record<string, unknown>)[p.key]
+      const onChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        if (readOnly) return
+        updateNode(node.id, {
+          [p.key]: p.type === 'boolean'
+            ? (e.target as HTMLInputElement).checked
+            : p.type === 'number'
+              ? Number(e.target.value)
+              : e.target.value,
+        } as Parameters<typeof updateNode>[1])
+      }
+      if (p.type === 'boolean') {
+        return (
+          <div className="props-field" key={p.key}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+              <input type="checkbox" checked={Boolean(value)} onChange={onChange as ChangeEvent<HTMLInputElement>['target']['onchange'] extends infer _ ? any : any}
+                disabled={readOnly}
+                style={{ accentColor: 'var(--accent)' }} />
+              {p.label}
+            </label>
+          </div>
+        )
+      }
+      if (p.type === 'enum' && p.options) {
+        return (
+          <div className="props-field" key={p.key}>
+            <label className="props-label">{p.label}</label>
+            <select
+              className="props-input"
+              value={String(value ?? '')}
+              disabled={readOnly}
+              onChange={onChange as ChangeEvent<HTMLSelectElement>['target']['onchange'] extends infer _ ? any : any}
+            >
+              {p.options.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+        )
+      }
+      if (p.type === 'textarea') {
+        return (
+          <div className="props-field" key={p.key}>
+            <label className="props-label">{p.label}</label>
+            <textarea className="props-textarea" value={String(value ?? '')}
+              onChange={onChange} readOnly={readOnly} />
+          </div>
+        )
+      }
+      return (
+        <div className="props-field" key={p.key}>
+          <label className="props-label">{p.label}</label>
+          <input className="props-input" value={String(value ?? '')}
+            onChange={onChange} readOnly={readOnly} />
+        </div>
+      )
+    }
+
+    // Metamodel properties for this node type — skip 'label' (always rendered first).
+    const nodeTypeDef = metamodel?.nodeTypes[node.type]
+    const metaProps = (nodeTypeDef?.properties ?? []).filter(p => p.key !== 'label')
+
+    // Built-in fallback fields when no metamodel is present.
+    const builtinFields = !nodeTypeDef ? (
+      <>
+        {field('Description', 'description', 'textarea')}
+        {(node.type === 'container' || node.type === 'component' || node.type === 'database' || node.type === 'webapp' || node.type === 'queue') &&
+          field('Technology', 'technology')}
+        {field('External', 'external', 'checkbox')}
+      </>
+    ) : null
+
+    // Parent selector — driven by metamodel allowedParents when available.
+    const allowedParentTypes = nodeTypeDef?.allowedParents ?? (
+      (node.type === 'container' || node.type === 'component' || node.type === 'database' || node.type === 'webapp' || node.type === 'queue')
+        ? { container: ['system'], component: ['container'], database: ['system'], webapp: ['system'], queue: ['system'] }[node.type]
+        : undefined
+    )
+    const parentSelector = allowedParentTypes && allowedParentTypes.length > 0 ? (
       <div className="props-field">
         <label className="props-label">Parent</label>
         <select
@@ -1296,38 +1379,38 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
         >
           <option value="">(none)</option>
           {Object.values(c4Nodes)
-            .filter((n) => {
-              if (n.id === node.id) return false
-              if (node.type === 'container') return n.type === 'system'
-              if (node.type === 'component') return n.type === 'container'
-              if (node.type === 'database') return n.type === 'system' || n.type === 'container'
-              if (node.type === 'webapp') return n.type === 'system' || n.type === 'container'
-              if (node.type === 'queue') return n.type === 'system' || n.type === 'container'
-              return false
-            })
+            .filter(n => n.id !== node.id && allowedParentTypes.includes(n.type))
             .map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
         </select>
       </div>
     ) : null
 
+    // Type badge — prefer metamodel def colors; fall back to NODE_COLORS.
+    const badgeBg    = nodeTypeDef?.color    ?? NODE_COLORS[node.type] ?? '#334155'
+    const badgeFg    = nodeTypeDef?.fg       ?? NODE_FG[node.type]    ?? '#fff'
+    const badgeLabel = nodeTypeDef?.label    ?? TYPE_LABELS[node.type] ?? node.type
+    const badgeIcon  = nodeTypeDef?.iconPath ?? TYPE_ICON_PATHS[node.type]
+
     return (
       <div className="props-content">
         <div
           className="props-type-badge"
-          style={{ background: NODE_COLORS[node.type], color: NODE_FG[node.type] }}
+          style={{ background: badgeBg, color: badgeFg }}
         >
-          <svg viewBox="0 0 16 16" width="14" height="14" fill={NODE_FG[node.type]} style={{ marginRight: 6 }}>
-            <path d={TYPE_ICON_PATHS[node.type]} />
-          </svg>
-          {TYPE_LABELS[node.type].toUpperCase()}
+          {badgeIcon && (
+            <svg viewBox="0 0 16 16" width="14" height="14" fill={badgeFg} style={{ marginRight: 6 }}>
+              <path d={badgeIcon} />
+            </svg>
+          )}
+          {badgeLabel.toUpperCase()}
         </div>
         <div>
           <div className="props-section-title">Properties</div>
           {field('Label', 'label')}
-          {field('Description', 'description', 'textarea')}
-          {(node.type === 'container' || node.type === 'component' || node.type === 'database' || node.type === 'webapp' || node.type === 'queue') &&
-            field('Technology', 'technology')}
-          {field('External', 'external', 'checkbox')}
+          {metaProps.length > 0
+            ? metaProps.map(p => metamodelField(p))
+            : builtinFields
+          }
           {parentSelector}
         </div>
         {!readOnly && (
@@ -1345,25 +1428,99 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
     const rel = relId ? c4Relations[relId] : null
 
     if (rel) {
+      // Look up the relation type definition from the metamodel.
+      const relTypeDef = metamodel?.relationTypes[rel.relationType ?? '']
+
+      // Relation field renderer — generic, stores value directly on the relation.
+      const relField = (key: string, label: string, type: 'text' | 'textarea' | 'boolean' | 'enum' | 'number' = 'text', options?: string[]) => {
+        const value = (rel as unknown as Record<string, unknown>)[key]
+        const strVal = value != null ? String(value) : ''
+        const onChange = (val: string | boolean) => {
+          if (readOnly) return
+          updateRelation(rel.id, { [key]: val } as Parameters<typeof updateRelation>[1])
+        }
+        if (type === 'boolean') {
+          return (
+            <div className="props-field" key={key}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <input type="checkbox" checked={Boolean(value)} disabled={readOnly}
+                  onChange={(e) => onChange(e.target.checked)}
+                  style={{ accentColor: 'var(--accent)' }} />
+                {label}
+              </label>
+            </div>
+          )
+        }
+        if (type === 'enum' && options) {
+          return (
+            <div className="props-field" key={key}>
+              <label className="props-label">{label}</label>
+              <select className="props-input" value={strVal} disabled={readOnly}
+                onChange={(e) => onChange(e.target.value)}>
+                <option value="" />
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+          )
+        }
+        if (type === 'textarea') {
+          return (
+            <div className="props-field" key={key}>
+              <label className="props-label">{label}</label>
+              <textarea className="props-input" value={strVal} readOnly={readOnly} rows={3}
+                onChange={(e) => onChange(e.target.value)} />
+            </div>
+          )
+        }
+        return (
+          <div className="props-field" key={key}>
+            <label className="props-label">{label}</label>
+            <input className="props-input" value={strVal} readOnly={readOnly}
+              onChange={(e) => onChange(e.target.value)} />
+          </div>
+        )
+      }
+
+      // Determine which extra properties to show: metamodel-driven or classic technology field.
+      const relMetaProps = relTypeDef?.properties ?? []
+      const badgeBg = relTypeDef?.color ?? '#334155'
+      const badgeFg = '#fff'
+      const badgeLabel = relTypeDef?.label ?? 'RELATION'
+
+      // Selectable relation types for this source→target pair.
+      const srcNode = c4Nodes[rel.sourceId]
+      const dstNode = c4Nodes[rel.targetId]
+      const compatibleTypes = metamodel
+        ? Object.values(metamodel.relationTypes).filter(rt =>
+            rt.allowedPairs.length === 0 ||
+            rt.allowedPairs.some(p => p.from === srcNode?.type && p.to === dstNode?.type)
+          )
+        : []
+
       return (
         <div className="props-content">
-          <div className="props-type-badge" style={{ background: '#334155', color: '#94a3b8' }}>
-            RELATION
+          <div className="props-type-badge" style={{ background: badgeBg, color: badgeFg }}>
+            {badgeLabel.toUpperCase()}
           </div>
           <div>
             <div className="props-section-title">Properties</div>
-            <div className="props-field">
-              <label className="props-label">Label</label>
-              <input className="props-input" value={rel.label ?? ''}
-                readOnly={readOnly}
-                onChange={(e) => !readOnly && updateRelation(rel.id, { label: e.target.value })} />
-            </div>
-            <div className="props-field">
-              <label className="props-label">Technology</label>
-              <input className="props-input" value={rel.technology ?? ''}
-                readOnly={readOnly}
-                onChange={(e) => !readOnly && updateRelation(rel.id, { technology: e.target.value })} />
-            </div>
+            {/* Relation type selector (shown when metamodel has multiple compatible types) */}
+            {compatibleTypes.length > 1 && (
+              <div className="props-field">
+                <label className="props-label">Type</label>
+                <select className="props-input" value={rel.relationType ?? ''} disabled={readOnly}
+                  onChange={(e) => !readOnly && updateRelation(rel.id, { relationType: e.target.value || undefined } as Parameters<typeof updateRelation>[1])}>
+                  <option value="">(generic)</option>
+                  {compatibleTypes.map(rt => <option key={rt.id} value={rt.id}>{rt.label}</option>)}
+                </select>
+              </div>
+            )}
+            {relField('label', 'Label')}
+            {/* Metamodel-driven properties; fallback to Technology only for relations with no type def */}
+            {relMetaProps.length > 0
+              ? relMetaProps.map(p => relField(p.key, p.label, p.type, p.options))
+              : !relTypeDef && relField('technology', 'Technology')
+            }
           </div>
           {!readOnly && (
             <button className="props-delete" onClick={() => { removeRelation(rel.id); selectEdge(null) }}>
