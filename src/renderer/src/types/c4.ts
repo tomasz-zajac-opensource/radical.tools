@@ -76,8 +76,9 @@ export interface DiagramView {
    * 'dynamic' = shows step-number badges on edges from the linked sequence.
    * 'treemap' = renders the element hierarchy as nested coloured rectangles.
    * 'table'   = governance-aware spreadsheet view of nodes and relations.
+   * 'wiki'    = documentation-style pages per element with inline editing.
    */
-  kind?: 'static' | 'dynamic' | 'treemap' | 'table' | 'matrix'
+  kind?: 'static' | 'dynamic' | 'treemap' | 'table' | 'matrix' | 'wiki'
   /** ID of the DiagramSequence to visualise when kind='dynamic' */
   sequenceId?: string
   /** C4 node IDs included in this view. Ancestors are auto-included. */
@@ -133,6 +134,12 @@ export interface DiagramView {
    * without changing the focus root. Persisted per view.
    */
   treemapExpandedIds?: string[]
+  /**
+   * Wiki-only: id of the element whose page is currently shown.
+   * `null`/`undefined` = Overview (table of contents). Persisted per view so
+   * reopening the view restores the user's location.
+   */
+  wikiFocusId?: string | null
   /**
    * Node IDs explicitly collapsed by the user in this named view.
    * Independent of the model-level `node.collapsed` flag — collapsing in one

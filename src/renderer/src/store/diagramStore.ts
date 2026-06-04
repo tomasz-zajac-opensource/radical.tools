@@ -927,10 +927,12 @@ interface DiagramStore {
   hideRelationFromView: (viewId: string, relationId: string) => void
   /** Reverse `hideRelationFromView`. */
   unhideRelationInView: (viewId: string, relationId: string) => void
-  /** Switch a view between 'static', 'dynamic', 'treemap', 'table', and 'matrix'. */
-  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap' | 'table' | 'matrix') => void
+  /** Switch a view between 'static', 'dynamic', 'treemap', 'table', 'matrix', and 'wiki'. */
+  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap' | 'table' | 'matrix' | 'wiki') => void
   /** Persist treemap drill-down focus (null = top "All"). */
   setTreemapFocus: (viewId: string, focusId: string | null) => void
+  /** Persist wiki page focus (null = Overview / table of contents). */
+  setWikiFocus: (viewId: string, focusId: string | null) => void
   /** Choose how treemap rectangles are sized for a view. */
   setTreemapSizeBy: (viewId: string, mode: 'leaves' | 'uniform' | 'relations') => void
   setTreemapMaxDepth: (viewId: string, depth: number | null) => void
@@ -2306,6 +2308,15 @@ export const useDiagramStore = create<DiagramStore>()(
           const view = state.views[viewId]
           if (!view) return
           view.treemapFocusId = focusId
+        })
+        get()._sync()
+      },
+
+      setWikiFocus(viewId, focusId) {
+        set((state) => {
+          const view = state.views[viewId]
+          if (!view) return
+          view.wikiFocusId = focusId
         })
         get()._sync()
       },

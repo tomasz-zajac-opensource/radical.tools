@@ -338,6 +338,13 @@ const Icon = {
       <circle cx="12.75" cy="12.75" r="1" fill="currentColor" stroke="none"/>
     </svg>
   ),
+  Wiki: () => (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 3.5 C6.8 2.6 4.8 2.4 2.8 2.8 V12.6 C4.8 12.2 6.8 12.4 8 13.3"/>
+      <path d="M8 3.5 C9.2 2.6 11.2 2.4 13.2 2.8 V12.6 C11.2 12.2 9.2 12.4 8 13.3"/>
+      <path d="M8 3.5 V13.3"/>
+    </svg>
+  ),
   ArrowUp: () => (
     <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M8 12 V4 M4.5 7.5 L8 4 L11.5 7.5"/>
@@ -663,7 +670,8 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
   const isTreemap = view.kind === 'treemap'
   const isTable   = view.kind === 'table'
   const isMatrix  = view.kind === 'matrix'
-  const isStatic  = !isDynamic && !isTreemap && !isTable && !isMatrix
+  const isWiki    = view.kind === 'wiki'
+  const isStatic  = !isDynamic && !isTreemap && !isTable && !isMatrix && !isWiki
 
   const commitName = () => {
     if (nameVal.trim()) renameView(view.id, nameVal.trim())
@@ -672,9 +680,9 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
 
   return (
     <div className="props-content">
-      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : isTreemap ? '#2a3a5a' : isTable ? '#1e3a2a' : isMatrix ? '#3a1e3a' : '#334155', color: '#fff' }}>
-        {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : isTable ? <Icon.TableGrid /> : isMatrix ? <Icon.MatrixGrid /> : <Icon.Layers />}
-        &nbsp;{isDynamic ? 'FLOW VIEW' : isTreemap ? 'HIERARCHY VIEW' : isTable ? 'TABLE VIEW' : isMatrix ? 'MATRIX VIEW' : 'STRUCTURE VIEW'}
+      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : isTreemap ? '#2a3a5a' : isTable ? '#1e3a2a' : isMatrix ? '#3a1e3a' : isWiki ? '#3a2e1e' : '#334155', color: '#fff' }}>
+        {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : isTable ? <Icon.TableGrid /> : isMatrix ? <Icon.MatrixGrid /> : isWiki ? <Icon.Wiki /> : <Icon.Layers />}
+        &nbsp;{isDynamic ? 'FLOW VIEW' : isTreemap ? 'HIERARCHY VIEW' : isTable ? 'TABLE VIEW' : isMatrix ? 'MATRIX VIEW' : isWiki ? 'WIKI VIEW' : 'STRUCTURE VIEW'}
       </div>
       <div>
         <div className="props-section-title">Name</div>
@@ -758,6 +766,17 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
                 fontWeight: isMatrix ? 600 : 400,
               }}
             ><Icon.MatrixGrid /> Matrix</button>
+            <button
+              onClick={() => setViewKind(view.id, 'wiki')}
+              style={{
+                padding: '7px 4px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                background: isWiki ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: isWiki ? '#fff' : 'var(--text-muted)',
+                border: isWiki ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: isWiki ? 600 : 400,
+              }}
+            ><Icon.Wiki /> Wiki</button>
           </div>
         </div>
       )}
@@ -923,6 +942,7 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
         const isTreemap = v.kind === 'treemap'
         const isTable   = v.kind === 'table'
         const isMatrix  = v.kind === 'matrix'
+        const isWiki    = v.kind === 'wiki'
         return (
           <div key={v.id}>
             <div
@@ -930,7 +950,7 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
               onClick={() => setActiveView(v.id)}
             >
               <div className="lp-view-icon" style={{ color: isDynamic ? 'var(--accent)' : undefined }}>
-                {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : isTable ? <Icon.TableGrid /> : isMatrix ? <Icon.MatrixGrid /> : <Icon.Layers />}
+                {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : isTable ? <Icon.TableGrid /> : isMatrix ? <Icon.MatrixGrid /> : isWiki ? <Icon.Wiki /> : <Icon.Layers />}
               </div>
               <div className="lp-card-body">
                 <div className="lp-card-title">{v.name}</div>
@@ -940,7 +960,8 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
                   {isTreemap && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>hierarchy</span>}
                   {isTable && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>table</span>}
                   {isMatrix && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>matrix</span>}
-                  {!isDynamic && !isTreemap && !isTable && !isMatrix && <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>structure</span>}
+                  {isWiki && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>wiki</span>}
+                  {!isDynamic && !isTreemap && !isTable && !isMatrix && !isWiki && <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>structure</span>}
                 </div>
               </div>
               {!readOnly && onOpenProps && (

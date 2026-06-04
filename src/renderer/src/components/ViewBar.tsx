@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import { useDiagramStore } from '../store/diagramStore'
 
-type ViewKind = 'static' | 'dynamic' | 'treemap' | 'table'
+type ViewKind = 'static' | 'dynamic' | 'treemap' | 'table' | 'wiki'
 
 const VIEW_KIND_OPTIONS: { kind: ViewKind; icon: string; label: string; desc: string }[] = [
   { kind: 'static',  icon: '⬡', label: 'Structure',  desc: 'C4 canvas with drag & drop' },
   { kind: 'dynamic', icon: '→', label: 'Flow',        desc: 'Sequence / interaction flow' },
   { kind: 'treemap', icon: '▦', label: 'Hierarchy',   desc: 'Nested hierarchy map' },
   { kind: 'table',   icon: '☰', label: 'Table',       desc: 'Editable spreadsheet' },
+  { kind: 'wiki',    icon: '📖', label: 'Wiki',        desc: 'Editable element pages' },
 ]
 
 export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.ReactElement {
@@ -181,7 +182,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
             value={activeView?.kind ?? 'static'}
             disabled={!activeView}
             onChange={(e) =>
-              activeView && setViewKind(activeView.id, e.target.value as 'static' | 'dynamic' | 'treemap' | 'table')
+              activeView && setViewKind(activeView.id, e.target.value as 'static' | 'dynamic' | 'treemap' | 'table' | 'wiki')
             }
             style={{
               fontSize: 11,
@@ -197,10 +198,11 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
             <option value="dynamic">Flow</option>
             <option value="treemap">Hierarchy</option>
             <option value="table">Table</option>
+            <option value="wiki">Wiki</option>
           </select>
         </label>
       )}
-      {!readOnly && (activeView?.kind ?? 'static') !== 'treemap' && (activeView?.kind ?? 'static') !== 'table' && (
+      {!readOnly && (activeView?.kind ?? 'static') !== 'treemap' && (activeView?.kind ?? 'static') !== 'table' && (activeView?.kind ?? 'static') !== 'wiki' && (
         <label
           className="view-layout-mode"
           title={

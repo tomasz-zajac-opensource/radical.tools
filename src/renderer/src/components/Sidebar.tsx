@@ -81,9 +81,9 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
   const hasChildren = children.length > 0
   const isSelected = selectedNodeId === nodeId
   const canCollapse = (node.type === 'system' || node.type === 'container') && hasChildren
-  // For hierarchy views: empty nodeIds means "show all" (no filter), so all nodes are "in view".
+  // For hierarchy/wiki views: empty nodeIds means "show all" (no filter), so all nodes are "in view".
   // For other view kinds: empty nodeIds means "nothing selected", so nodes are dimmed.
-  const isHierarchy = activeView?.kind === 'treemap'
+  const isHierarchy = activeView?.kind === 'treemap' || activeView?.kind === 'wiki'
   const inView = !activeView
     || (isHierarchy && activeView.nodeIds.length === 0)
     || activeView.nodeIds.includes(nodeId)
