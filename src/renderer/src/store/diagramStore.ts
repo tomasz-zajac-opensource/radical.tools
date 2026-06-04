@@ -222,6 +222,7 @@ function computeDiffGhosts(
 /** Compute the effective set of node IDs for a view: explicit nodeIds + all their ancestors */
 function computeViewNodeSet(view: DiagramView | undefined, nodes: Record<string, C4Node>): Set<string> | undefined {
   if (!view) return undefined
+  if (view.nodeIds.length === 0) return undefined
   const result = new Set<string>()
   for (const id of view.nodeIds) {
     let cur = id
@@ -926,8 +927,8 @@ interface DiagramStore {
   hideRelationFromView: (viewId: string, relationId: string) => void
   /** Reverse `hideRelationFromView`. */
   unhideRelationInView: (viewId: string, relationId: string) => void
-  /** Switch a view between 'static', 'dynamic', 'treemap', and 'table'. */
-  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap' | 'table') => void
+  /** Switch a view between 'static', 'dynamic', 'treemap', 'table', and 'matrix'. */
+  setViewKind: (viewId: string, kind: 'static' | 'dynamic' | 'treemap' | 'table' | 'matrix') => void
   /** Persist treemap drill-down focus (null = top "All"). */
   setTreemapFocus: (viewId: string, focusId: string | null) => void
   /** Choose how treemap rectangles are sized for a view. */
@@ -2237,10 +2238,9 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           const view = state.views[viewId]
           if (!view) return
-          if (view.kind === 'treemap' && view.nodeIds.length === 0) {
-            // Hierarchy view with empty nodeIds means "show all". First removal
-            // transitions to "show all except this node" by explicitly listing every
-            // other node so subsequent removals work correctly.
+          if (view.nodeIds.length === 0) {
+            // Empty nodeIds means "show all". First removal transitions to
+            // "show all except this node" by explicitly listing every other node.
             view.nodeIds = Object.keys(state.c4Nodes).filter(id => id !== nodeId)
           } else {
             view.nodeIds = view.nodeIds.filter((id) => id !== nodeId)

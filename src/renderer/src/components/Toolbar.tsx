@@ -493,7 +493,7 @@ export function Toolbar(): React.ReactElement {
         <IconZoomIn />
       </button>
 
-      {activeViewKind !== 'treemap' && activeViewKind !== 'dynamic' && <button
+      {activeViewKind !== 'treemap' && activeViewKind !== 'dynamic' && activeViewKind !== 'table' && activeViewKind !== 'matrix' && <button
         className="toolbar-btn toolbar-btn-accent"
         onClick={() => { void runSmartLayout() }}
         disabled={isLayoutRunning || appMode === 'metamodel'}

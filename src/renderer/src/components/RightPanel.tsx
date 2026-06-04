@@ -77,17 +77,25 @@ function TreeNodeItem({ nodeId, depth }: { nodeId: string; depth: number }) {
   const canCollapse = isContainerType(node.type) && hasChildren
   const isHierarchy = activeView?.kind === 'treemap'
   const inView = !activeView
-    || (isHierarchy && activeView.nodeIds.length === 0)
+    || activeView.nodeIds.length === 0
     || activeView.nodeIds.includes(nodeId)
   // Effective collapsed: per-view if a named view is active, else model-level.
   // A model-collapsed node can be overridden in this view via expandedNodeIds.
   const isEffectivelyCollapsed = nodeEffectivelyCollapsedInView(node, activeViewId, activeView)
+
+  const onDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/c4-node-id', nodeId)
+    e.dataTransfer.effectAllowed = 'copy'
+    e.stopPropagation()
+  }
 
   return (
     <>
       <div
         className={`tree-node ${isSelected ? 'selected' : ''}`}
         style={{ paddingLeft: 12 + depth * 14, opacity: inView ? 1 : 0.35 }}
+        draggable
+        onDragStart={onDragStart}
         onClick={() => selectNode(nodeId)}
       >
         <span
@@ -147,6 +155,7 @@ function RelationListItem({ relationId }: { relationId: string }): React.ReactEl
   // not have it on its hidden list AND both endpoints are visible there.
   const hidden = !!activeView?.hiddenRelationIds?.includes(relationId)
   const endpointsInView = !activeView
+    || activeView.nodeIds.length === 0
     || (activeView.nodeIds.includes(rel.sourceId) && activeView.nodeIds.includes(rel.targetId))
   const inView = !activeView || (!hidden && endpointsInView)
   const isSelected = selectedEdgeId === relationId
@@ -307,6 +316,26 @@ const Icon = {
       <rect x="1" y="11" width="4" height="4" rx="0.5"/>
       <rect x="6" y="11" width="4" height="4" rx="0.5"/>
       <rect x="11" y="11" width="4" height="4" rx="0.5"/>
+    </svg>
+  ),
+  TableGrid: () => (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+      <rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/>
+      <path d="M1.5 5.5 h13"/>
+      <path d="M6 5.5 v9"/>
+      <path d="M10.5 5.5 v9"/>
+    </svg>
+  ),
+  MatrixGrid: () => (
+    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+      <rect x="1.5" y="1.5" width="13" height="13" rx="1.5"/>
+      <path d="M6 1.5 v13"/>
+      <path d="M10.5 1.5 v13"/>
+      <path d="M1.5 6 h13"/>
+      <path d="M1.5 10.5 h13"/>
+      <circle cx="8.25" cy="3.75" r="1" fill="currentColor" stroke="none"/>
+      <circle cx="3.75" cy="8.25" r="1" fill="currentColor" stroke="none"/>
+      <circle cx="12.75" cy="12.75" r="1" fill="currentColor" stroke="none"/>
     </svg>
   ),
   ArrowUp: () => (
@@ -632,7 +661,9 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
   if (!view) return null
   const isDynamic = view.kind === 'dynamic'
   const isTreemap = view.kind === 'treemap'
-  const isStatic  = !isDynamic && !isTreemap
+  const isTable   = view.kind === 'table'
+  const isMatrix  = view.kind === 'matrix'
+  const isStatic  = !isDynamic && !isTreemap && !isTable && !isMatrix
 
   const commitName = () => {
     if (nameVal.trim()) renameView(view.id, nameVal.trim())
@@ -641,9 +672,9 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
 
   return (
     <div className="props-content">
-      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : isTreemap ? '#2a3a5a' : '#334155', color: '#fff' }}>
-        {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : <Icon.Layers />}
-        &nbsp;{isDynamic ? 'FLOW VIEW' : isTreemap ? 'HIERARCHY VIEW' : 'STRUCTURE VIEW'}
+      <div className="props-type-badge" style={{ background: isDynamic ? 'var(--accent)' : isTreemap ? '#2a3a5a' : isTable ? '#1e3a2a' : isMatrix ? '#3a1e3a' : '#334155', color: '#fff' }}>
+        {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : isTable ? <Icon.TableGrid /> : isMatrix ? <Icon.MatrixGrid /> : <Icon.Layers />}
+        &nbsp;{isDynamic ? 'FLOW VIEW' : isTreemap ? 'HIERARCHY VIEW' : isTable ? 'TABLE VIEW' : isMatrix ? 'MATRIX VIEW' : 'STRUCTURE VIEW'}
       </div>
       <div>
         <div className="props-section-title">Name</div>
@@ -671,13 +702,12 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
       {!readOnly && (
         <div>
           <div className="props-section-title">Type</div>
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
             <button
               onClick={() => setViewKind(view.id, 'static')}
               style={{
-                flex: 1, padding: '5px 3px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                padding: '7px 4px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                minWidth: 0, overflow: 'hidden',
                 background: isStatic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
                 color: isStatic ? '#fff' : 'var(--text-muted)',
                 border: isStatic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
@@ -687,9 +717,8 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
             <button
               onClick={() => setViewKind(view.id, 'dynamic')}
               style={{
-                flex: 1, padding: '5px 3px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                padding: '7px 4px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                minWidth: 0, overflow: 'hidden',
                 background: isDynamic ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
                 color: isDynamic ? '#fff' : 'var(--text-muted)',
                 border: isDynamic ? '1px solid var(--accent)' : '1px solid var(--border-color)',
@@ -699,19 +728,40 @@ function ViewPropertiesContent({ viewId, readOnly = false, onClose }: { viewId: 
             <button
               onClick={() => setViewKind(view.id, 'treemap')}
               style={{
-                flex: 1, padding: '5px 3px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                padding: '7px 4px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                minWidth: 0, overflow: 'hidden',
                 background: isTreemap ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
                 color: isTreemap ? '#fff' : 'var(--text-muted)',
                 border: isTreemap ? '1px solid var(--accent)' : '1px solid var(--border-color)',
                 fontWeight: isTreemap ? 600 : 400,
               }}
             ><Icon.TreemapGrid /> Hierarchy</button>
+            <button
+              onClick={() => setViewKind(view.id, 'table')}
+              style={{
+                padding: '7px 4px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                background: isTable ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: isTable ? '#fff' : 'var(--text-muted)',
+                border: isTable ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: isTable ? 600 : 400,
+              }}
+            ><Icon.TableGrid /> Table</button>
+            <button
+              onClick={() => setViewKind(view.id, 'matrix')}
+              style={{
+                padding: '7px 4px', fontSize: 11, borderRadius: 6, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                background: isMatrix ? 'var(--accent)' : 'var(--surface-2, rgba(255,255,255,0.06))',
+                color: isMatrix ? '#fff' : 'var(--text-muted)',
+                border: isMatrix ? '1px solid var(--accent)' : '1px solid var(--border-color)',
+                fontWeight: isMatrix ? 600 : 400,
+              }}
+            ><Icon.MatrixGrid /> Matrix</button>
           </div>
         </div>
       )}
-      {!readOnly && !isTreemap && !isDynamic && (
+      {!readOnly && !isTreemap && !isDynamic && !isTable && !isMatrix && (
         <div>
           <div className="props-section-title">Auto-layout</div>
           <select
@@ -871,6 +921,8 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
         const isActive = activeViewId === v.id
         const isDynamic = v.kind === 'dynamic'
         const isTreemap = v.kind === 'treemap'
+        const isTable   = v.kind === 'table'
+        const isMatrix  = v.kind === 'matrix'
         return (
           <div key={v.id}>
             <div
@@ -878,7 +930,7 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
               onClick={() => setActiveView(v.id)}
             >
               <div className="lp-view-icon" style={{ color: isDynamic ? 'var(--accent)' : undefined }}>
-                {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : <Icon.Layers />}
+                {isDynamic ? <Icon.Bolt /> : isTreemap ? <Icon.TreemapGrid /> : isTable ? <Icon.TableGrid /> : isMatrix ? <Icon.MatrixGrid /> : <Icon.Layers />}
               </div>
               <div className="lp-card-body">
                 <div className="lp-card-title">{v.name}</div>
@@ -886,7 +938,9 @@ function ViewList({ readOnly = false, onOpenProps }: { readOnly?: boolean; onOpe
                   <span>{v.nodeIds.length} {v.nodeIds.length === 1 ? 'node' : 'nodes'}</span>
                   {isDynamic && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>flow</span>}
                   {isTreemap && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>hierarchy</span>}
-                  {!isDynamic && !isTreemap && <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>structure</span>}
+                  {isTable && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>table</span>}
+                  {isMatrix && <span style={{ marginLeft: 4, color: 'var(--accent)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>matrix</span>}
+                  {!isDynamic && !isTreemap && !isTable && !isMatrix && <span style={{ marginLeft: 4, color: 'var(--text-muted)', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>structure</span>}
                 </div>
               </div>
               {!readOnly && onOpenProps && (

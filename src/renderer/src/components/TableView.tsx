@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import type { C4Node, C4Relation } from '../types/c4'
-import { NODE_COLORS, NODE_FG, TYPE_LABELS } from '../types/c4'
+import type { C4Node, C4Relation, C4ElementType } from '../types/c4'
+import { NODE_COLORS, NODE_FG, TYPE_LABELS, NODE_SIZES } from '../types/c4'
+import { isParentAllowed } from '../types/metamodel'
 
 // ─── Column definitions ──────────────────────────────────────────────────────
 
@@ -88,21 +89,59 @@ interface EditCell {
   draft: string
 }
 
+// ─── Tree ordering helper ────────────────────────────────────────────────────
+
+interface TreeRow {
+  node: C4Node
+  depth: number
+}
+
+function buildTreeRows(nodeList: C4Node[]): TreeRow[] {
+  const byParent = new Map<string | null, C4Node[]>()
+  for (const n of nodeList) {
+    const key = n.parentId ?? null
+    if (!byParent.has(key)) byParent.set(key, [])
+    byParent.get(key)!.push(n)
+  }
+  const result: TreeRow[] = []
+  function walk(parentId: string | null, depth: number) {
+    const children = byParent.get(parentId) ?? []
+    for (const n of children) {
+      result.push({ node: n, depth })
+      walk(n.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  // append any orphans not visited (broken parentId refs)
+  const visited = new Set(result.map(r => r.node.id))
+  for (const n of nodeList) {
+    if (!visited.has(n.id)) result.push({ node: n, depth: 0 })
+  }
+  return result
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function TableView(): React.ReactElement {
-  const nodes          = useDiagramStore((s) => s.c4Nodes)
-  const relations      = useDiagramStore((s) => s.c4Relations)
-  const updateNode     = useDiagramStore((s) => s.updateNode)
-  const updateRelation = useDiagramStore((s) => s.updateRelation)
-  const selectNode     = useDiagramStore((s) => s.selectNode)
-  const selectEdge     = useDiagramStore((s) => s.selectEdge)
-  const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
-  const selectedEdgeId = useDiagramStore((s) => s.selectedEdgeId)
-  const activeView     = useDiagramStore((s) => s.activeViewId ? s.views[s.activeViewId] : undefined)
+  const nodes            = useDiagramStore((s) => s.c4Nodes)
+  const relations        = useDiagramStore((s) => s.c4Relations)
+  const updateNode       = useDiagramStore((s) => s.updateNode)
+  const updateRelation   = useDiagramStore((s) => s.updateRelation)
+  const selectNode       = useDiagramStore((s) => s.selectNode)
+  const selectEdge       = useDiagramStore((s) => s.selectEdge)
+  const selectedNodeId   = useDiagramStore((s) => s.selectedNodeId)
+  const selectedEdgeId   = useDiagramStore((s) => s.selectedEdgeId)
+  const activeViewId     = useDiagramStore((s) => s.activeViewId)
+  const activeView       = useDiagramStore((s) => s.activeViewId ? s.views[s.activeViewId] : undefined)
+  const addNodeToView    = useDiagramStore((s) => s.addNodeToView)
+  const addNode          = useDiagramStore((s) => s.addNode)
+  const pushNotification = useDiagramStore((s) => s.pushNotification)
 
-  const [tab, setTab]           = useState<Tab>('all')
-  const [editCell, setEditCell] = useState<EditCell | null>(null)
+  const [tab, setTab]             = useState<Tab>('all')
+  const [editCell, setEditCell]   = useState<EditCell | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dropParentId, setDropParentId] = useState<string | null>(null)
+  const [dragKind, setDragKind] = useState<'new' | 'existing' | null>(null)
 
   const visibleNodeIds = useMemo<Set<string> | null>(() => {
     if (!activeView || activeView.nodeIds.length === 0) return null
@@ -126,6 +165,11 @@ export function TableView(): React.ReactElement {
     [relations, visibleNodeIds],
   )
 
+  const treeRows = useMemo<TreeRow[]>(() =>
+    tab === 'all' ? buildTreeRows(nodeList) : [],
+    [tab, nodeList],
+  )
+
   const cols: ColDef[] =
     tab === 'adr'        ? ADR_COLS
     : tab === 'fitness-fn' ? FF_COLS
@@ -136,7 +180,126 @@ export function TableView(): React.ReactElement {
     tab === 'adr'        ? adrList
     : tab === 'fitness-fn' ? ffList
     : tab === 'relations'  ? relList
-    : nodeList
+    : treeRows.map(r => r.node)
+
+  const depthMap = useMemo<Map<string, number>>(() => {
+    const m = new Map<string, number>()
+    for (const r of treeRows) m.set(r.node.id, r.depth)
+    return m
+  }, [treeRows])
+
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    const types = Array.from(e.dataTransfer.types)
+    const isNew = types.includes('application/c4-type')
+    const isExisting = types.includes('application/c4-node-id')
+    if (!isNew && !isExisting) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setIsDragOver(true)
+    setDragKind(isNew ? 'new' : 'existing')
+    if (isNew) {
+      // Highlight the row under the cursor — it will become the parent.
+      const rowEl = (e.target as HTMLElement).closest('.tv-row') as HTMLElement | null
+      const id = rowEl?.dataset.nodeId ?? null
+      setDropParentId(id)
+    } else {
+      setDropParentId(null)
+    }
+  }, [])
+
+  const onDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false)
+      setDropParentId(null)
+      setDragKind(null)
+    }
+  }, [])
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    setDropParentId(null)
+    setDragKind(null)
+
+    // ── Case 1: new node dragged from the palette/toolbar ──────────────────
+    const typeStr = e.dataTransfer.getData('application/c4-type')
+    if (typeStr) {
+      const size = NODE_SIZES[typeStr as C4ElementType] ?? { width: 200, height: 100 }
+      const mm = useDiagramStore.getState().metamodel
+      const def = mm?.nodeTypes[typeStr]
+      const label = def?.label ?? (typeStr[0].toUpperCase() + typeStr.slice(1))
+      const allowedParents = def?.allowedParents ?? []
+
+      // Detect the table row under the drop point — its node is the candidate parent.
+      const rowEl = (e.target as HTMLElement).closest('.tv-row') as HTMLElement | null
+      const dropOnNodeId = rowEl?.dataset.nodeId
+      const dropOnNode = dropOnNodeId ? nodes[dropOnNodeId] : undefined
+
+      let parentId: string | undefined = undefined
+      if (dropOnNode) {
+        if (isParentAllowed(mm, typeStr, dropOnNode.type)) {
+          // Dropped onto a valid parent row.
+          parentId = dropOnNode.id
+        } else if (dropOnNode.parentId && isParentAllowed(mm, typeStr, nodes[dropOnNode.parentId]?.type)) {
+          // Dropped onto a sibling row — inherit its (valid) parent.
+          parentId = dropOnNode.parentId
+        } else {
+          const allowedStr = allowedParents.length
+            ? allowedParents.map(t => mm?.nodeTypes[t]?.label ?? t).join(', ')
+            : 'the model root'
+          pushNotification(
+            `Cannot place ${label} on "${dropOnNode.label}". Drop it onto a ${allowedStr} row.`,
+            'error',
+          )
+          return
+        }
+      } else if (!isParentAllowed(mm, typeStr, undefined)) {
+        // Dropped on empty area but this type needs a parent.
+        const allowedStr = allowedParents.length
+          ? allowedParents.map(t => mm?.nodeTypes[t]?.label ?? t).join(', ')
+          : 'a parent'
+        pushNotification(
+          `${label} must be dropped onto a ${allowedStr} row.`,
+          'error',
+        )
+        return
+      }
+
+      // addNode validates parent/cardinality (pushes its own error toast on
+      // failure) and auto-adds the created node to the active view.
+      const newId = addNode({
+        type: typeStr as C4ElementType,
+        label,
+        description: '',
+        technology: '',
+        collapsed: false,
+        external: false,
+        parentId,
+        x: 0,
+        y: 0,
+        ...size,
+      })
+      if (newId) {
+        const where = parentId ? ` inside "${nodes[parentId]?.label ?? parentId}"` : ''
+        pushNotification(`${label} added to the model${where}.`, 'info')
+      }
+      return
+    }
+
+    // ── Case 2: existing node dragged from the Nodes panel → add to view ───
+    const nodeId = e.dataTransfer.getData('application/c4-node-id')
+    if (!nodeId || !activeViewId || !activeView) return
+
+    const node = nodes[nodeId]
+    if (!node) { pushNotification('Node not found.', 'error'); return }
+
+    if (activeView.nodeIds.includes(nodeId)) {
+      pushNotification(`"${node.label}" is already in this view.`, 'warning')
+      return
+    }
+    addNodeToView(activeViewId, nodeId)
+    pushNotification(`"${node.label}" added to view.`, 'info')
+  }, [activeViewId, activeView, nodes, addNode, addNodeToView, pushNotification])
 
   const commitEdit = useCallback(() => {
     if (!editCell) return
@@ -169,7 +332,7 @@ export function TableView(): React.ReactElement {
     updateNode(rowId, { [colKey]: current !== 'true' } as Parameters<typeof updateNode>[1])
   }, [updateNode])
 
-  function renderCell(row: C4Node | C4Relation, col: ColDef): React.ReactNode {
+  function renderCell(row: C4Node | C4Relation, col: ColDef, depth = 0): React.ReactNode {
     const isNodeRow = tab !== 'relations'
     const rowId = row.id
     const rawVal = isNodeRow
@@ -259,12 +422,15 @@ export function TableView(): React.ReactElement {
     }
 
     // Display mode — click to start editing
+    const indent = tab === 'all' && col.key === 'label' && depth > 0
     return (
       <span
         className={`tv-cell-value ${col.type === 'textarea' ? 'tv-cell-multiline' : ''}`}
         onClick={(e) => { e.stopPropagation(); startEdit(rowId, col.key, rawVal) }}
         title={rawVal || 'Click to edit'}
+        style={indent ? { paddingLeft: depth * 16 + 4, display: 'flex', alignItems: 'center', gap: 4 } : undefined}
       >
+        {indent && <span className="tv-tree-indent" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{'└'}</span>}
         {rawVal || <span className="tv-cell-placeholder">Click to edit…</span>}
       </span>
     )
@@ -277,7 +443,35 @@ export function TableView(): React.ReactElement {
                            'No nodes.'
 
   return (
-    <div className="tv-wrap" onClick={() => setEditCell(null)}>
+    <div
+      className={`tv-wrap${isDragOver ? ' tv-drop-active' : ''}`}
+      onClick={() => setEditCell(null)}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {/* Drop overlay */}
+      {isDragOver && (
+        dragKind === 'new' && dropParentId && nodes[dropParentId] ? (
+          // Hovering a specific row — show a compact pill, keep the row visible.
+          <div className="tv-drop-pill">
+            <span className="tv-drop-icon">＋</span>
+            <span>Add inside <strong>{nodes[dropParentId].label}</strong></span>
+          </div>
+        ) : (
+          <div className="tv-drop-overlay">
+            <div className="tv-drop-overlay-inner">
+              <span className="tv-drop-icon">＋</span>
+              <span>
+                {dragKind === 'existing'
+                  ? 'Drop to add to view'
+                  : 'Drop onto a row to nest, or here to add at root'}
+              </span>
+            </div>
+          </div>
+        )
+      )}
+
       {/* Tab bar */}
       <div className="tv-tabs">
         {TABS.map(t => {
@@ -321,15 +515,17 @@ export function TableView(): React.ReactElement {
             {rows.map((row) => {
               const isNodeRow = tab !== 'relations'
               const isSelected = isNodeRow ? selectedNodeId === row.id : selectedEdgeId === row.id
+              const depth = tab === 'all' ? (depthMap.get(row.id) ?? 0) : 0
               return (
                 <tr
                   key={row.id}
-                  className={`tv-row ${isSelected ? 'tv-row-selected' : ''}`}
+                  data-node-id={isNodeRow ? row.id : undefined}
+                  className={`tv-row ${isSelected ? 'tv-row-selected' : ''}${dropParentId === row.id ? ' tv-row-drop-parent' : ''}`}
                   onClick={(e) => { e.stopPropagation(); handleRowClick(row.id) }}
                 >
                   {cols.map(col => (
                     <td key={col.key} className="tv-td">
-                      {renderCell(row, col)}
+                      {renderCell(row, col, depth)}
                     </td>
                   ))}
                 </tr>

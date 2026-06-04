@@ -5,6 +5,7 @@ import { Canvas } from './components/Canvas'
 import { TreemapView } from './components/TreemapView'
 import { SequenceView } from './components/SequenceView'
 import { TableView } from './components/TableView'
+import { MatrixView } from './components/MatrixView'
 import { PresentationBar, PresenterDock } from './components/PresentationBar'
 import { RightPanel, LeftPanel } from './components/RightPanel'
 import { MetamodelEditor } from './components/MetamodelEditor'
@@ -29,7 +30,8 @@ function AppInner(): React.ReactElement {
   const isTreemapView  = activeViewKind === 'treemap'
   const isSequenceView = activeViewKind === 'dynamic'
   const isTableView    = activeViewKind === 'table'
-  const isCanvasView   = !isTreemapView && !isSequenceView && !isTableView
+  const isMatrixView   = activeViewKind === 'matrix'
+  const isCanvasView   = !isTreemapView && !isSequenceView && !isTableView && !isMatrixView
 
   const isPresenting = presentationActive
   const isDesigner = appMode === 'designer'
@@ -90,7 +92,7 @@ function AppInner(): React.ReactElement {
       {!isPresenting && isDesigner && <LeftPanel mode="designer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {!isPresenting && isViewer && <LeftPanel mode="viewer" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
       {!isPresenting && isPresenter && <LeftPanel mode="presenter" collapsed={leftCollapsed} onToggleCollapsed={toggleLeft} />}
-      {isTreemapView ? <TreemapView /> : isSequenceView ? <SequenceView /> : isTableView ? <TableView /> : <Canvas />}
+      {isTreemapView ? <TreemapView /> : isSequenceView ? <SequenceView /> : isTableView ? <TableView /> : isMatrixView ? <MatrixView /> : <Canvas />}
       {!isPresenting && isDesigner && <RightPanel collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
       {!isPresenting && isViewer && <RightPanel readOnly collapsed={rightCollapsed} onToggleCollapsed={toggleRight} />}
       {!isPresenting && isPresenter && <PresenterDock />}
