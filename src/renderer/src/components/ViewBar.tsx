@@ -32,13 +32,17 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
   const activeView = activeViewId ? views[activeViewId] : null
 
   const [showAddMenu, setShowAddMenu] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   const addBtnRef = useRef<HTMLButtonElement>(null)
 
-  // Close add-menu when clicking outside
   useEffect(() => {
     if (!showAddMenu) return
     const handler = (e: MouseEvent) => {
-      if (addBtnRef.current && !addBtnRef.current.closest('.vb-add-wrap')?.contains(e.target as Node)) {
+      const menu = document.querySelector('.vb-add-menu')
+      if (
+        addBtnRef.current && !addBtnRef.current.contains(e.target as Node) &&
+        (!menu || !menu.contains(e.target as Node))
+      ) {
         setShowAddMenu(false)
       }
     }
@@ -54,6 +58,14 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
     setViewKind(id, kind)
     setEditingId(id)
     setEditName(name)
+  }
+
+  const openAddMenu = () => {
+    if (addBtnRef.current) {
+      const r = addBtnRef.current.getBoundingClientRect()
+      setMenuPos({ top: r.bottom + 4, left: r.left })
+    }
+    setShowAddMenu((v) => !v)
   }
 
   const commitRename = () => {
@@ -113,17 +125,20 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
         </div>
       ))}
       {!readOnly && (
-        <div className="vb-add-wrap">
+        <>
           <button
             ref={addBtnRef}
             className="view-tab view-tab-add"
-            onClick={() => setShowAddMenu((v) => !v)}
+            onClick={openAddMenu}
             title="New view"
           >
             +
           </button>
           {showAddMenu && (
-            <div className="vb-add-menu">
+            <div
+              className="vb-add-menu"
+              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
+            >
               {VIEW_KIND_OPTIONS.map(opt => (
                 <button
                   key={opt.kind}
@@ -137,7 +152,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
               ))}
             </div>
           )}
-        </div>
+        </>
       )}
       {!readOnly && (
         <label
