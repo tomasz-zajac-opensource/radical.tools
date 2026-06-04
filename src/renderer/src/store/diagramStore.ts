@@ -242,7 +242,7 @@ function computeViewNodeSet(view: DiagramView | undefined, nodes: Record<string,
  * - it is not already collapsed on the model.
  * Returns empty set when no view filter is active.
  */
-function computeViewCollapsedSet(
+export function computeViewCollapsedSet(
   viewFilter: Set<string> | undefined,
   allNodes: Record<string, C4Node>
 ): Set<string> {
@@ -271,7 +271,7 @@ function computeViewCollapsedSet(
 /** Is the node effectively collapsed (model-collapsed OR view-collapsed)?
  *  Pass `expandedSet` (from `view.expandedNodeIds`) to allow a named view to
  *  override a model-level collapse. */
-function isEffectivelyCollapsed(
+export function isEffectivelyCollapsed(
   node: C4Node,
   viewCollapsedSet?: Set<string>,
   expandedSet?: Set<string>
@@ -327,7 +327,7 @@ function filterForView(
  * Walk up the parent chain. Returns true if the node is hidden because
  * one of its ancestors is collapsed (model or view-collapsed).
  */
-function isNodeHidden(
+export function isNodeHidden(
   nodeId: string,
   nodes: Record<string, C4Node>,
   viewCollapsedSet?: Set<string>,
@@ -362,7 +362,7 @@ function getVisibleAncestor(
  * AND present in the view filter. Used by deriveRFEdges to aggregate children
  * edges onto their view-visible parent.
  */
-function getViewVisibleAncestor(
+export function getViewVisibleAncestor(
   nodeId: string,
   nodes: Record<string, C4Node>,
   viewFilter: Set<string> | undefined,

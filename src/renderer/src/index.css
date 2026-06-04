@@ -5467,7 +5467,10 @@ body {
 .mx-diag-mark { display: none; }
 
 .mx-dot {
-  display: inline-block;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -5475,12 +5478,151 @@ body {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
 }
 
+.mx-dot-count {
+  position: absolute;
+  inset: -5px -7px auto auto;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--bg-panel, #1e1e2e);
+  color: var(--text-main, #cdd6f4);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px var(--border-color, #45475a);
+}
+
 .mx-cell.mx-sel {
   box-shadow: inset 0 0 0 2px var(--accent, #3b82f6);
   background: color-mix(in srgb, var(--accent, #3b82f6) 18%, transparent);
 }
 
-.mx-table th.mx-rowhead.mx-axis-hl,
-.mx-table th.mx-colhead.mx-axis-hl {
-  background: color-mix(in srgb, var(--accent, #3b82f6) 16%, var(--bg-panel));
+.mx-cell.mx-readonly {
+  cursor: default;
 }
+
+.mx-cell.mx-readonly:not(.mx-diag):hover {
+  background: var(--bg-canvas);
+  box-shadow: none;
+}
+
+/* ── Multi-relation popup ─────────────────────────────────────────────── */
+
+.mx-popup {
+  position: fixed;
+  z-index: 9000;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: 340px;
+  background: var(--bg-panel, #1e1e2e);
+  border: 1px solid var(--border-color, #45475a);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.mx-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 6px;
+  border-bottom: 1px solid var(--border-color, #45475a);
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mx-popup-from,
+.mx-popup-to {
+  font-weight: 600;
+  color: var(--text-main, #cdd6f4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.mx-popup-arrow {
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.mx-popup-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+}
+
+.mx-popup-item {
+  display: flex;
+  align-items: center;
+  padding: 0 4px 0 12px;
+  gap: 4px;
+}
+
+.mx-popup-item:hover {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 10%, transparent);
+}
+
+.mx-popup-item-sel {
+  background: color-mix(in srgb, var(--accent, #3b82f6) 16%, transparent);
+}
+
+.mx-popup-select {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-main, #cdd6f4);
+  font-size: 12px;
+  text-align: left;
+  min-width: 0;
+}
+
+.mx-popup-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+.mx-popup-rel-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mx-popup-rel-type {
+  color: var(--text-muted, #888);
+  font-size: 11px;
+}
+
+.mx-popup-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mx-popup-remove:hover {
+  background: color-mix(in srgb, var(--danger, #f38ba8) 20%, transparent);
+  color: var(--danger, #f38ba8);
+}
+

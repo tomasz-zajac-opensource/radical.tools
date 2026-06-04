@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import ReactDOM from 'react-dom'
 import { useDiagramStore } from '../store/diagramStore'
 
 type ViewKind = 'static' | 'dynamic' | 'treemap' | 'table'
@@ -134,7 +135,7 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
           >
             +
           </button>
-          {showAddMenu && (
+          {showAddMenu && ReactDOM.createPortal(
             <div
               className="vb-add-menu"
               style={{ position: 'fixed', top: menuPos.top, left: menuPos.left }}
@@ -150,7 +151,8 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
                   <span className="vb-add-desc">{opt.desc}</span>
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </>
       )}

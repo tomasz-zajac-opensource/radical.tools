@@ -91,11 +91,19 @@ function TreeNodeItem({ nodeId, depth }: TreeNodeProps) {
   // A model-collapsed node can be overridden in this view via expandedNodeIds.
   const isEffectivelyCollapsed = nodeEffectivelyCollapsedInView(node, activeViewId, activeView)
 
+  const onDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/c4-node-id', nodeId)
+    e.dataTransfer.effectAllowed = 'copy'
+    e.stopPropagation()
+  }
+
   return (
     <>
       <div
         className={`tree-node ${isSelected ? 'selected' : ''}`}
         style={{ paddingLeft: 12 + depth * 14, opacity: inView ? 1 : 0.35 }}
+        draggable
+        onDragStart={onDragStart}
         onClick={() => selectNode(nodeId)}
       >
         <span
