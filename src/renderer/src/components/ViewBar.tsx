@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 
+type ViewKind = 'static' | 'dynamic' | 'treemap' | 'table'
+
+const VIEW_KIND_OPTIONS: { kind: ViewKind; icon: string; label: string; desc: string }[] = [
+  { kind: 'static',  icon: '⬡', label: 'Structure',  desc: 'C4 canvas with drag & drop' },
+  { kind: 'dynamic', icon: '→', label: 'Flow',        desc: 'Sequence / interaction flow' },
+  { kind: 'treemap', icon: '▦', label: 'Hierarchy',   desc: 'Nested hierarchy map' },
+  { kind: 'table',   icon: '☰', label: 'Table',       desc: 'Editable spreadsheet' },
+]
+
 export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.ReactElement {
   const views = useDiagramStore((s) => s.views)
   const activeViewId = useDiagramStore((s) => s.activeViewId)
@@ -22,11 +31,29 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
   const viewList = Object.values(views)
   const activeView = activeViewId ? views[activeViewId] : null
 
-  const handleAdd = () => {
-    const id = addView(`View ${viewList.length + 1}`)
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const addBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Close add-menu when clicking outside
+  useEffect(() => {
+    if (!showAddMenu) return
+    const handler = (e: MouseEvent) => {
+      if (addBtnRef.current && !addBtnRef.current.closest('.vb-add-wrap')?.contains(e.target as Node)) {
+        setShowAddMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showAddMenu])
+
+  const handleAddKind = (kind: ViewKind) => {
+    setShowAddMenu(false)
+    const name = `View ${viewList.length + 1}`
+    const id = addView(name)
     setActiveView(id)
+    setViewKind(id, kind)
     setEditingId(id)
-    setEditName(`View ${viewList.length + 1}`)
+    setEditName(name)
   }
 
   const commitRename = () => {
@@ -86,9 +113,31 @@ export function ViewBar({ readOnly = false }: { readOnly?: boolean }): React.Rea
         </div>
       ))}
       {!readOnly && (
-        <button className="view-tab view-tab-add" onClick={handleAdd} title="New view">
-          +
-        </button>
+        <div className="vb-add-wrap">
+          <button
+            ref={addBtnRef}
+            className="view-tab view-tab-add"
+            onClick={() => setShowAddMenu((v) => !v)}
+            title="New view"
+          >
+            +
+          </button>
+          {showAddMenu && (
+            <div className="vb-add-menu">
+              {VIEW_KIND_OPTIONS.map(opt => (
+                <button
+                  key={opt.kind}
+                  className="vb-add-item"
+                  onClick={() => handleAddKind(opt.kind)}
+                >
+                  <span className="vb-add-icon">{opt.icon}</span>
+                  <span className="vb-add-label">{opt.label}</span>
+                  <span className="vb-add-desc">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
       {!readOnly && (
         <label
