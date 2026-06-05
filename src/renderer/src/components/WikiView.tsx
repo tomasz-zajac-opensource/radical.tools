@@ -1,20 +1,46 @@
 import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import { isParentAllowed, PropertyDef } from '../types/metamodel'
+import { isParentAllowed, isRelationAllowed, PropertyDef } from '../types/metamodel'
+import { useOutsideClick } from '../hooks/useOutsideClick'
 import {
   C4Node,
   C4Relation,
   C4ElementType,
   NODE_COLORS,
   NODE_FG,
+  NODE_SIZES,
   TYPE_LABELS,
   TYPE_ICON_PATHS,
 } from '../types/c4'
 
 type Metamodel = ReturnType<typeof useDiagramStore.getState>['metamodel']
+type AddNode = ReturnType<typeof useDiagramStore.getState>['addNode']
+type AddRelation = ReturnType<typeof useDiagramStore.getState>['addRelation']
 type UpdateNode = ReturnType<typeof useDiagramStore.getState>['updateNode']
 type UpdateRelation = ReturnType<typeof useDiagramStore.getState>['updateRelation']
 type TypeMeta = (type: string) => { label: string; color: string; fg: string; iconPath: string }
+
+type TypeOption = { id: string; label: string; color: string }
+
+// All node types known to the document, preferring the metamodel and falling
+// back to the built-in C4 type list when no metamodel is present.
+function allNodeTypeIds(metamodel: Metamodel): string[] {
+  const fromMeta = metamodel?.nodeTypes ? Object.keys(metamodel.nodeTypes) : []
+  if (fromMeta.length) return fromMeta
+  return Object.keys(TYPE_LABELS)
+}
+
+// Node types that may be created as a child of `parentType` (undefined → root).
+function childTypeOptions(
+  metamodel: Metamodel,
+  parentType: string | undefined,
+  typeMeta: TypeMeta,
+): TypeOption[] {
+  return allNodeTypeIds(metamodel)
+    .filter((t) => isParentAllowed(metamodel, t, parentType))
+    .map((t) => ({ id: t, label: typeMeta(t).label, color: typeMeta(t).color }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+}
 
 // Resolve display metadata for a node type, preferring the document metamodel
 // (supports custom types) and falling back to the built-in C4 constants.
@@ -50,6 +76,82 @@ function TypeChip({ type, typeMeta }: { type: string; typeMeta: TypeMeta }): Rea
   )
 }
 
+// ─── Add menu (dropdown picker used to create nodes / relations) ─────────────
+
+type AddMenuOption = { id: string; label: string; color?: string; sub?: string }
+
+function AddMenu({
+  label,
+  options,
+  emptyHint,
+  onPick,
+  variant = 'default',
+}: {
+  label: string
+  options: AddMenuOption[]
+  emptyHint?: string
+  onPick: (id: string) => void
+  variant?: 'default' | 'ghost'
+}): React.ReactElement {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const ref = useRef<HTMLDivElement | null>(null)
+  useOutsideClick([ref], open, () => setOpen(false))
+
+  const lower = query.trim().toLowerCase()
+  const filtered = lower
+    ? options.filter((o) => o.label.toLowerCase().includes(lower) || o.sub?.toLowerCase().includes(lower))
+    : options
+
+  return (
+    <div className="wiki-add" ref={ref}>
+      <button
+        className={`wiki-add-btn ${variant === 'ghost' ? 'ghost' : ''}`}
+        onClick={() => {
+          setOpen((o) => !o)
+          setQuery('')
+        }}
+      >
+        <span className="wiki-add-plus">+</span>
+        {label}
+      </button>
+      {open && (
+        <div className="wiki-add-menu">
+          {options.length > 6 && (
+            <input
+              className="wiki-add-search"
+              placeholder="Search…"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          )}
+          <div className="wiki-add-list">
+            {filtered.length === 0 ? (
+              <div className="wiki-add-empty">{emptyHint ?? 'Nothing available'}</div>
+            ) : (
+              filtered.map((o) => (
+                <button
+                  key={o.id}
+                  className="wiki-add-item"
+                  onClick={() => {
+                    onPick(o.id)
+                    setOpen(false)
+                  }}
+                >
+                  {o.color && <span className="wiki-add-dot" style={{ background: o.color }} />}
+                  <span className="wiki-add-item-label">{o.label}</span>
+                  {o.sub && <span className="wiki-add-item-sub">{o.sub}</span>}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function WikiView(): React.ReactElement {
   const views = useDiagramStore((s) => s.views)
   const activeViewId = useDiagramStore((s) => s.activeViewId)
@@ -58,6 +160,11 @@ export function WikiView(): React.ReactElement {
   const metamodel = useDiagramStore((s) => s.metamodel)
   const updateNode = useDiagramStore((s) => s.updateNode)
   const updateRelation = useDiagramStore((s) => s.updateRelation)
+  const addNode = useDiagramStore((s) => s.addNode)
+  const removeNode = useDiagramStore((s) => s.removeNode)
+  const addRelation = useDiagramStore((s) => s.addRelation)
+  const removeRelation = useDiagramStore((s) => s.removeRelation)
+  const pushNotification = useDiagramStore((s) => s.pushNotification)
   const setWikiFocus = useDiagramStore((s) => s.setWikiFocus)
   const appMode = useDiagramStore((s) => s.appMode)
 
@@ -109,6 +216,52 @@ export function WikiView(): React.ReactElement {
     if (view) setWikiFocus(view.id, id)
   }
 
+  // Create a node of `type` (optionally inside `parentId`), then navigate to
+  // it. addNode validates metamodel rules and emits its own error toast on
+  // failure (returning '').
+  const createNode = (type: string, parentId: string | undefined) => {
+    const def = metamodel?.nodeTypes[type]
+    const label = `New ${def?.label ?? TYPE_LABELS[type as C4ElementType] ?? type}`
+    const size = NODE_SIZES[type as C4ElementType]
+    const id = addNode({
+      type: type as C4ElementType,
+      label,
+      description: '',
+      technology: '',
+      collapsed: false,
+      external: false,
+      parentId,
+      x: 0,
+      y: 0,
+      width: def?.width ?? size?.width ?? 160,
+      height: def?.height ?? size?.height ?? 90,
+    })
+    if (id) {
+      pushNotification(`${label} added.`, 'info')
+      goTo(id)
+    }
+  }
+
+  const deleteNode = (id: string) => {
+    const target = c4Nodes[id]
+    if (!target) return
+    const kids = Object.values(c4Nodes).filter((n) => n.parentId === id)
+    const extra = kids.length ? ` and its ${kids.length} child element${kids.length === 1 ? '' : 's'}` : ''
+    if (!window.confirm(`Delete "${target.label}"${extra}? This cannot be undone from here.`)) return
+    const parentId = target.parentId ?? null
+    removeNode(id)
+    pushNotification(`"${target.label}" deleted.`, 'info')
+    if (focusId === id || (focusId && !c4Nodes[focusId])) goTo(parentId)
+  }
+
+  const createRelation = (sourceId: string, targetId: string) => {
+    addRelation({ sourceId, targetId })
+  }
+
+  const deleteRelation = (id: string) => {
+    removeRelation(id)
+  }
+
   if (!view) {
     return (
       <div className="wiki-view">
@@ -139,6 +292,10 @@ export function WikiView(): React.ReactElement {
             updateNode={updateNode}
             updateRelation={updateRelation}
             onNavigate={goTo}
+            onCreateChild={(type) => createNode(type, focus.id)}
+            onDeleteNode={deleteNode}
+            onCreateRelation={(targetId) => createRelation(focus.id, targetId)}
+            onDeleteRelation={deleteRelation}
             readOnly={readOnly}
             typeMeta={typeMeta}
           />
@@ -146,7 +303,11 @@ export function WikiView(): React.ReactElement {
           <WikiOverview
             roots={childrenOf['__root__'] ?? []}
             childrenOf={childrenOf}
+            metamodel={metamodel}
             onNavigate={goTo}
+            onCreateRoot={(type) => createNode(type, undefined)}
+            onDeleteNode={deleteNode}
+            readOnly={readOnly}
             totalNodes={nodeList.length}
             totalRelations={Object.keys(c4Relations).length}
             typeMeta={typeMeta}
@@ -223,25 +384,95 @@ function WikiNav({
 
 // ─── Overview page ───────────────────────────────────────────────────────────
 
+// Shared element card used on the overview and element pages. Rendered as a
+// container so an optional delete button can live alongside the open button
+// (nested <button> elements are invalid HTML).
+function WikiNodeCard({
+  node,
+  metaLabel,
+  color,
+  sub,
+  onOpen,
+  onDelete,
+}: {
+  node: C4Node
+  metaLabel: string
+  color: string
+  sub?: string
+  onOpen: () => void
+  onDelete?: () => void
+}): React.ReactElement {
+  return (
+    <div className="wiki-card">
+      <button className="wiki-card-open" onClick={onOpen}>
+        <span className="wiki-card-bar" style={{ background: color }} />
+        <span className="wiki-card-body">
+          <span className="wiki-card-title">{node.label}</span>
+          <span className="wiki-card-meta">
+            {metaLabel}
+            {sub}
+          </span>
+          {node.description && <span className="wiki-card-desc">{node.description}</span>}
+        </span>
+      </button>
+      {onDelete && (
+        <button
+          className="wiki-card-del"
+          title="Delete element"
+          aria-label={`Delete ${node.label}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
 function WikiOverview({
   roots,
   childrenOf,
+  metamodel,
   onNavigate,
+  onCreateRoot,
+  onDeleteNode,
+  readOnly,
   totalNodes,
   totalRelations,
   typeMeta,
 }: {
   roots: C4Node[]
   childrenOf: Record<string, C4Node[]>
+  metamodel: Metamodel
   onNavigate: (id: string) => void
+  onCreateRoot: (type: string) => void
+  onDeleteNode: (id: string) => void
+  readOnly: boolean
   totalNodes: number
   totalRelations: number
   typeMeta: TypeMeta
 }): React.ReactElement {
+  const rootTypes = useMemo(
+    () => childTypeOptions(metamodel, undefined, typeMeta),
+    [metamodel, typeMeta],
+  )
   return (
     <article className="wiki-doc">
       <header className="wiki-doc-header">
-        <h1 className="wiki-doc-title">Overview</h1>
+        <div className="wiki-title-row">
+          <h1 className="wiki-doc-title">Overview</h1>
+          {!readOnly && (
+            <AddMenu
+              label="Add element"
+              options={rootTypes}
+              emptyHint="No root types in metamodel"
+              onPick={onCreateRoot}
+            />
+          )}
+        </div>
         <p className="wiki-doc-sub">
           {totalNodes} element{totalNodes === 1 ? '' : 's'} · {totalRelations} relation
           {totalRelations === 1 ? '' : 's'}
@@ -255,17 +486,15 @@ function WikiOverview({
             const kids = childrenOf[n.id] ?? []
             const meta = typeMeta(n.type)
             return (
-              <button key={n.id} className="wiki-card" onClick={() => onNavigate(n.id)}>
-                <span className="wiki-card-bar" style={{ background: meta.color }} />
-                <span className="wiki-card-body">
-                  <span className="wiki-card-title">{n.label}</span>
-                  <span className="wiki-card-meta">
-                    {meta.label}
-                    {kids.length > 0 && ` · ${kids.length} child${kids.length === 1 ? '' : 'ren'}`}
-                  </span>
-                  {n.description && <span className="wiki-card-desc">{n.description}</span>}
-                </span>
-              </button>
+              <WikiNodeCard
+                key={n.id}
+                node={n}
+                color={meta.color}
+                metaLabel={meta.label}
+                sub={kids.length > 0 ? ` · ${kids.length} child${kids.length === 1 ? '' : 'ren'}` : ''}
+                onOpen={() => onNavigate(n.id)}
+                onDelete={readOnly ? undefined : () => onDeleteNode(n.id)}
+              />
             )
           })}
         </div>
@@ -284,6 +513,37 @@ const TECH_TYPES: ReadonlySet<string> = new Set([
   'queue',
 ])
 
+// Free-text fields that read as short, scannable metadata (e.g.
+// "Technology: React", "Date: 2024-01") and therefore belong in the
+// at-a-glance infobox rather than the main body. Every other `text` field is
+// treated as substantive content and rendered as a prose section so it does
+// not get buried in the sidebar (e.g. a Fitness Function's success criteria).
+const INFOBOX_TEXT_KEYS: ReadonlySet<string> = new Set([
+  'technology',
+  'date',
+  'version',
+  'owner',
+  'author',
+  'team',
+  'url',
+  'link',
+  'repo',
+  'repository',
+  'reference',
+  'ref',
+  'tags',
+  'tag',
+])
+
+// A property is an "infobox fact" when it is a short classifier — enums,
+// booleans, numbers, and the curated short-text metadata above. Substantive
+// text/textarea content stays in the main body.
+function isInfoboxFact(p: PropertyDef): boolean {
+  if (p.type === 'enum' || p.type === 'boolean' || p.type === 'number') return true
+  if (p.type === 'text') return INFOBOX_TEXT_KEYS.has(p.key)
+  return false
+}
+
 function WikiElementPage({
   node,
   nodes,
@@ -293,6 +553,10 @@ function WikiElementPage({
   updateNode,
   updateRelation,
   onNavigate,
+  onCreateChild,
+  onDeleteNode,
+  onCreateRelation,
+  onDeleteRelation,
   readOnly,
   typeMeta,
 }: {
@@ -304,6 +568,10 @@ function WikiElementPage({
   updateNode: UpdateNode
   updateRelation: UpdateRelation
   onNavigate: (id: string) => void
+  onCreateChild: (type: string) => void
+  onDeleteNode: (id: string) => void
+  onCreateRelation: (targetId: string) => void
+  onDeleteRelation: (id: string) => void
   readOnly: boolean
   typeMeta: TypeMeta
 }): React.ReactElement {
@@ -348,18 +616,23 @@ function WikiElementPage({
     [nodeTypeDef],
   )
 
-  // Split metamodel props into a lead description, long-form sections, and
-  // short "infobox" facts — so the page reads like a document, not a form.
+  // Split metamodel props so the page reads like a document:
+  //  • lead     — the primary description (textarea), shown under the title
+  //  • sections — substantive content (other textareas + long-form text
+  //               fields like "Success criteria") rendered as prose sections
+  //  • facts    — short classifiers (enum/boolean/number + short-text
+  //               metadata) shown in the at-a-glance infobox
   const { leadProp, sectionProps, factProps } = useMemo(() => {
     let lead: PropertyDef | undefined
     const sections: PropertyDef[] = []
     const facts: PropertyDef[] = []
     for (const p of allProps) {
-      if (p.type === 'textarea') {
-        if (!lead && p.key === 'description') lead = p
-        else sections.push(p)
-      } else {
+      if (isInfoboxFact(p)) {
         facts.push(p)
+      } else if (!lead && p.type === 'textarea' && p.key === 'description') {
+        lead = p
+      } else {
+        sections.push(p)
       }
     }
     return { leadProp: lead, sectionProps: sections, factProps: facts }
@@ -385,6 +658,33 @@ function WikiElementPage({
         .filter((n) => n.id !== node.id && isParentAllowed(metamodel, node.type, n.type))
         .sort((a, b) => a.label.localeCompare(b.label)),
     [nodes, node, metamodel],
+  )
+
+  // Node types that may be created as a child of this element.
+  const childTypeChoices = useMemo(
+    () => childTypeOptions(metamodel, node.type, typeMeta),
+    [metamodel, node.type, typeMeta],
+  )
+
+  // Existing nodes that may become the target of a new outgoing relation,
+  // restricted to those the metamodel permits and that are visible.
+  const relationTargets = useMemo<AddMenuOption[]>(
+    () =>
+      Object.values(nodes)
+        .filter(
+          (n) =>
+            n.id !== node.id &&
+            (!visibleSet || visibleSet.has(n.id)) &&
+            isRelationAllowed(metamodel, node.type, n.type),
+        )
+        .sort((a, b) => a.label.localeCompare(b.label))
+        .map((n) => ({
+          id: n.id,
+          label: n.label,
+          color: typeMeta(n.type).color,
+          sub: typeMeta(n.type).label,
+        })),
+    [nodes, node.id, node.type, visibleSet, metamodel, typeMeta],
   )
 
   const meta = typeMeta(node.type)
@@ -421,13 +721,24 @@ function WikiElementPage({
           {meta.label}
           {node.external && <span className="wiki-kicker-tag">external</span>}
         </div>
-        <InlineText
-          className="wiki-doc-title"
-          value={node.label}
-          placeholder="Untitled element"
-          readOnly={readOnly}
-          onCommit={(v) => updateNode(node.id, { label: v })}
-        />
+        <div className="wiki-title-row">
+          <InlineText
+            className="wiki-doc-title"
+            value={node.label}
+            placeholder="Untitled element"
+            readOnly={readOnly}
+            onCommit={(v) => updateNode(node.id, { label: v })}
+          />
+          {!readOnly && (
+            <button
+              className="wiki-danger-btn"
+              title="Delete this element"
+              onClick={() => onDeleteNode(node.id)}
+            >
+              Delete
+            </button>
+          )}
+        </div>
         {lead && (
           <InlineText
             multiline
@@ -449,7 +760,7 @@ function WikiElementPage({
             <section className="wiki-prose-section" key={p.key}>
               <h2 className="wiki-h2">{p.label}</h2>
               <InlineText
-                multiline
+                multiline={p.type === 'textarea'}
                 className="wiki-prose"
                 value={String(getVal(p.key) ?? '')}
                 placeholder={readOnly ? '—' : `Add ${p.label.toLowerCase()}…`}
@@ -463,9 +774,20 @@ function WikiElementPage({
 
           {/* Children */}
           <section className="wiki-prose-section">
-            <h2 className="wiki-h2">
-              Contains <span className="wiki-count">{children.length}</span>
-            </h2>
+            <div className="wiki-section-head">
+              <h2 className="wiki-h2">
+                Contains <span className="wiki-count">{children.length}</span>
+              </h2>
+              {!readOnly && (
+                <AddMenu
+                  label="Add child"
+                  variant="ghost"
+                  options={childTypeChoices}
+                  emptyHint="No child types allowed here"
+                  onPick={onCreateChild}
+                />
+              )}
+            </div>
             {children.length === 0 ? (
               <p className="wiki-muted">No child elements.</p>
             ) : (
@@ -473,14 +795,14 @@ function WikiElementPage({
                 {children.map((c) => {
                   const cm = typeMeta(c.type)
                   return (
-                    <button key={c.id} className="wiki-card" onClick={() => onNavigate(c.id)}>
-                      <span className="wiki-card-bar" style={{ background: cm.color }} />
-                      <span className="wiki-card-body">
-                        <span className="wiki-card-title">{c.label}</span>
-                        <span className="wiki-card-meta">{cm.label}</span>
-                        {c.description && <span className="wiki-card-desc">{c.description}</span>}
-                      </span>
-                    </button>
+                    <WikiNodeCard
+                      key={c.id}
+                      node={c}
+                      color={cm.color}
+                      metaLabel={cm.label}
+                      onOpen={() => onNavigate(c.id)}
+                      onDelete={readOnly ? undefined : () => onDeleteNode(c.id)}
+                    />
                   )
                 })}
               </div>
@@ -489,10 +811,21 @@ function WikiElementPage({
 
           {/* Relations */}
           <section className="wiki-prose-section">
-            <h2 className="wiki-h2">
-              Relationships{' '}
-              <span className="wiki-count">{outgoing.length + incoming.length}</span>
-            </h2>
+            <div className="wiki-section-head">
+              <h2 className="wiki-h2">
+                Relationships{' '}
+                <span className="wiki-count">{outgoing.length + incoming.length}</span>
+              </h2>
+              {!readOnly && (
+                <AddMenu
+                  label="Add relationship"
+                  variant="ghost"
+                  options={relationTargets}
+                  emptyHint="No valid targets"
+                  onPick={onCreateRelation}
+                />
+              )}
+            </div>
             {outgoing.length === 0 && incoming.length === 0 ? (
               <p className="wiki-muted">No relationships.</p>
             ) : (
@@ -508,6 +841,7 @@ function WikiElementPage({
                     readOnly={readOnly}
                     onNavigate={onNavigate}
                     updateRelation={updateRelation}
+                    onDeleteRelation={onDeleteRelation}
                     typeMeta={typeMeta}
                   />
                 ))}
@@ -522,6 +856,7 @@ function WikiElementPage({
                     readOnly={readOnly}
                     onNavigate={onNavigate}
                     updateRelation={updateRelation}
+                    onDeleteRelation={onDeleteRelation}
                     typeMeta={typeMeta}
                   />
                 ))}
@@ -532,7 +867,7 @@ function WikiElementPage({
 
         {/* Infobox — short facts */}
         <aside className="wiki-infobox">
-          <div className="wiki-infobox-head">Details</div>
+          <div className="wiki-infobox-head">At a glance</div>
           <dl className="wiki-facts">
             <div className="wiki-fact">
               <dt>Parent</dt>
@@ -597,6 +932,7 @@ function WikiRelationLine({
   readOnly,
   onNavigate,
   updateRelation,
+  onDeleteRelation,
   typeMeta,
 }: {
   direction: 'in' | 'out'
@@ -607,6 +943,7 @@ function WikiRelationLine({
   readOnly: boolean
   onNavigate: (id: string) => void
   updateRelation: UpdateRelation
+  onDeleteRelation: (id: string) => void
   typeMeta: TypeMeta
 }): React.ReactElement {
   const relTypeDef = relation.relationType
@@ -705,6 +1042,16 @@ function WikiRelationLine({
               )}
         </div>
       </div>
+      {!readOnly && (
+        <button
+          className="wiki-rel-del"
+          title="Remove relationship"
+          aria-label="Remove relationship"
+          onClick={() => onDeleteRelation(relation.id)}
+        >
+          ×
+        </button>
+      )}
     </div>
   )
 }
