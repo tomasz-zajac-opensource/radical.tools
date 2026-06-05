@@ -23,7 +23,6 @@ const LS_LEFT = 'radical-leftpanel-collapsed'
 const LS_RIGHT = 'radical-rightpanel-collapsed'
 
 function AppInner(): React.ReactElement {
-  useRouteSync()
   const runRadicalLayout = useDiagramStore((s) => s.runRadicalLayout)
   const appMode = useDiagramStore((s) => s.appMode)
   const presentationActive = useDiagramStore((s) => s.presentationActive)
@@ -54,6 +53,10 @@ function AppInner(): React.ReactElement {
     if (hasElectron) return false
     return !parseHash(window.location.hash)
   })
+  // Only sync the URL once the welcome splash is gone: while it's up the user
+  // hasn't chosen a model, so a clean URL must stay clean. A deep link skips
+  // the splash (showWelcome starts false), so sync runs immediately.
+  useRouteSync(!showWelcome)
   const toggleLeft = useCallback(() => {
     setLeftCollapsed((c) => { localStorage.setItem(LS_LEFT, c ? '0' : '1'); return !c })
   }, [])

@@ -307,7 +307,16 @@ export function startRouteSync(): () => void {
   }
 }
 
-/** React hook: mount the hash↔state sync for the lifetime of the app. */
-export function useRouteSync(): void {
-  useEffect(() => startRouteSync(), [])
+/** React hook: mount the hash↔state sync.
+ *
+ *  `active` gates the whole sync. While the web welcome splash is showing the
+ *  user hasn't chosen anything yet, so we neither read nor write the hash —
+ *  that's why a clean URL stays clean until a model is picked. A deep link
+ *  bypasses the splash (App sets active from the start), so sync runs at once
+ *  and applies the incoming route. */
+export function useRouteSync(active = true): void {
+  useEffect(() => {
+    if (!active) return
+    return startRouteSync()
+  }, [active])
 }
