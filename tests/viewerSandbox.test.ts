@@ -20,7 +20,23 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useDiagramStore } from '../src/renderer/src/store/diagramStore'
+import { documents } from '../src/renderer/src/store/documentStore'
 import type { C4Node, C4Relation } from '../src/renderer/src/types/c4'
+
+// The default node test env has no localStorage, so the document-persistence
+// layer is otherwise a no-op. Provide a minimal in-memory implementation so
+// the auto-persist subscriber can be exercised end-to-end.
+if (typeof (globalThis as any).localStorage === 'undefined') {
+  const store = new Map<string, string>()
+  ;(globalThis as any).localStorage = {
+    getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+    setItem: (k: string, v: string) => { store.set(k, String(v)) },
+    removeItem: (k: string) => { store.delete(k) },
+    clear: () => { store.clear() },
+    key: (i: number) => Array.from(store.keys())[i] ?? null,
+    get length() { return store.size },
+  }
+}
 
 const initial = (() => {
   const s = useDiagramStore.getState()
@@ -173,5 +189,53 @@ describe('toggleCollapse in presenter', () => {
     useDiagramStore.getState().setAppMode('designer')
     const after = useDiagramStore.getState().c4Nodes['sys1'].collapsed === true
     expect(after).toBe(before)
+  })
+})
+
+describe('presentation edits in presenter mode persist (regression)', () => {
+  it('removing a slide in presenter mode is written to the active document', async () => {
+    // Seed a fresh LS document and make it active so the auto-persist
+    // subscriber has a target.
+    const seed = useDiagramStore.getState().saveDiagram()
+    const meta = documents.createLSDocument('persist-regression', seed)
+    documents.setActiveId(meta.id)
+    // The active-document switch triggers an async reload that suspends
+    // persistence; let it settle before mutating so our edits aren't
+    // clobbered by the seed reload.
+    await new Promise((r) => setTimeout(r, 100))
+
+    // Build a presentation with two slides while in designer.
+    useDiagramStore.getState().setAppMode('designer')
+    const presId = useDiagramStore.getState().addPresentation('Regression')
+    useDiagramStore.getState().setActivePresentation(presId)
+    useDiagramStore.getState().addPresentationSlide('Slide A')
+    useDiagramStore.getState().addPresentationSlide('Slide B')
+    const slidesBefore = useDiagramStore.getState().presentationSlides.slice()
+    expect(slidesBefore.length).toBe(2)
+
+    // Let the designer-mode persist settle.
+    await new Promise((r) => setTimeout(r, 600))
+
+    // Enter presenter mode (captures __preModeLayout) and delete a slide.
+    useDiagramStore.getState().setAppMode('presenter')
+    useDiagramStore.getState().removePresentationSlide(slidesBefore[0].id)
+    expect(useDiagramStore.getState().presentationSlides.length).toBe(1)
+
+    // Wait past the 400 ms debounce so the layout-safe persist flushes.
+    await new Promise((r) => setTimeout(r, 600))
+
+    // Read the document straight back from storage — the deletion must
+    // have been written even though we were in presenter (explore) mode.
+    const persisted = await documents.loadDocument(meta.id)
+    const pres = persisted?.presentations?.find((p) => p.id === presId)
+    expect(pres).toBeDefined()
+    expect(pres!.slides.length).toBe(1)
+    expect(pres!.slides.some((s) => s.id === slidesBefore[0].id)).toBe(false)
+    expect(pres!.slides.some((s) => s.id === slidesBefore[1].id)).toBe(true)
+
+    // Cleanup.
+    documents.deleteDocument(meta.id, { wipePayload: true })
+    useDiagramStore.getState().setAppMode('designer')
+    useDiagramStore.getState().removePresentation(presId)
   })
 })

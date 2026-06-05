@@ -4353,12 +4353,34 @@ if (typeof requestAnimationFrame !== 'undefined') {
 if (typeof window !== 'undefined') {
   let _persistTimer: ReturnType<typeof setTimeout> | null = null
   let _suspended = false
+  // When a structural presentation edit (add/remove/rename/reorder/link a
+  // slide) happens in viewer/presenter mode, we still must persist it — but
+  // WITHOUT writing the ephemeral explored model layout to disk. This flag
+  // tells the next flush to rebuild the model slice from the pre-mode-layout
+  // snapshot (captured by setAppMode) so only the presentation change lands.
+  let _layoutSafePending = false
+  const buildPersistData = (): DiagramData => {
+    const data = useDiagramStore.getState().saveDiagram()
+    // In explore mode, override the model slice with the layout snapshot taken
+    // when we left designer, so ephemeral drags/collapses don't reach disk.
+    const pre = (window as any).__preModeLayout as
+      | { c4Nodes: Record<string, C4Node>; c4Relations: Record<string, C4Relation>; views: Record<string, DiagramView>; defaultPositions: Record<string, NodePosition> }
+      | undefined
+    if (_layoutSafePending && pre) {
+      data.nodes = Object.values(pre.c4Nodes)
+      data.relations = Object.values(pre.c4Relations)
+      data.views = Object.values(pre.views)
+      data.defaultPositions = pre.defaultPositions
+    }
+    return data
+  }
   const flushPersist = async (): Promise<void> => {
     if (_suspended) return
     const activeId = documents.getActiveId()
     if (!activeId) return
     try {
-      const data = useDiagramStore.getState().saveDiagram()
+      const data = buildPersistData()
+      _layoutSafePending = false
       await documents.saveDocument(activeId, data)
     } catch (e) {
       console.warn('[diagramStore] persist failed:', e)
@@ -4380,20 +4402,28 @@ if (typeof window !== 'undefined') {
     // scheduling a persist while we're outside designer, the explore
     // session stays fully ephemeral.
     const isExploreMode = s.appMode !== 'designer' && s.appMode !== 'metamodel'
-    if (
-      !isExploreMode && (
-        s.c4Nodes !== prev.c4Nodes ||
-        s.c4Relations !== prev.c4Relations ||
-        s.sequences !== prev.sequences ||
-        s.views !== prev.views ||
-        s.defaultPositions !== prev.defaultPositions ||
-        s.defaultViewport !== prev.defaultViewport ||
-        s.snapshots !== prev.snapshots ||
-        s.presentations !== prev.presentations ||
-        s.metamodel !== prev.metamodel
-      )
-    ) {
+    const modelChanged =
+      s.c4Nodes !== prev.c4Nodes ||
+      s.c4Relations !== prev.c4Relations ||
+      s.sequences !== prev.sequences ||
+      s.views !== prev.views ||
+      s.defaultPositions !== prev.defaultPositions ||
+      s.defaultViewport !== prev.defaultViewport ||
+      s.snapshots !== prev.snapshots ||
+      s.presentations !== prev.presentations ||
+      s.metamodel !== prev.metamodel
+    // Presentation slide management (add/remove/rename/reorder/link) is a
+    // genuine, durable edit even though the slides dock lives in presenter
+    // mode. Persist those changes too — but layout-safe, so the ephemeral
+    // explored model layout is not written alongside them.
+    const presChangedInExplore =
+      isExploreMode && s.presentations !== prev.presentations
+    if (!isExploreMode && modelChanged) {
       prev = s
+      schedulePersist()
+    } else if (presChangedInExplore) {
+      prev = s
+      _layoutSafePending = true
       schedulePersist()
     } else {
       prev = s
@@ -4457,7 +4487,8 @@ if (typeof window !== 'undefined') {
       return
     }
     try {
-      const data = useDiagramStore.getState().saveDiagram()
+      const data = buildPersistData()
+      _layoutSafePending = false
       void documents.saveDocument(activeId, data)
     } catch (e) {
       console.warn('[diagramStore] sync flush failed:', e)
