@@ -193,7 +193,7 @@
         <ol>
           <li>Switch to <strong>Viewer mode</strong> (toolbar, top-right).</li>
           <li>Click <em>+ New view</em> in the view list on the right panel, then pick a
-              type — Structure, Flow, Hierarchy, Table, or Matrix.</li>
+              type — Structure, Flow, Hierarchy, Table, Matrix, or Wiki.</li>
           <li>Give the view a name (e.g. "System Context", "Payment flow").</li>
           <li>Use the <strong>eye icons</strong> in the node tree to include or exclude elements for this view.</li>
           <li>Each view stores its own layout — rearrange nodes here without affecting other views.</li>
@@ -238,6 +238,11 @@
                 <td><strong>Matrix</strong></td>
                 <td>Dependency Structure Matrix (DSM) — elements on both axes, a marked cell for every relation.</td>
                 <td>Spotting coupling, auditing dependencies, and quickly wiring up relations.</td>
+              </tr>
+              <tr>
+                <td><strong>Wiki</strong></td>
+                <td>Document-style pages for each element with inline editing, children cards, relationships, and metamodel-driven properties.</td>
+                <td>Browsing and editing the model as readable documentation, onboarding, and governance review.</td>
               </tr>
             </tbody>
           </table>
@@ -334,16 +339,38 @@
           <figcaption>The Matrix (DSM) view. Every relation is a cell — read coupling at a glance, then click cells to add or remove dependencies without hunting for nodes on a canvas.</figcaption>
         </figure>
 
+        <h3>Wiki views</h3>
+        <p>
+          Set a view's type to <em>Wiki</em> to browse and edit the model as <strong>readable, document-style
+          pages</strong>. Each element gets its own page with a large title, a lead paragraph, an infobox of
+          key facts, children cards, and a full relationship list — all editable inline with click-to-edit.
+        </p>
+        <ul>
+          <li>A <strong>navigation tree</strong> on the left lets you jump to any element; use the filter box to search by name.</li>
+          <li>Properties are rendered dynamically from the active <strong>metamodel</strong>, so ADRs show status, context, decision, consequences and alternatives, while fitness functions show category, automation level, trigger, and threshold.</li>
+          <li>Click any text, badge, or dropdown to <strong>edit in place</strong> — changes are written to the shared model immediately.</li>
+          <li>The wiki respects the view's <strong>node visibility</strong> filter: toggle elements on or off in the right panel's node tree to control what appears.</li>
+        </ul>
+        <p>
+          Wiki views are ideal for <strong>onboarding</strong> new team members, <strong>reviewing governance</strong>
+          artefacts (ADRs, fitness functions), or simply reading the architecture as structured documentation
+          rather than a diagram.
+        </p>
+        <figure class="doc-shot">
+          <img src="screenshots/wiki.png" alt="Wiki view showing a document-style page for Core Banking Platform with navigation tree, children cards, and an At a Glance infobox" />
+          <figcaption>The Wiki view renders each element as a readable page. Navigate with the tree on the left, edit any field inline, and browse children and relationships without switching views.</figcaption>
+        </figure>
+
         <h3>View layout mode</h3>
         <p>
           Structure and flow views can independently use <em>Auto</em> (Smart Layout) or <em>Tree</em>
           layout. Switch via the view's settings panel. In tree mode the Smart Layout button changes to
-          <em>Tree Layout</em>. Hierarchy, Table and Matrix views don't use canvas layout — they expose
-          their own controls (depth and sizing, spreadsheet tabs, or DSM cells respectively).
+          <em>Tree Layout</em>. Hierarchy, Table, Matrix and Wiki views don't use canvas layout — they expose
+          their own controls (depth and sizing, spreadsheet tabs, DSM cells, or document navigation respectively).
         </p>
         <figure class="doc-shot">
           <img src="screenshots/views.png" alt="Views panel showing All elements, System Context, Core Banking Containers and Payments Domain views with a '+ New view' button" />
-          <figcaption>The views panel in Designer mode. Each named view can switch between Structure, Flow, Hierarchy, Table and Matrix. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
+          <figcaption>The views panel in Designer mode. Each named view can switch between Structure, Flow, Hierarchy, Table, Matrix and Wiki. Click <em>+ New view</em> to add another, then use the node tree's eye icons to control membership.</figcaption>
         </figure>
       </section>
 

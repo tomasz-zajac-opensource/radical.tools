@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Radical.Tools - Architecture Modelling Tool</title>
-  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Structure, flow, hierarchy, table and matrix views built on one shared source of truth. Ships with C4, DDD and governance (ADRs & Fitness Functions). MIT licensed. Desktop or browser." />
+  <meta name="description" content="Open-source architecture modelling tool. One model, many views, always in sync. Structure, flow, hierarchy, table, matrix and wiki views built on one shared source of truth. Ships with C4, DDD and governance (ADRs & Fitness Functions). MIT licensed. Desktop or browser." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -113,12 +113,13 @@
             <strong>Structure</strong> views render scoped node-link diagrams such as System Context or Container maps.
             <strong>Flow</strong> views bind a sequence to that same model and show numbered interaction steps.
             <strong>Hierarchy</strong> views turn containment into a drillable treemap.
-            <strong>Table</strong> views give you an editable, governance-aware spreadsheet, and
-            <strong>Matrix</strong> views expose dependencies as a DSM grid.
+            <strong>Table</strong> views give you an editable, governance-aware spreadsheet,
+            <strong>Matrix</strong> views expose dependencies as a DSM grid, and
+            <strong>Wiki</strong> views let you browse and edit elements as readable document pages.
             Each view keeps its own layout, drill or filter state, while the underlying model stays shared.
           </p>
           <div class="concept-example">
-            <code>Structure / Flow / Hierarchy / Table / Matrix → one model, five readings</code>
+            <code>Structure / Flow / Hierarchy / Table / Matrix / Wiki → one model, six readings</code>
             <span class="ce-label">view instance</span>
           </div>
         </div>
@@ -195,8 +196,8 @@
           <div class="fc-icon fc-blue">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17.5h7M17.5 14v7"/></svg>
           </div>
-          <h3>Five View Types</h3>
-          <p>Read the same model as a <strong>Structure</strong> diagram, a numbered <strong>Flow</strong>, a drillable <strong>Hierarchy</strong> treemap, an editable <strong>Table</strong>, or a dependency <strong>Matrix</strong> (DSM) — all always in sync.</p>
+          <h3>Six View Types</h3>
+          <p>Read the same model as a <strong>Structure</strong> diagram, a numbered <strong>Flow</strong>, a drillable <strong>Hierarchy</strong> treemap, an editable <strong>Table</strong>, a dependency <strong>Matrix</strong> (DSM), or an inline-editable <strong>Wiki</strong> document — all always in sync.</p>
         </div>
 
         <div class="feature-card">
@@ -271,6 +272,13 @@
           <figcaption>
             <span class="shot-label">Table</span>
             Governance-aware spreadsheet. Edit nodes and relations inline and switch tabs to manage ADRs and Fitness Functions alongside the architecture.
+          </figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="screenshots/wiki.png" alt="Wiki view showing a document-style page for Core Banking Platform with navigation tree, inline editing, children cards and an At a Glance infobox" />
+          <figcaption>
+            <span class="shot-label">Wiki</span>
+            Document-style view. Browse every element as a readable page with inline editing, children cards, relationship lists, and metamodel-driven properties.
           </figcaption>
         </figure>
       </div>
