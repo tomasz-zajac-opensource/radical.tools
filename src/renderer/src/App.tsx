@@ -17,11 +17,13 @@ import { QuickSearch } from './components/QuickSearch'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { MilestoneEditOverlay } from './components/MilestoneEditOverlay'
 import { useDiagramStore } from './store/diagramStore'
+import { useRouteSync } from './route'
 
 const LS_LEFT = 'radical-leftpanel-collapsed'
 const LS_RIGHT = 'radical-rightpanel-collapsed'
 
 function AppInner(): React.ReactElement {
+  useRouteSync()
   const runRadicalLayout = useDiagramStore((s) => s.runRadicalLayout)
   const appMode = useDiagramStore((s) => s.appMode)
   const presentationActive = useDiagramStore((s) => s.presentationActive)
