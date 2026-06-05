@@ -17,7 +17,7 @@ import { QuickSearch } from './components/QuickSearch'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { MilestoneEditOverlay } from './components/MilestoneEditOverlay'
 import { useDiagramStore } from './store/diagramStore'
-import { useRouteSync } from './route'
+import { useRouteSync, parseHash } from './route'
 
 const LS_LEFT = 'radical-leftpanel-collapsed'
 const LS_RIGHT = 'radical-rightpanel-collapsed'
@@ -46,7 +46,14 @@ function AppInner(): React.ReactElement {
 
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(() => localStorage.getItem(LS_LEFT) === '1')
   const [rightCollapsed, setRightCollapsed] = useState<boolean>(() => localStorage.getItem(LS_RIGHT) === '1')
-  const [showWelcome, setShowWelcome] = useState(() => !(window as unknown as { electronAPI?: unknown }).electronAPI)
+  // The welcome screen is a web-only landing splash. Skip it when the user
+  // arrived via a deep link (the hash already encodes a destination) so the
+  // pasted URL lands straight on its target instead of behind the splash.
+  const [showWelcome, setShowWelcome] = useState(() => {
+    const hasElectron = !!(window as unknown as { electronAPI?: unknown }).electronAPI
+    if (hasElectron) return false
+    return !parseHash(window.location.hash)
+  })
   const toggleLeft = useCallback(() => {
     setLeftCollapsed((c) => { localStorage.setItem(LS_LEFT, c ? '0' : '1'); return !c })
   }, [])
