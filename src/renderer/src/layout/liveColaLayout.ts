@@ -448,9 +448,9 @@ export class LiveColaLayout {
     const groupIndex = new Map<string, number>()
     this.colaGroups.forEach((g, i) => groupIndex.set(g.c4id, i))
 
-    // ── Outer containers (system / domain) bottom-up by depth ───────────
-    // Systems and domains can nest. Each parent's group references its
-    // children's group indices, so children must be added to colaGroups
+    // ── Outer containers (system / domain / group) bottom-up by depth ───
+    // Systems, domains, and groups can nest. Each parent's group references
+    // its children's group indices, so children must be added to colaGroups
     // BEFORE their parent. Sort by ancestor depth descending — deepest first.
     const depthCache = new Map<string, number>()
     const visibleNodeMap = new Map(visibleNodes.map(n => [n.id, n] as const))
@@ -463,7 +463,7 @@ export class LiveColaLayout {
       return d
     }
     const outerContainerNodes = visibleNodes
-      .filter(n => parentIds.has(n.id) && (n.type === 'system' || n.type === 'domain'))
+      .filter(n => parentIds.has(n.id) && (n.type === 'system' || n.type === 'domain' || n.type === 'group'))
       .sort((a, b) => depthOf(b.id) - depthOf(a.id))
 
     for (const n of outerContainerNodes) {

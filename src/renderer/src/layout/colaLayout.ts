@@ -94,12 +94,12 @@ export function applyColaLayout(
     colaLinks.push({ source: src, target: tgt })
   }
 
-  // Groups: containers that have visible component children, and
-  // systems that have visible container children.
+  // Groups: leaf containers (container) first, then outer containers
+  // (system, domain, group) which may nest sub-groups.
   const colaGroups: Group[] = []
   const nodeToGroup: Record<string, Group> = {}
 
-  // First pass: container → component groups
+  // First pass: container → component groups (leaf containers)
   for (const n of visibleNodes) {
     if (n.type === 'container' && !n.collapsed) {
       const childLeaves = visibleNodes
@@ -115,31 +115,40 @@ export function applyColaLayout(
     }
   }
 
-  // Second pass: system → container groups (may reference sub-groups)
-  for (const n of visibleNodes) {
-    if (n.type === 'system' && !n.collapsed) {
-      const childLeaves: any[] = []
-      const childGroups: Group[] = []
-
-      for (const c of visibleNodes.filter((v) => v.parentId === n.id)) {
-        const subGroup = nodeToGroup[c.id]
-        if (subGroup) {
-          childGroups.push(subGroup)
-        } else {
-          const cn = idToColaNode[c.id]
-          if (cn) childLeaves.push(cn)
-        }
+  // Second pass: outer containers (system, domain, group) — may reference sub-groups.
+  // Process bottom-up by depth so children are registered before parents.
+  const outerContainers = visibleNodes
+    .filter(n => (n.type === 'system' || n.type === 'domain' || n.type === 'group') && !n.collapsed)
+    .sort((a, b) => {
+      const depthOf = (node: typeof a): number => {
+        let d = 0; let cur = node
+        while (cur.parentId) { d++; cur = allNodes[cur.parentId]; if (!cur) break }
+        return d
       }
+      return depthOf(b) - depthOf(a)
+    })
+  for (const n of outerContainers) {
+    const childLeaves: any[] = []
+    const childGroups: Group[] = []
 
-      if (childLeaves.length + childGroups.length > 0) {
-        const g: Group = {
-          leaves: childLeaves.length > 0 ? childLeaves : undefined,
-          groups: childGroups.length > 0 ? childGroups : undefined,
-          padding: 40,
-        }
-        nodeToGroup[n.id] = g
-        colaGroups.push(g)
+    for (const c of visibleNodes.filter((v) => v.parentId === n.id)) {
+      const subGroup = nodeToGroup[c.id]
+      if (subGroup) {
+        childGroups.push(subGroup)
+      } else {
+        const cn = idToColaNode[c.id]
+        if (cn) childLeaves.push(cn)
       }
+    }
+
+    if (childLeaves.length + childGroups.length > 0) {
+      const g: Group = {
+        leaves: childLeaves.length > 0 ? childLeaves : undefined,
+        groups: childGroups.length > 0 ? childGroups : undefined,
+        padding: 40,
+      }
+      nodeToGroup[n.id] = g
+      colaGroups.push(g)
     }
   }
 

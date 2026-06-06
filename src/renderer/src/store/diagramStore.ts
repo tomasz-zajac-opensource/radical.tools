@@ -1396,6 +1396,10 @@ export const useDiagramStore = create<DiagramStore>()(
             state.views[state.activeViewId].nodeIds.push(id)
           }
         })
+        // Expand parent to fit the new child
+        if (node.parentId) {
+          get().fitParentToChildren(node.parentId)
+        }
         get()._sync()
         _liveLayout?.invalidate()
         return id
