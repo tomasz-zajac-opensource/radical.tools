@@ -406,8 +406,21 @@ export function TableView(): React.ReactElement {
             autoFocus
             className="tv-cell-input"
             value={editCell!.draft}
-            onChange={(e) => setEditCell({ ...editCell!, draft: e.target.value })}
-            onBlur={commitEdit}
+            onChange={(e) => {
+              const val = e.target.value
+              setEditCell({ ...editCell!, draft: val })
+              // Commit enum changes immediately so conditional cells update
+              const rid = editCell!.rowId
+              if (tab === 'relations') {
+                updateRelation(rid, { [editCell!.colKey]: val || undefined } as Partial<C4Relation>)
+              } else if (editCell!.colKey === 'label' || editCell!.colKey === 'description' || editCell!.colKey === 'technology') {
+                updateNode(rid, { [editCell!.colKey]: val || undefined } as Partial<C4Node>)
+              } else {
+                updateNode(rid, { [editCell!.colKey]: val } as Parameters<typeof updateNode>[1])
+              }
+              setEditCell(null)
+            }}
+            onBlur={() => setEditCell(null)}
             onKeyDown={(e) => { if (e.key === 'Escape') cancelEdit() }}
             onClick={(e) => e.stopPropagation()}
           >
