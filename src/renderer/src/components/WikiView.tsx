@@ -611,9 +611,13 @@ function WikiElementPage({
   )
 
   const nodeTypeDef = metamodel?.nodeTypes[node.type]
+  // For requirements, EARS sentence fields are edited inline in the sentence editor
+  const earsSentenceKeys = new Set(['trigger', 'precondition', 'unwanted_condition', 'feature', 'action'])
   const allProps = useMemo(
     () => (nodeTypeDef?.properties ?? []).filter(
-      (p) => p.key !== 'label' && isPropertyVisible(p, node as unknown as Record<string, unknown>)
+      (p) => p.key !== 'label'
+        && isPropertyVisible(p, node as unknown as Record<string, unknown>)
+        && !(node.type === 'requirement' && earsSentenceKeys.has(p.key))
     ),
     [nodeTypeDef, node],
   )
@@ -752,6 +756,16 @@ function WikiElementPage({
               updateNode(node.id, { [lead.key]: v } as Parameters<UpdateNode>[1])
             }
           />
+        )}
+        {node.type === 'requirement' && (
+          <div className="wiki-ears-sentence">
+            <EarsSentenceEditor
+              node={node as unknown as Record<string, unknown>}
+              nodeId={node.id}
+              readOnly={readOnly}
+              updateNode={(id, patch) => updateNode(id, patch as Parameters<UpdateNode>[1])}
+            />
+          </div>
         )}
       </header>
 
@@ -1116,6 +1130,173 @@ function WikiFactValue({
       readOnly={readOnly}
       onCommit={(v) => onCommit(def.type === 'number' ? Number(v) : v)}
     />
+  )
+}
+
+// ─── EARS inline sentence editor ─────────────────────────────────────────────
+
+interface EarsSentenceEditorProps {
+  node: Record<string, unknown>
+  nodeId: string
+  readOnly?: boolean
+  updateNode: (id: string, patch: Record<string, unknown>) => void
+}
+
+function EarsSlot({
+  value,
+  placeholder,
+  fieldKey,
+  nodeId,
+  readOnly,
+  updateNode,
+}: {
+  value: string
+  placeholder: string
+  fieldKey: string
+  nodeId: string
+  readOnly?: boolean
+  updateNode: (id: string, patch: Record<string, unknown>) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const ref = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { setDraft(value) }, [value])
+  useEffect(() => { if (editing && ref.current) ref.current.focus() }, [editing])
+
+  if (readOnly || !editing) {
+    return (
+      <span
+        className={`ears-slot ${value ? 'ears-slot-filled' : 'ears-slot-empty'}`}
+        onClick={() => !readOnly && setEditing(true)}
+        title={readOnly ? undefined : `Click to edit: ${placeholder}`}
+      >
+        {value || placeholder}
+      </span>
+    )
+  }
+
+  return (
+    <input
+      ref={ref}
+      className="ears-slot-input"
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false)
+        if (draft !== value) updateNode(nodeId, { [fieldKey]: draft || undefined })
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.currentTarget.blur() }
+        if (e.key === 'Escape') { setDraft(value); setEditing(false) }
+      }}
+    />
+  )
+}
+
+function EarsSentenceEditor({ node, nodeId, readOnly, updateNode }: EarsSentenceEditorProps) {
+  const earsType = String(node.ears_type ?? 'ubiquitous')
+  const system = String(node.label ?? 'system')
+  const action = String(node.action ?? '')
+  const trigger = String(node.trigger ?? '')
+  const precondition = String(node.precondition ?? '')
+  const unwanted = String(node.unwanted_condition ?? '')
+  const feature = String(node.feature ?? '')
+
+  const slot = (val: string, placeholder: string, key: string) => (
+    <EarsSlot
+      value={val}
+      placeholder={placeholder}
+      fieldKey={key}
+      nodeId={nodeId}
+      readOnly={readOnly}
+      updateNode={updateNode}
+    />
+  )
+
+  const shallClause = (
+    <>
+      <span className="ears-fixed">the {system} shall </span>
+      {slot(action, '‹action›', 'action')}
+      <span className="ears-fixed">.</span>
+    </>
+  )
+
+  let content: React.ReactNode
+  switch (earsType) {
+    case 'event-driven':
+      content = (
+        <>
+          <span className="ears-fixed">When </span>
+          {slot(trigger, '‹trigger›', 'trigger')}
+          <span className="ears-fixed">, </span>
+          {shallClause}
+        </>
+      )
+      break
+    case 'state-driven':
+      content = (
+        <>
+          <span className="ears-fixed">While </span>
+          {slot(precondition, '‹precondition›', 'precondition')}
+          <span className="ears-fixed">, </span>
+          {shallClause}
+        </>
+      )
+      break
+    case 'unwanted-behaviour':
+      content = (
+        <>
+          <span className="ears-fixed">If </span>
+          {slot(unwanted, '‹condition›', 'unwanted_condition')}
+          <span className="ears-fixed">, then </span>
+          {shallClause}
+        </>
+      )
+      break
+    case 'optional':
+      content = (
+        <>
+          <span className="ears-fixed">Where </span>
+          {slot(feature, '‹feature›', 'feature')}
+          <span className="ears-fixed">, </span>
+          {shallClause}
+        </>
+      )
+      break
+    case 'complex':
+      content = (
+        <>
+          <span className="ears-fixed">While </span>
+          {slot(precondition, '‹precondition›', 'precondition')}
+          <span className="ears-fixed">, when </span>
+          {slot(trigger, '‹trigger›', 'trigger')}
+          {unwanted || feature ? (
+            <>
+              {unwanted && (<><span className="ears-fixed">, if </span>{slot(unwanted, '‹condition›', 'unwanted_condition')}</>)}
+              {feature && (<><span className="ears-fixed">, where </span>{slot(feature, '‹feature›', 'feature')}</>)}
+            </>
+          ) : null}
+          <span className="ears-fixed">, </span>
+          {shallClause}
+        </>
+      )
+      break
+    default: // ubiquitous
+      content = (
+        <>
+          <span className="ears-fixed">The {system} shall </span>
+          {slot(action, '‹action›', 'action')}
+          <span className="ears-fixed">.</span>
+        </>
+      )
+  }
+
+  return (
+    <blockquote className="ears-sentence ears-editable">
+      {content}
+    </blockquote>
   )
 }
 

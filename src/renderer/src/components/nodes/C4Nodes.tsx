@@ -2,6 +2,7 @@ import React, { memo, useCallback } from 'react'
 import { NodeProps, Handle, Position } from 'reactflow'
 import { C4NodeRFData, NODE_COLORS } from '../../types/c4'
 import { useDiagramStore } from '../../store/diagramStore'
+import { composeEarsSentence } from '../../types/metamodel'
 
 // ─── Diff highlight overlay ────────────────────────────────────────────────
 function DiffOverlay({ c4id }: { c4id: string }) {
@@ -720,6 +721,8 @@ export const RequirementNode = memo(({ data, selected }: NodeProps<C4NodeRFData>
     "won't": 'W',
   }
 
+  const { sentence, complete } = composeEarsSentence((node ?? {}) as unknown as Record<string, unknown>)
+
   return (
     <div
       className="c4-node"
@@ -752,9 +755,16 @@ export const RequirementNode = memo(({ data, selected }: NodeProps<C4NodeRFData>
       </div>
 
       {/* Row 2: label */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 7px', overflow: 'hidden' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+      <div style={{ padding: '2px 7px 0', overflow: 'hidden' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
           {data.label}
+        </span>
+      </div>
+
+      {/* Row 3: EARS sentence */}
+      <div style={{ flex: 1, padding: '2px 7px 4px', overflow: 'hidden' }}>
+        <span style={{ fontSize: 9, color: complete ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)', fontStyle: 'italic', lineHeight: '1.3', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {sentence}
         </span>
       </div>
     </div>

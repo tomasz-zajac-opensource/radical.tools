@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import type { C4Node, C4Relation, C4ElementType } from '../types/c4'
 import { NODE_COLORS, NODE_FG, TYPE_LABELS, NODE_SIZES } from '../types/c4'
-import { isParentAllowed } from '../types/metamodel'
+import { isParentAllowed, composeEarsSentence } from '../types/metamodel'
 
 // ─── Column definitions ──────────────────────────────────────────────────────
 
@@ -55,6 +55,7 @@ const REL_COLS: ColDef[] = [
 
 const REQ_COLS: ColDef[] = [
   { key: 'label',              label: 'Name',           width: 220, type: 'text' },
+  { key: '_ears_sentence',     label: 'EARS Sentence',  width: 380, type: 'readonly' },
   { key: 'ears_type',          label: 'EARS type',      width: 150, type: 'enum', options: ['ubiquitous', 'event-driven', 'state-driven', 'unwanted-behaviour', 'optional', 'complex'] },
   { key: 'status',             label: 'Status',         width: 130, type: 'enum', options: ['draft', 'approved', 'implemented', 'verified', 'deprecated'] },
   { key: 'priority',           label: 'Priority',       width: 100, type: 'enum', options: ['must', 'should', 'could', "won't"] },
@@ -83,6 +84,7 @@ const TABS: { id: Tab; label: string }[] = [
 function getNodeProp(node: C4Node, key: string, nodes: Record<string, C4Node>): string {
   if (key === '_type')   return TYPE_LABELS[node.type] ?? node.type
   if (key === '_parent') return node.parentId ? (nodes[node.parentId]?.label ?? node.parentId) : ''
+  if (key === '_ears_sentence') return composeEarsSentence(node as unknown as Record<string, unknown>).sentence
   const raw = (node as unknown as Record<string, unknown>)[key]
   if (raw === undefined || raw === null) return ''
   if (typeof raw === 'boolean') return raw ? 'true' : 'false'

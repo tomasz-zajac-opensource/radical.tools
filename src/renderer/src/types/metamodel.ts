@@ -594,6 +594,72 @@ export function isPropertyVisible(prop: PropertyDef, node: Record<string, unknow
   return prop.visibleWhen.values.includes(cur)
 }
 
+/**
+ * Compose the EARS requirement sentence from a node's fields.
+ * Returns an object with `sentence` (the full EARS statement) and
+ * `template` (the pattern with placeholders for empty fields).
+ *
+ * Templates:
+ *  ubiquitous:         "The <system> shall <action>."
+ *  event-driven:       "When <trigger>, the <system> shall <action>."
+ *  state-driven:       "While <precondition>, the <system> shall <action>."
+ *  unwanted-behaviour: "If <condition>, then the <system> shall <action>."
+ *  optional:           "Where <feature>, the <system> shall <action>."
+ *  complex:            "While <pre>, when <trigger>, the <system> shall <action>."
+ */
+export function composeEarsSentence(node: Record<string, unknown>): { sentence: string; complete: boolean } {
+  const earsType = String(node.ears_type ?? 'ubiquitous')
+  const system = String(node.label ?? 'system')
+  const action = String(node.action ?? '').trim()
+  const trigger = String(node.trigger ?? '').trim()
+  const precondition = String(node.precondition ?? '').trim()
+  const unwanted = String(node.unwanted_condition ?? '').trim()
+  const feature = String(node.feature ?? '').trim()
+
+  const actionPart = action || '‹action›'
+  const shallClause = `the ${system} shall ${actionPart}`
+
+  let sentence: string
+  let complete = !!action
+
+  switch (earsType) {
+    case 'event-driven':
+      sentence = `When ${trigger || '‹trigger›'}, ${shallClause}.`
+      complete = complete && !!trigger
+      break
+    case 'state-driven':
+      sentence = `While ${precondition || '‹precondition›'}, ${shallClause}.`
+      complete = complete && !!precondition
+      break
+    case 'unwanted-behaviour':
+      sentence = `If ${unwanted || '‹condition›'}, then ${shallClause}.`
+      complete = complete && !!unwanted
+      break
+    case 'optional':
+      sentence = `Where ${feature || '‹feature›'}, ${shallClause}.`
+      complete = complete && !!feature
+      break
+    case 'complex': {
+      const parts: string[] = []
+      if (precondition || trigger) {
+        if (precondition) parts.push(`While ${precondition}`)
+        if (trigger) parts.push(`when ${trigger}`)
+        if (unwanted) parts.push(`if ${unwanted}`)
+        if (feature) parts.push(`where ${feature}`)
+      }
+      if (parts.length === 0) parts.push('‹conditions›')
+      sentence = `${parts.join(', ')}, ${shallClause}.`
+      complete = complete && (!!precondition || !!trigger)
+      break
+    }
+    default: // ubiquitous
+      sentence = `The ${system} shall ${actionPart}.`
+      break
+  }
+
+  return { sentence, complete }
+}
+
 export function getNodeTypeDef(metamodel: Metamodel | undefined, typeId: string): NodeTypeDef | undefined {
   return metamodel?.nodeTypes[typeId]
 }

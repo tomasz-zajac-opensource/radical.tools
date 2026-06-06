@@ -1300,6 +1300,69 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
   )
 }
 
+// EARS inline sentence editor for right panel (compact)
+const EARS_SENTENCE_FIELDS = ['trigger', 'precondition', 'unwanted_condition', 'feature', 'action'] as const
+
+function EarsSentencePreview({ node, nodeId, readOnly, updateNode }: { node: Record<string, unknown>; nodeId: string; readOnly: boolean; updateNode: (id: string, patch: Record<string, unknown>) => void }) {
+  const earsType = String(node.ears_type ?? 'ubiquitous')
+  const system = String(node.label ?? 'system')
+
+  const Slot = ({ fieldKey, placeholder }: { fieldKey: string; placeholder: string }) => {
+    const val = String(node[fieldKey] ?? '')
+    const [editing, setEditing] = React.useState(false)
+    const [draft, setDraft] = React.useState(val)
+    const inputRef = React.useRef<HTMLInputElement>(null)
+    React.useEffect(() => { setDraft(val) }, [val])
+    React.useEffect(() => { if (editing && inputRef.current) inputRef.current.focus() }, [editing])
+
+    if (!editing) {
+      return (
+        <span
+          className={`ears-slot-sm ${val ? 'ears-slot-filled' : 'ears-slot-empty'}`}
+          onClick={() => !readOnly && setEditing(true)}
+        >
+          {val || placeholder}
+        </span>
+      )
+    }
+    return (
+      <input
+        ref={inputRef}
+        className="ears-slot-input-sm"
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => { setEditing(false); if (draft !== val) updateNode(nodeId, { [fieldKey]: draft || undefined }) }}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(val); setEditing(false) } }}
+      />
+    )
+  }
+
+  const shall = (<><span className="ears-fixed-sm">the {system} shall </span><Slot fieldKey="action" placeholder="‹action›" /><span className="ears-fixed-sm">.</span></>)
+
+  let content: React.ReactNode
+  switch (earsType) {
+    case 'event-driven':
+      content = (<><span className="ears-fixed-sm">When </span><Slot fieldKey="trigger" placeholder="‹trigger›" /><span className="ears-fixed-sm">, </span>{shall}</>); break
+    case 'state-driven':
+      content = (<><span className="ears-fixed-sm">While </span><Slot fieldKey="precondition" placeholder="‹precondition›" /><span className="ears-fixed-sm">, </span>{shall}</>); break
+    case 'unwanted-behaviour':
+      content = (<><span className="ears-fixed-sm">If </span><Slot fieldKey="unwanted_condition" placeholder="‹condition›" /><span className="ears-fixed-sm">, then </span>{shall}</>); break
+    case 'optional':
+      content = (<><span className="ears-fixed-sm">Where </span><Slot fieldKey="feature" placeholder="‹feature›" /><span className="ears-fixed-sm">, </span>{shall}</>); break
+    case 'complex':
+      content = (<><span className="ears-fixed-sm">While </span><Slot fieldKey="precondition" placeholder="‹precondition›" /><span className="ears-fixed-sm">, when </span><Slot fieldKey="trigger" placeholder="‹trigger›" /><span className="ears-fixed-sm">, </span>{shall}</>); break
+    default:
+      content = (<><span className="ears-fixed-sm">The {system} shall </span><Slot fieldKey="action" placeholder="‹action›" /><span className="ears-fixed-sm">.</span></>)
+  }
+
+  return (
+    <div className="ears-sentence-sm">
+      {content}
+    </div>
+  )
+}
+
 function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
   const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
   const selectedEdgeId = useDiagramStore((s) => s.selectedEdgeId)
@@ -1425,8 +1488,11 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
 
     // Metamodel properties for this node type — skip 'label' (always rendered first).
     const nodeTypeDef = metamodel?.nodeTypes[node.type]
+    // For requirements, EARS content fields are edited via the inline sentence editor
+    const earsSentenceFields = new Set(['trigger', 'precondition', 'unwanted_condition', 'feature', 'action'])
     const metaProps = (nodeTypeDef?.properties ?? []).filter(p => {
       if (p.key === 'label') return false
+      if (node.type === 'requirement' && earsSentenceFields.has(p.key)) return false
       if (p.visibleWhen) {
         const cur = String((node as unknown as Record<string, unknown>)[p.visibleWhen.key] ?? '')
         return p.visibleWhen.values.includes(cur)
@@ -1486,6 +1552,11 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
           )}
           {badgeLabel.toUpperCase()}
         </div>
+        {node.type === 'requirement' && (
+          <div className="props-ears-sentence">
+            <EarsSentencePreview node={node as unknown as Record<string, unknown>} nodeId={node.id} readOnly={readOnly} updateNode={(id, patch) => updateNode(id, patch as Parameters<typeof updateNode>[1])} />
+          </div>
+        )}
         <div>
           <div className="props-section-title">Properties</div>
           {field('Label', 'label')}
