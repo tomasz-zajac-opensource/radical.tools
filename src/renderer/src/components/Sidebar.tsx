@@ -24,6 +24,7 @@ const C4_SUBLABELS: Record<string, string> = {
   webapp:    'Web application',
   queue:     'Message queue / bus',
   domain:    'DDD problem space',
+  group:     'Visual grouping',
 }
 
 function PaletteItem({ typeId }: { typeId: string }) {
@@ -155,7 +156,7 @@ export function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => voi
   const rootNodes = Object.values(allNodes).filter((n) => !n.parentId)
 
   // Order: domain first (when present), then standard C4 order, then any custom types last.
-  const C4_ORDER = ['domain', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
+  const C4_ORDER = ['domain', 'group', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
   const allTypeIds = metamodel ? Object.keys(metamodel.nodeTypes) : C4_ORDER
   const paletteIds = [
     ...C4_ORDER.filter(t => allTypeIds.includes(t)),

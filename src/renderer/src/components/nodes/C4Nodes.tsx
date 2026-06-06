@@ -577,6 +577,60 @@ export const DomainNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => 
 
 DomainNode.displayName = 'DomainNode'
 
+// ─── Group Node (semantic-free visual container) ──────────────────────────────
+
+export const GroupNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const toggleCollapse = useDiagramStore((s) => s.toggleCollapse)
+  const canEdit = useDiagramStore((s) => s.appMode !== 'metamodel' && !s.presentationActive)
+  const onToggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      toggleCollapse(data.c4id)
+    },
+    [data.c4id, toggleCollapse]
+  )
+
+  const accent = NODE_COLORS.group
+  const isExpanded = data.hasChildren && !data.collapsed
+  const borderColor = selected ? 'var(--accent)' : accent
+
+  return (
+    <div
+      className={`c4-node${isExpanded ? ' c4-node-expanded' : ''}`}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: isExpanded ? 'rgba(100,116,139,0.05)' : accent,
+        border: `2px ${isExpanded ? 'dashed' : 'solid'} ${borderColor}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      <div className="c4-node-header" style={{ background: isExpanded ? 'transparent' : 'rgba(0,0,0,0.2)' }}>
+        <span style={isExpanded ? { color: accent } : undefined}>Group</span>
+        {data.hasChildren && canEdit && (
+          <button className="c4-node-collapse-btn" onClick={onToggle} title={data.collapsed ? 'Expand' : 'Collapse'}>
+            {data.collapsed ? '+' : '−'}
+          </button>
+        )}
+      </div>
+
+      <div className="c4-node-label" style={isExpanded ? { color: accent } : undefined}>{data.label}</div>
+      {!isExpanded && data.description && (
+        <div className="c4-node-desc">{data.description}</div>
+      )}
+    </div>
+  )
+})
+
+GroupNode.displayName = 'GroupNode'
+
 // ─── ADR Node ─────────────────────────────────────────────────────────────────
 //
 // Compact pill: amber header strip + label on one line.

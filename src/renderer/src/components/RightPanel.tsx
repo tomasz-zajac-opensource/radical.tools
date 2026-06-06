@@ -29,7 +29,7 @@ const PALETTE_SUBLABELS: Record<string, string> = {
 }
 
 // Order: domain first (when present), then standard C4 order, then any custom types last.
-const PALETTE_ORDER = ['domain', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
+const PALETTE_ORDER = ['domain', 'group', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
 
 function PaletteItem({ typeId, label, sublabel, color, iconPath }: {
   typeId: string
