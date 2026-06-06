@@ -2,11 +2,11 @@
 
 import type { Metamodel } from './metamodel'
 
-export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain' | 'adr' | 'fitness-fn' | 'requirement'
+export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain' | 'group' | 'adr' | 'fitness-fn' | 'requirement'
 
 /** Types that act as containers (can hold children, collapse, auto-resize). */
 export const CONTAINER_TYPES: ReadonlySet<string> = new Set([
-  'system', 'container', 'domain',
+  'system', 'container', 'domain', 'group',
 ])
 
 /** True when the given node-type id behaves as a parent container. */
@@ -263,6 +263,7 @@ export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }
   webapp:       { width: 210, height: 140 },
   queue:        { width: 220, height: 95 },
   domain:       { width: 520, height: 360 },
+  group:        { width: 520, height: 360 },
   adr:          { width: 180, height: 52 },
   'fitness-fn': { width: 180, height: 52 },
   requirement:  { width: 200, height: 56 },
@@ -277,6 +278,7 @@ export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
   webapp:       140,
   queue:        95,
   domain:       220,
+  group:        220,
   adr:          52,
   'fitness-fn': 52,
   requirement:  56,
@@ -291,6 +293,7 @@ export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
   webapp:       210,
   queue:        220,
   domain:       360,
+  group:        360,
   adr:          160,
   'fitness-fn': 160,
   requirement:  180,
@@ -305,6 +308,7 @@ export const NODE_COLORS: Record<C4ElementType, string> = {
   webapp:       '#438dd5',
   queue:        '#438dd5',
   domain:       '#4c1d95',
+  group:        '#64748b',
   adr:          '#92400e',
   'fitness-fn': '#5b21b6',
   requirement:  '#0e7490',
@@ -319,6 +323,7 @@ export const NODE_FG: Record<C4ElementType, string> = {
   webapp:       '#fff',
   queue:        '#fff',
   domain:       '#fff',
+  group:        '#fff',
   adr:          '#fff',
   'fitness-fn': '#fff',
   requirement:  '#fff',
@@ -333,6 +338,7 @@ export const TYPE_LABELS: Record<C4ElementType, string> = {
   webapp:       'Web App',
   queue:        'Queue',
   domain:       'Domain',
+  group:        'Group',
   adr:          'ADR',
   'fitness-fn': 'Fitness Function',
   requirement:  'Requirement',
@@ -350,6 +356,8 @@ export const TYPE_ICON_PATHS: Record<C4ElementType, string> = {
   webapp:       'M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3Zm1 2.5V13h10V5.5H3ZM4 3.5a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Zm1.5 0a.5.5 0 1 0 0 1 .5.5 0 0 0 0-1Z',
   queue:        'M4 3a3 2 0 1 0 0 4h8a3 2 0 1 0 0-4H4Zm-2 5.5a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Zm10 0a3 2 0 0 0 4 0v-1a3 2 0 0 1-4 0v1Z',
   domain:       'M2 3.5A1.5 1.5 0 0 1 3.5 2h9A1.5 1.5 0 0 1 14 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12.5v-9Zm1.5 1A.5.5 0 0 0 3 5v6a.5.5 0 0 0 .5.5h9A.5.5 0 0 0 13 11V5a.5.5 0 0 0-.5-.5h-9ZM5 7h2v2H5V7Zm4 0h2v2H9V7Z',
+  // Group: folder
+  group:        'M2 3.5C2 2.67 2.67 2 3.5 2H7l1.5 2h4c.83 0 1.5.67 1.5 1.5v7c0 .83-.67 1.5-1.5 1.5h-9C2.67 14 2 13.33 2 12.5v-9Z',
   // ADR: document with text lines
   adr:          'M4.5 1C3.67 1 3 1.67 3 2.5v11c0 .83.67 1.5 1.5 1.5h7c.83 0 1.5-.67 1.5-1.5V6L9 1H4.5ZM9 2l3 3.5H9V2ZM5 8h6v1H5V8Zm0 2.5h6v1H5v-1Zm0 2.5h3.5v1H5V13Z',
   // Fitness Function: concentric circles (target / gauge)

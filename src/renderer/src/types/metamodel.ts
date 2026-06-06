@@ -96,28 +96,27 @@ export function builtInC4Metamodel(): Metamodel {
   const nodeTypes: Record<string, NodeTypeDef> = {}
 
   // C4 containment rules:
-  //  • person                    → root only
-  //  • system                    → root OR inside another system (a system
-  //                                may aggregate sub-systems / a "system of
-  //                                systems" / enterprise grouping)
-  //  • container                 → inside a system
-  //  • component                 → inside a container
-  //  • database / webapp / queue → "container kinds" — live inside a system,
-  //                                NOT inside another container (a container
-  //                                cannot aggregate another container).
+  //  • person                    → root only, or inside a group
+  //  • system                    → root OR inside another system / group
+  //  • container                 → inside a system or group
+  //  • component                 → inside a container or group
+  //  • database / webapp / queue → inside a system or group
+  //  • group                     → root OR inside another group (recursive,
+  //                                purely organisational — no semantics)
   const allowedParentsMap: Record<string, string[] | undefined> = {
-    person:    undefined,
-    system:    ['system'],
-    container: ['system'],
-    component: ['container', 'webapp'],
-    database:  ['system'],
-    webapp:    ['system'],
-    queue:     ['system'],
+    person:    ['group'],
+    system:    ['system', 'group'],
+    container: ['system', 'group'],
+    component: ['container', 'webapp', 'group'],
+    database:  ['system', 'group'],
+    webapp:    ['system', 'group'],
+    queue:     ['system', 'group'],
+    group:     ['group'],
   }
 
   const techTypes = new Set(['container', 'component', 'database', 'webapp', 'queue'])
   const types: Array<keyof typeof NODE_COLORS> = [
-    'person', 'system', 'container', 'component', 'database', 'webapp', 'queue',
+    'person', 'system', 'container', 'component', 'database', 'webapp', 'queue', 'group',
   ]
 
   for (const t of types) {
@@ -125,7 +124,7 @@ export function builtInC4Metamodel(): Metamodel {
       { key: 'description', label: 'Description', type: 'textarea' },
     ]
     if (techTypes.has(t)) props.push({ key: 'technology', label: 'Technology', type: 'text' })
-    props.push({ key: 'external', label: 'External', type: 'boolean' })
+    if (t !== 'group') props.push({ key: 'external', label: 'External', type: 'boolean' })
 
     nodeTypes[t] = {
       id: t,
@@ -138,8 +137,8 @@ export function builtInC4Metamodel(): Metamodel {
       collapsedWidth: COLLAPSED_WIDTH[t],
       collapsedHeight: COLLAPSED_HEIGHT[t],
       allowedParents: allowedParentsMap[t],
-      // person and system are top-level concepts and may live at the root.
-      allowedAtRoot: t === 'person' || t === 'system',
+      // person, system, and group are top-level concepts and may live at the root.
+      allowedAtRoot: t === 'person' || t === 'system' || t === 'group',
       builtin: true,
       properties: props,
     }
@@ -219,10 +218,10 @@ export function builtInC4Metamodel(): Metamodel {
 export function builtInDddC4Metamodel(): Metamodel {
   const base = builtInC4Metamodel()
 
-  // System may live at root, inside another system, OR inside a domain.
+  // System may live at root, inside another system, domain, OR group.
   const patchedSystem: NodeTypeDef = {
     ...base.nodeTypes.system,
-    allowedParents: ['system', 'domain'],
+    allowedParents: ['system', 'domain', 'group'],
     allowedAtRoot: true,
   }
 
@@ -248,8 +247,8 @@ export function builtInDddC4Metamodel(): Metamodel {
     height: 360,
     collapsedWidth: 360,
     collapsedHeight: 220,
-    // A domain may be nested inside another domain (recursive containment).
-    allowedParents: ['domain'],
+    // A domain may be nested inside another domain or a group.
+    allowedParents: ['domain', 'group'],
     allowedAtRoot: true,
     builtin: true,
     properties: domainProps,
@@ -364,7 +363,7 @@ export function builtInGovernanceMetamodel(): Metamodel {
     height: NODE_SIZES['adr'].height,
     collapsedWidth: COLLAPSED_WIDTH['adr'],
     collapsedHeight: COLLAPSED_HEIGHT['adr'],
-    allowedParents: ['system', 'domain'],
+    allowedParents: ['system', 'domain', 'group'],
     allowedAtRoot: true,
     builtin: true,
     properties: adrProps,
@@ -407,7 +406,7 @@ export function builtInGovernanceMetamodel(): Metamodel {
     height: NODE_SIZES['fitness-fn'].height,
     collapsedWidth: COLLAPSED_WIDTH['fitness-fn'],
     collapsedHeight: COLLAPSED_HEIGHT['fitness-fn'],
-    allowedParents: ['system', 'domain'],
+    allowedParents: ['system', 'domain', 'group'],
     allowedAtRoot: true,
     builtin: true,
     properties: fitnessFnProps,
@@ -455,7 +454,7 @@ export function builtInGovernanceMetamodel(): Metamodel {
     height: NODE_SIZES['requirement'].height,
     collapsedWidth: COLLAPSED_WIDTH['requirement'],
     collapsedHeight: COLLAPSED_HEIGHT['requirement'],
-    allowedParents: ['system', 'domain'],
+    allowedParents: ['system', 'domain', 'group'],
     allowedAtRoot: true,
     builtin: true,
     properties: requirementProps,
