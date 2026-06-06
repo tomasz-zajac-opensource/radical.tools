@@ -2,7 +2,7 @@ import React, { memo, useCallback } from 'react'
 import { NodeProps, Handle, Position } from 'reactflow'
 import { C4NodeRFData, NODE_COLORS } from '../../types/c4'
 import { useDiagramStore } from '../../store/diagramStore'
-import { composeEarsSentence } from '../../types/metamodel'
+import { composeEarsSentence, resolveEarsSubject } from '../../types/metamodel'
 
 // ─── Diff highlight overlay ────────────────────────────────────────────────
 function DiffOverlay({ c4id }: { c4id: string }) {
@@ -721,7 +721,10 @@ export const RequirementNode = memo(({ data, selected }: NodeProps<C4NodeRFData>
     "won't": 'W',
   }
 
-  const { sentence, complete } = composeEarsSentence((node ?? {}) as unknown as Record<string, unknown>)
+  const c4Relations = useDiagramStore(s => s.c4Relations)
+  const c4Nodes = useDiagramStore(s => s.c4Nodes)
+  const subject = resolveEarsSubject(data.c4id, c4Relations, c4Nodes)
+  const { sentence, complete } = composeEarsSentence((node ?? {}) as unknown as Record<string, unknown>, subject)
 
   return (
     <div

@@ -2211,6 +2211,7 @@ body {
 .ears-slot:hover { border-bottom-color: #0e7490; background: color-mix(in srgb, #0e7490 12%, transparent); }
 .ears-slot-filled { font-weight: 500; color: var(--text-primary); }
 .ears-slot-empty { color: var(--text-muted); font-style: italic; border-bottom-color: var(--border-color); }
+.ears-subject { font-weight: 600; color: #0e7490; }
 .ears-slot-input {
   display: inline;
   font: inherit;
@@ -2248,6 +2249,7 @@ body {
 }
 .ears-slot-sm:hover { border-bottom-color: #0e7490; background: color-mix(in srgb, #0e7490 12%, transparent); }
 .ears-slot-sm.ears-slot-filled { font-weight: 500; }
+.ears-subject-sm { font-weight: 600; color: #0e7490; }
 .ears-slot-sm.ears-slot-empty { color: var(--text-muted); font-style: italic; border-bottom-color: var(--border-color); }
 .ears-slot-input-sm {
   font: inherit;

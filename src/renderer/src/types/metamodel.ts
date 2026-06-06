@@ -607,9 +607,10 @@ export function isPropertyVisible(prop: PropertyDef, node: Record<string, unknow
  *  optional:           "Where <feature>, the <system> shall <action>."
  *  complex:            "While <pre>, when <trigger>, the <system> shall <action>."
  */
-export function composeEarsSentence(node: Record<string, unknown>): { sentence: string; complete: boolean } {
+function capitalize(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1) }
+export function composeEarsSentence(node: Record<string, unknown>, subject?: string): { sentence: string; complete: boolean } {
   const earsType = String(node.ears_type ?? 'ubiquitous')
-  const system = String(node.label ?? 'system')
+  const subj = (subject || 'the system').trim()
   const action = String(node.action ?? '').trim()
   const trigger = String(node.trigger ?? '').trim()
   const precondition = String(node.precondition ?? '').trim()
@@ -617,7 +618,7 @@ export function composeEarsSentence(node: Record<string, unknown>): { sentence: 
   const feature = String(node.feature ?? '').trim()
 
   const actionPart = action || '‹action›'
-  const shallClause = `the ${system} shall ${actionPart}`
+  const shallClause = `${subj} shall ${actionPart}`
 
   let sentence: string
   let complete = !!action
@@ -653,11 +654,26 @@ export function composeEarsSentence(node: Record<string, unknown>): { sentence: 
       break
     }
     default: // ubiquitous
-      sentence = `The ${system} shall ${actionPart}.`
+      sentence = `${capitalize(subj)} shall ${actionPart}.`
       break
   }
 
   return { sentence, complete }
+}
+
+/** Resolve the EARS subject for a requirement by finding 'satisfies' relations pointing to it. */
+export function resolveEarsSubject(
+  reqId: string,
+  relations: Record<string, { sourceId: string; targetId: string; relationType?: string }>,
+  nodes: Record<string, { label: string }>,
+): string | undefined {
+  for (const rel of Object.values(relations)) {
+    if (rel.relationType === 'satisfies' && rel.targetId === reqId) {
+      const src = nodes[rel.sourceId]
+      if (src) return src.label
+    }
+  }
+  return undefined
 }
 
 export function getNodeTypeDef(metamodel: Metamodel | undefined, typeId: string): NodeTypeDef | undefined {

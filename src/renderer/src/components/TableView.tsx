@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
 import type { C4Node, C4Relation, C4ElementType } from '../types/c4'
 import { NODE_COLORS, NODE_FG, TYPE_LABELS, NODE_SIZES } from '../types/c4'
-import { isParentAllowed, composeEarsSentence } from '../types/metamodel'
+import { isParentAllowed, composeEarsSentence, resolveEarsSubject } from '../types/metamodel'
 
 // ─── Column definitions ──────────────────────────────────────────────────────
 
@@ -81,10 +81,10 @@ const TABS: { id: Tab; label: string }[] = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getNodeProp(node: C4Node, key: string, nodes: Record<string, C4Node>): string {
+function getNodeProp(node: C4Node, key: string, nodes: Record<string, C4Node>, relations?: Record<string, C4Relation>): string {
   if (key === '_type')   return TYPE_LABELS[node.type] ?? node.type
   if (key === '_parent') return node.parentId ? (nodes[node.parentId]?.label ?? node.parentId) : ''
-  if (key === '_ears_sentence') return composeEarsSentence(node as unknown as Record<string, unknown>).sentence
+  if (key === '_ears_sentence') return composeEarsSentence(node as unknown as Record<string, unknown>, relations ? resolveEarsSubject(node.id, relations, nodes) : undefined).sentence
   const raw = (node as unknown as Record<string, unknown>)[key]
   if (raw === undefined || raw === null) return ''
   if (typeof raw === 'boolean') return raw ? 'true' : 'false'
@@ -366,7 +366,7 @@ export function TableView(): React.ReactElement {
     }
 
     const rawVal = isNodeRow
-      ? getNodeProp(row as C4Node, col.key, nodes)
+      ? getNodeProp(row as C4Node, col.key, nodes, relations)
       : getRelProp(row as C4Relation, col.key, nodes)
     const isEditing = editCell?.rowId === rowId && editCell?.colKey === col.key
 

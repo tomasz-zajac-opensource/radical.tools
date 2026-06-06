@@ -1,6 +1,7 @@
 import React, { ChangeEvent, useState, useMemo } from 'react'
 import { useDiagramStore, nodeEffectivelyCollapsedInView } from '../store/diagramStore'
 import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS, NODE_FG, isContainerType } from '../types/c4'
+import { resolveEarsSubject } from '../types/metamodel'
 // SlidesColumn was used here; now lives in the bottom PresenterDock
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -1303,9 +1304,9 @@ function SequencePropertiesContent({ sequenceId, readOnly = false }: { sequenceI
 // EARS inline sentence editor for right panel (compact)
 const EARS_SENTENCE_FIELDS = ['trigger', 'precondition', 'unwanted_condition', 'feature', 'action'] as const
 
-function EarsSentencePreview({ node, nodeId, readOnly, updateNode }: { node: Record<string, unknown>; nodeId: string; readOnly: boolean; updateNode: (id: string, patch: Record<string, unknown>) => void }) {
+function EarsSentencePreview({ node, nodeId, subject: subjectProp, readOnly, updateNode }: { node: Record<string, unknown>; nodeId: string; subject?: string; readOnly: boolean; updateNode: (id: string, patch: Record<string, unknown>) => void }) {
   const earsType = String(node.ears_type ?? 'ubiquitous')
-  const system = String(node.label ?? 'system')
+  const subject = subjectProp || 'the system'
 
   const Slot = ({ fieldKey, placeholder }: { fieldKey: string; placeholder: string }) => {
     const val = String(node[fieldKey] ?? '')
@@ -1338,7 +1339,7 @@ function EarsSentencePreview({ node, nodeId, readOnly, updateNode }: { node: Rec
     )
   }
 
-  const shall = (<><span className="ears-fixed-sm">the {system} shall </span><Slot fieldKey="action" placeholder="‹action›" /><span className="ears-fixed-sm">.</span></>)
+  const shall = (<><span className="ears-subject-sm">{subject}</span><span className="ears-fixed-sm"> shall </span><Slot fieldKey="action" placeholder="‹action›" /><span className="ears-fixed-sm">.</span></>)
 
   let content: React.ReactNode
   switch (earsType) {
@@ -1353,7 +1354,7 @@ function EarsSentencePreview({ node, nodeId, readOnly, updateNode }: { node: Rec
     case 'complex':
       content = (<><span className="ears-fixed-sm">While </span><Slot fieldKey="precondition" placeholder="‹precondition›" /><span className="ears-fixed-sm">, when </span><Slot fieldKey="trigger" placeholder="‹trigger›" /><span className="ears-fixed-sm">, </span>{shall}</>); break
     default:
-      content = (<><span className="ears-fixed-sm">The {system} shall </span><Slot fieldKey="action" placeholder="‹action›" /><span className="ears-fixed-sm">.</span></>)
+      content = (<><span className="ears-subject-sm">{subject.charAt(0).toUpperCase() + subject.slice(1)}</span><span className="ears-fixed-sm"> shall </span><Slot fieldKey="action" placeholder="‹action›" /><span className="ears-fixed-sm">.</span></>)
   }
 
   return (
@@ -1554,7 +1555,7 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
         </div>
         {node.type === 'requirement' && (
           <div className="props-ears-sentence">
-            <EarsSentencePreview node={node as unknown as Record<string, unknown>} nodeId={node.id} readOnly={readOnly} updateNode={(id, patch) => updateNode(id, patch as Parameters<typeof updateNode>[1])} />
+            <EarsSentencePreview node={node as unknown as Record<string, unknown>} nodeId={node.id} subject={resolveEarsSubject(node.id, c4Relations, c4Nodes)} readOnly={readOnly} updateNode={(id, patch) => updateNode(id, patch as Parameters<typeof updateNode>[1])} />
           </div>
         )}
         <div>

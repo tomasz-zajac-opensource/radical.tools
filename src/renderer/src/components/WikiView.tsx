@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import { isParentAllowed, isRelationAllowed, isPropertyVisible, PropertyDef } from '../types/metamodel'
+import { isParentAllowed, isRelationAllowed, isPropertyVisible, resolveEarsSubject, PropertyDef } from '../types/metamodel'
 import { useOutsideClick } from '../hooks/useOutsideClick'
 import {
   C4Node,
@@ -762,6 +762,7 @@ function WikiElementPage({
             <EarsSentenceEditor
               node={node as unknown as Record<string, unknown>}
               nodeId={node.id}
+              subject={resolveEarsSubject(node.id, relations, nodes)}
               readOnly={readOnly}
               updateNode={(id, patch) => updateNode(id, patch as Parameters<UpdateNode>[1])}
             />
@@ -1138,6 +1139,7 @@ function WikiFactValue({
 interface EarsSentenceEditorProps {
   node: Record<string, unknown>
   nodeId: string
+  subject?: string
   readOnly?: boolean
   updateNode: (id: string, patch: Record<string, unknown>) => void
 }
@@ -1195,9 +1197,9 @@ function EarsSlot({
   )
 }
 
-function EarsSentenceEditor({ node, nodeId, readOnly, updateNode }: EarsSentenceEditorProps) {
+function EarsSentenceEditor({ node, nodeId, subject: subjectProp, readOnly, updateNode }: EarsSentenceEditorProps) {
   const earsType = String(node.ears_type ?? 'ubiquitous')
-  const system = String(node.label ?? 'system')
+  const subject = subjectProp || 'the system'
   const action = String(node.action ?? '')
   const trigger = String(node.trigger ?? '')
   const precondition = String(node.precondition ?? '')
@@ -1217,7 +1219,8 @@ function EarsSentenceEditor({ node, nodeId, readOnly, updateNode }: EarsSentence
 
   const shallClause = (
     <>
-      <span className="ears-fixed">the {system} shall </span>
+      <span className="ears-subject">{subject}</span>
+      <span className="ears-fixed"> shall </span>
       {slot(action, '‹action›', 'action')}
       <span className="ears-fixed">.</span>
     </>
@@ -1286,7 +1289,8 @@ function EarsSentenceEditor({ node, nodeId, readOnly, updateNode }: EarsSentence
     default: // ubiquitous
       content = (
         <>
-          <span className="ears-fixed">The {system} shall </span>
+          <span className="ears-subject">{subject.charAt(0).toUpperCase() + subject.slice(1)}</span>
+          <span className="ears-fixed"> shall </span>
           {slot(action, '‹action›', 'action')}
           <span className="ears-fixed">.</span>
         </>
