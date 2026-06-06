@@ -122,7 +122,7 @@ export function applyColaLayout(
     .sort((a, b) => {
       const depthOf = (node: typeof a): number => {
         let d = 0; let cur = node
-        while (cur.parentId) { d++; cur = allNodes[cur.parentId]; if (!cur) break }
+        while (cur.parentId) { d++; cur = c4Nodes[cur.parentId]; if (!cur) break }
         return d
       }
       return depthOf(b) - depthOf(a)
