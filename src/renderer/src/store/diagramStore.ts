@@ -602,6 +602,7 @@ function deriveRFNodes(
   }
   const typeRank = (t: string): number => {
     if (t === 'domain') return 0
+    if (t === 'group') return 0
     if (t === 'system') return 0
     if (t === 'container' || t === 'database' || t === 'webapp' || t === 'queue') return 1
     if (t === 'component') return 2
