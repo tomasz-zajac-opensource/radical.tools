@@ -132,3 +132,69 @@ describe('removeNode', () => {
     }
   })
 })
+
+describe('group nesting', () => {
+  it('allows placing a group inside another group', () => {
+    const outerGroupId = useDiagramStore.getState().addNode({
+      type: 'group',
+      label: 'Outer Group',
+      collapsed: false,
+      x: 0, y: 0, width: 520, height: 360,
+    } as any)
+    expect(outerGroupId).toBeTruthy()
+
+    const innerGroupId = useDiagramStore.getState().addNode({
+      type: 'group',
+      label: 'Inner Group',
+      parentId: outerGroupId,
+      collapsed: false,
+      x: 20, y: 120, width: 520, height: 360,
+    } as any)
+    expect(innerGroupId).toBeTruthy()
+    expect(useDiagramStore.getState().c4Nodes[innerGroupId].parentId).toBe(outerGroupId)
+  })
+
+  it('RF nodes: parent group appears before child group', () => {
+    const outerGroupId = useDiagramStore.getState().addNode({
+      type: 'group',
+      label: 'Outer Group',
+      collapsed: false,
+      x: 0, y: 0, width: 520, height: 360,
+    } as any)
+    const innerGroupId = useDiagramStore.getState().addNode({
+      type: 'group',
+      label: 'Inner Group',
+      parentId: outerGroupId,
+      collapsed: false,
+      x: 20, y: 120, width: 520, height: 360,
+    } as any)
+    useDiagramStore.getState()._sync()
+    const rfNodes = useDiagramStore.getState().rfNodes
+    const outerIdx = rfNodes.findIndex((n: any) => n.id === outerGroupId)
+    const innerIdx = rfNodes.findIndex((n: any) => n.id === innerGroupId)
+    expect(outerIdx).toBeGreaterThanOrEqual(0)
+    expect(innerIdx).toBeGreaterThanOrEqual(0)
+    expect(outerIdx).toBeLessThan(innerIdx)
+    // Verify parentNode is set on the RF node
+    const innerRF = rfNodes.find((n: any) => n.id === innerGroupId) as any
+    expect(innerRF.parentNode).toBe(outerGroupId)
+  })
+
+  it('allows placing a system inside a group', () => {
+    const groupId = useDiagramStore.getState().addNode({
+      type: 'group',
+      label: 'My Group',
+      collapsed: false,
+      x: 0, y: 0, width: 520, height: 360,
+    } as any)
+    const sysId = useDiagramStore.getState().addNode({
+      type: 'system',
+      label: 'Sys Inside Group',
+      parentId: groupId,
+      collapsed: false,
+      x: 20, y: 120, width: 360, height: 260,
+    } as any)
+    expect(sysId).toBeTruthy()
+    expect(useDiagramStore.getState().c4Nodes[sysId].parentId).toBe(groupId)
+  })
+})

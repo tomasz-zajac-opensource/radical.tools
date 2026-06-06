@@ -258,7 +258,7 @@ export function computeViewCollapsedSet(
 
   for (const [id, n] of Object.entries(allNodes)) {
     if (!viewFilter.has(id)) continue
-    if (n.type !== 'system' && n.type !== 'container') continue
+    if (!isContainerType(n.type)) continue
     if (n.collapsed) continue // already collapsed on the model
     if (parentHasViewChild.has(id)) continue // has visible children
 
@@ -700,7 +700,7 @@ function deriveRFNodes(
       // Stack deeper nodes above their ancestors so a sub-system rendered
       // inside another system doesn't get hidden behind it.
       zIndex: depthOf(n.id) * 10
-        + (n.type === 'domain' ? -1 : n.type === 'system' ? 0 : n.type === 'container' ? 1 : 2),
+        + (n.type === 'domain' || n.type === 'group' ? -1 : n.type === 'system' ? 0 : n.type === 'container' ? 1 : 2),
     })
   }
   return rfNodes

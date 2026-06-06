@@ -676,6 +676,7 @@ function StructuralCanvas(): React.ReactElement {
 
       if (hoveredNode) {
         const hoveredType = hoveredNode.type ?? ''
+        console.log('[onDrop] hovered node:', hoveredNode.id, 'type:', hoveredType, 'allowedParents:', allowedParents, 'match:', allowedParents.includes(hoveredType))
         if (allowedParents.includes(hoveredType)) {
           // Valid drop into parent.
           parentId = hoveredNode.id
@@ -697,6 +698,7 @@ function StructuralCanvas(): React.ReactElement {
           return
         }
       } else if (!isParentAllowed(mm, typeStr, undefined)) {
+        console.log('[onDrop] no hovered node found at', flowPos, 'nodes checked:', currentNodes.length)
         // Dropped on empty canvas but this type cannot live at the root.
         const allowedStr = allowedParents.length
           ? allowedParents.map(t => mm?.nodeTypes[t]?.label ?? t).join(', ')
@@ -709,6 +711,7 @@ function StructuralCanvas(): React.ReactElement {
       }
 
       const size = NODE_SIZES[typeStr]
+      console.log('[onDrop] creating', typeStr, 'parentId:', parentId, 'at:', relX, relY)
       addNode({
         type: typeStr,
         label: typeStr[0].toUpperCase() + typeStr.slice(1),
