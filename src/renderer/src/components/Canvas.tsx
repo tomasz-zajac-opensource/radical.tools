@@ -12,7 +12,7 @@ import ReactFlow, {
   getViewportForBounds,
 } from 'reactflow'
 import { useDiagramStore } from '../store/diagramStore'
-import { PersonNode, SystemNode, ContainerNode, ComponentNode, DatabaseNode, WebAppNode, QueueNode, DomainNode, AdrNode, FitnessFnNode } from './nodes/C4Nodes'
+import { PersonNode, SystemNode, ContainerNode, ComponentNode, DatabaseNode, WebAppNode, QueueNode, DomainNode, AdrNode, FitnessFnNode, RequirementNode } from './nodes/C4Nodes'
 import { RelationEdge } from './edges/RelationEdge'
 import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 import { C4ElementType, NODE_SIZES, COLLAPSED_HEIGHT } from '../types/c4'
@@ -30,6 +30,7 @@ const nodeTypes: NodeTypes = {
   domain: DomainNode as any,
   adr: AdrNode as any,
   'fitness-fn': FitnessFnNode as any,
+  requirement: RequirementNode as any,
 }
 
 const edgeTypes: EdgeTypes = {

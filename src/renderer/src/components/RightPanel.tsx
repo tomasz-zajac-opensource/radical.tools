@@ -1425,7 +1425,14 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
 
     // Metamodel properties for this node type — skip 'label' (always rendered first).
     const nodeTypeDef = metamodel?.nodeTypes[node.type]
-    const metaProps = (nodeTypeDef?.properties ?? []).filter(p => p.key !== 'label')
+    const metaProps = (nodeTypeDef?.properties ?? []).filter(p => {
+      if (p.key === 'label') return false
+      if (p.visibleWhen) {
+        const cur = String((node as unknown as Record<string, unknown>)[p.visibleWhen.key] ?? '')
+        return p.visibleWhen.values.includes(cur)
+      }
+      return true
+    })
 
     // Built-in fallback fields when no metamodel is present.
     const builtinFields = !nodeTypeDef ? (

@@ -30,6 +30,10 @@ export interface PropertyDef {
   /** Only for `type === 'enum'`. */
   options?: string[]
   default?: string | number | boolean
+  /** Show this property only when another property has one of the listed values.
+   *  E.g. `{ key: 'ears_type', values: ['event-driven', 'complex'] }` means
+   *  this field is only visible when `ears_type` is event-driven or complex. */
+  visibleWhen?: { key: string; values: string[] }
 }
 
 export interface NodeTypeDef {
@@ -409,7 +413,55 @@ export function builtInGovernanceMetamodel(): Metamodel {
     properties: fitnessFnProps,
   }
 
-  const constraintSources = ['adr', 'fitness-fn'] as const
+  // ── EARS Requirement ──────────────────────────────────────────────────────
+
+  const requirementProps: PropertyDef[] = [
+    {
+      key: 'ears_type',
+      label: 'EARS type',
+      type: 'enum',
+      options: ['ubiquitous', 'event-driven', 'state-driven', 'unwanted-behaviour', 'optional', 'complex'],
+      default: 'ubiquitous',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'enum',
+      options: ['draft', 'approved', 'implemented', 'verified', 'deprecated'],
+      default: 'draft',
+    },
+    {
+      key: 'priority',
+      label: 'Priority',
+      type: 'enum',
+      options: ['must', 'should', 'could', "won't"],
+      default: 'must',
+    },
+    { key: 'trigger',             label: 'When (trigger)',            type: 'text',     visibleWhen: { key: 'ears_type', values: ['event-driven', 'complex'] } },
+    { key: 'precondition',        label: 'While (precondition)',      type: 'text',     visibleWhen: { key: 'ears_type', values: ['state-driven', 'complex'] } },
+    { key: 'unwanted_condition',  label: 'If (unwanted condition)',   type: 'text',     visibleWhen: { key: 'ears_type', values: ['unwanted-behaviour', 'complex'] } },
+    { key: 'feature',             label: 'Where (feature)',           type: 'text',     visibleWhen: { key: 'ears_type', values: ['optional', 'complex'] } },
+    { key: 'action',              label: 'The system shall (action)', type: 'textarea' },
+    { key: 'rationale',           label: 'Rationale',                 type: 'textarea' },
+  ]
+
+  const requirement: NodeTypeDef = {
+    id: 'requirement',
+    label: 'Requirement',
+    color: '#0e7490',
+    fg: '#fff',
+    iconPath: TYPE_ICON_PATHS['requirement'],
+    width: NODE_SIZES['requirement'].width,
+    height: NODE_SIZES['requirement'].height,
+    collapsedWidth: COLLAPSED_WIDTH['requirement'],
+    collapsedHeight: COLLAPSED_HEIGHT['requirement'],
+    allowedParents: ['system', 'domain'],
+    allowedAtRoot: true,
+    builtin: true,
+    properties: requirementProps,
+  }
+
+  const constraintSources = ['adr', 'fitness-fn', 'requirement'] as const
   const constraintTargets = ['person', 'system', 'domain', 'container', 'component', 'database', 'webapp', 'queue'] as const
   const constrainsPairs: RelationPair[] = constraintSources.flatMap(from =>
     constraintTargets.map(to => ({ from, to })),
@@ -444,6 +496,42 @@ export function builtInGovernanceMetamodel(): Metamodel {
     builtin: true,
   }
 
+  // requirement → element: the element satisfies this requirement
+  const satisfiesTargets = ['person', 'system', 'domain', 'container', 'component', 'database', 'webapp', 'queue'] as const
+  const satisfies: RelationTypeDef = {
+    id: 'satisfies',
+    label: 'Satisfies',
+    allowedPairs: satisfiesTargets.map(to => ({ from: to, to: 'requirement' })),
+    properties: [
+      { key: 'description', label: 'Note', type: 'text' },
+    ],
+    color: '#0891b2',
+    builtin: true,
+  }
+
+  // requirement → requirement decomposition
+  const derives: RelationTypeDef = {
+    id: 'derives',
+    label: 'Derives from',
+    allowedPairs: [{ from: 'requirement', to: 'requirement' }],
+    properties: [],
+    color: '#0d9488',
+    builtin: true,
+  }
+
+  // requirement → ADR traceability
+  const tracesTo: RelationTypeDef = {
+    id: 'traces-to',
+    label: 'Traces to',
+    allowedPairs: [
+      { from: 'requirement', to: 'adr' },
+      { from: 'requirement', to: 'fitness-fn' },
+    ],
+    properties: [],
+    color: '#06b6d4',
+    builtin: true,
+  }
+
   return {
     id: 'c4-ddd-governance-builtin',
     name: 'C4 + DDD + Governance',
@@ -451,12 +539,16 @@ export function builtInGovernanceMetamodel(): Metamodel {
       ...base.nodeTypes,
       adr,
       'fitness-fn': fitnessFn,
+      requirement,
     },
     relationTypes: {
       ...base.relationTypes,
       constrains,
       supersedes,
       implements: implements_,
+      satisfies,
+      derives,
+      'traces-to': tracesTo,
     },
   }
 }
@@ -487,13 +579,20 @@ export function availableMetamodels(): MetamodelPreset[] {
     {
       id: 'c4-ddd-governance-builtin',
       name: 'C4 + DDD + Governance',
-      description: 'C4 + DDD extended with governance: ADR (Architecture Decision Records) and Fitness Functions linked to architecture elements via Constrains, Supersedes, and Implements relations.',
+      description: 'C4 + DDD extended with governance: ADR (Architecture Decision Records), Fitness Functions, and EARS Requirements linked to architecture elements via Constrains, Supersedes, Implements, Satisfies, Derives, and Traces-to relations.',
       build: builtInGovernanceMetamodel,
     },
   ]
 }
 
 // ── Lookup helpers (with safe fallback for unknown types) ──────────────────
+
+/** Check whether a property should be visible given the node's current values. */
+export function isPropertyVisible(prop: PropertyDef, node: Record<string, unknown>): boolean {
+  if (!prop.visibleWhen) return true
+  const cur = String(node[prop.visibleWhen.key] ?? '')
+  return prop.visibleWhen.values.includes(cur)
+}
 
 export function getNodeTypeDef(metamodel: Metamodel | undefined, typeId: string): NodeTypeDef | undefined {
   return metamodel?.nodeTypes[typeId]

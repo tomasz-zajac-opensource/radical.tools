@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useDiagramStore } from '../store/diagramStore'
-import { isParentAllowed, isRelationAllowed, PropertyDef } from '../types/metamodel'
+import { isParentAllowed, isRelationAllowed, isPropertyVisible, PropertyDef } from '../types/metamodel'
 import { useOutsideClick } from '../hooks/useOutsideClick'
 import {
   C4Node,
@@ -612,8 +612,10 @@ function WikiElementPage({
 
   const nodeTypeDef = metamodel?.nodeTypes[node.type]
   const allProps = useMemo(
-    () => (nodeTypeDef?.properties ?? []).filter((p) => p.key !== 'label'),
-    [nodeTypeDef],
+    () => (nodeTypeDef?.properties ?? []).filter(
+      (p) => p.key !== 'label' && isPropertyVisible(p, node as unknown as Record<string, unknown>)
+    ),
+    [nodeTypeDef, node],
   )
 
   // Split metamodel props so the page reads like a document:

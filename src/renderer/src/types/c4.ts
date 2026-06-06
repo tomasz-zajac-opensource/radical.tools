@@ -2,7 +2,7 @@
 
 import type { Metamodel } from './metamodel'
 
-export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain' | 'adr' | 'fitness-fn'
+export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain' | 'adr' | 'fitness-fn' | 'requirement'
 
 /** Types that act as containers (can hold children, collapse, auto-resize). */
 export const CONTAINER_TYPES: ReadonlySet<string> = new Set([
@@ -265,6 +265,7 @@ export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }
   domain:       { width: 520, height: 360 },
   adr:          { width: 180, height: 52 },
   'fitness-fn': { width: 180, height: 52 },
+  requirement:  { width: 200, height: 56 },
 }
 
 export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
@@ -278,6 +279,7 @@ export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
   domain:       220,
   adr:          52,
   'fitness-fn': 52,
+  requirement:  56,
 }
 
 export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
@@ -291,6 +293,7 @@ export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
   domain:       360,
   adr:          160,
   'fitness-fn': 160,
+  requirement:  180,
 }
 
 export const NODE_COLORS: Record<C4ElementType, string> = {
@@ -304,6 +307,7 @@ export const NODE_COLORS: Record<C4ElementType, string> = {
   domain:       '#4c1d95',
   adr:          '#92400e',
   'fitness-fn': '#5b21b6',
+  requirement:  '#0e7490',
 }
 
 export const NODE_FG: Record<C4ElementType, string> = {
@@ -317,6 +321,7 @@ export const NODE_FG: Record<C4ElementType, string> = {
   domain:       '#fff',
   adr:          '#fff',
   'fitness-fn': '#fff',
+  requirement:  '#fff',
 }
 
 export const TYPE_LABELS: Record<C4ElementType, string> = {
@@ -330,6 +335,7 @@ export const TYPE_LABELS: Record<C4ElementType, string> = {
   domain:       'Domain',
   adr:          'ADR',
   'fitness-fn': 'Fitness Function',
+  requirement:  'Requirement',
 }
 
 // ─── SVG icon paths (16×16 viewBox) ──────────────────────────────────────────
@@ -348,4 +354,6 @@ export const TYPE_ICON_PATHS: Record<C4ElementType, string> = {
   adr:          'M4.5 1C3.67 1 3 1.67 3 2.5v11c0 .83.67 1.5 1.5 1.5h7c.83 0 1.5-.67 1.5-1.5V6L9 1H4.5ZM9 2l3 3.5H9V2ZM5 8h6v1H5V8Zm0 2.5h6v1H5v-1Zm0 2.5h3.5v1H5V13Z',
   // Fitness Function: concentric circles (target / gauge)
   'fitness-fn': 'M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9ZM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Zm0 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z',
+  // Requirement: checklist / clipboard with checkmark
+  requirement:  'M5 1a1 1 0 0 0-1 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1h-1a1 1 0 0 0-1-1H5Zm0 1h6v1H5V2ZM4 5.5h1.5v1.5H4V5.5Zm3 .25h5v1H7v-1ZM4 9h1.5v1.5H4V9Zm3 .25h5v1H7v-1Z',
 }

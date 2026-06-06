@@ -692,3 +692,74 @@ export const FitnessFnNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) 
 
 FitnessFnNode.displayName = 'FitnessFnNode'
 
+// ─── Requirement Node (EARS) ──────────────────────────────────────────────────
+//
+// Compact pill: teal/cyan header strip with EARS type + priority + status badge.
+
+const REQ_COLOR = '#0e7490'
+
+export const RequirementNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const node = useDiagramStore(s => s.c4Nodes[data.c4id])
+  const extra = node as unknown as Record<string, string> | undefined
+  const status   = extra?.status ?? 'draft'
+  const priority = extra?.priority ?? 'must'
+
+  const statusColor: Record<string, string> = {
+    draft:        '#fbbf24',
+    approved:     '#60a5fa',
+    implemented:  '#34d399',
+    verified:     '#a78bfa',
+    deprecated:   '#9ca3af',
+  }
+  const badge = statusColor[status] ?? '#9ca3af'
+
+  const priorityLabel: Record<string, string> = {
+    must:   'M',
+    should: 'S',
+    could:  'C',
+    "won't": 'W',
+  }
+
+  return (
+    <div
+      className="c4-node"
+      style={{
+        position: 'relative',
+        width: data.width,
+        height: data.height,
+        background: REQ_COLOR,
+        border: `2px solid ${selected ? 'var(--accent)' : 'rgba(0,0,0,0.25)'}`,
+        borderRadius: 6,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      {/* Row 1: type + priority chip + status badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '3px 7px', background: 'rgba(0,0,0,0.25)' }}>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>
+          REQ
+          <span style={{ marginLeft: 4, background: 'rgba(6,182,212,0.4)', color: '#cffafe', padding: '0 3px', borderRadius: 2 }}>
+            {priorityLabel[priority] ?? 'M'}
+          </span>
+        </span>
+        <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', background: badge, color: '#000', padding: '1px 4px', borderRadius: 2 }}>
+          {status}
+        </span>
+      </div>
+
+      {/* Row 2: label */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '0 7px', overflow: 'hidden' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>
+          {data.label}
+        </span>
+      </div>
+    </div>
+  )
+})
+
+RequirementNode.displayName = 'RequirementNode'
+

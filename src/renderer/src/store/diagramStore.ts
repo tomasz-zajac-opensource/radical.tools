@@ -34,6 +34,7 @@ import {
   RelationTypeDef,
   builtInC4Metamodel,
   builtInDddC4Metamodel,
+  builtInGovernanceMetamodel,
   isRelationAllowed,
   isParentAllowed,
   canAddMoreOfType,
@@ -1205,6 +1206,7 @@ export const useDiagramStore = create<DiagramStore>()(
         if (!persistedMm) return builtInC4Metamodel()
         if (persistedMm.id === 'c4-builtin') return builtInC4Metamodel()
         if (persistedMm.id === 'c4-ddd-builtin') return builtInDddC4Metamodel()
+        if (persistedMm.id === 'c4-ddd-governance-builtin') return builtInGovernanceMetamodel()
         return persistedMm
       })()
       // Signal the boot startLiveLayout() call to skip cola's bulk phase
@@ -4151,6 +4153,7 @@ export const useDiagramStore = create<DiagramStore>()(
             if (!dm) return builtInC4Metamodel()
             if (dm.id === 'c4-builtin') return builtInC4Metamodel()
             if (dm.id === 'c4-ddd-builtin') return builtInDddC4Metamodel()
+            if (dm.id === 'c4-ddd-governance-builtin') return builtInGovernanceMetamodel()
             return dm
           })()
         })

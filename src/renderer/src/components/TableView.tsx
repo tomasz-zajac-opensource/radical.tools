@@ -14,6 +14,8 @@ interface ColDef {
   width: number
   type: CellType
   options?: string[]
+  /** Hide cell when another field on the same row doesn't match. */
+  visibleWhen?: { key: string; values: string[] }
 }
 
 const ALL_NODES_COLS: ColDef[] = [
@@ -51,15 +53,29 @@ const REL_COLS: ColDef[] = [
   { key: 'technology', label: 'Technology', width: 160, type: 'text' },
 ]
 
+const REQ_COLS: ColDef[] = [
+  { key: 'label',              label: 'Name',           width: 220, type: 'text' },
+  { key: 'ears_type',          label: 'EARS type',      width: 150, type: 'enum', options: ['ubiquitous', 'event-driven', 'state-driven', 'unwanted-behaviour', 'optional', 'complex'] },
+  { key: 'status',             label: 'Status',         width: 130, type: 'enum', options: ['draft', 'approved', 'implemented', 'verified', 'deprecated'] },
+  { key: 'priority',           label: 'Priority',       width: 100, type: 'enum', options: ['must', 'should', 'could', "won't"] },
+  { key: 'trigger',            label: 'When (trigger)',  width: 180, type: 'text', visibleWhen: { key: 'ears_type', values: ['event-driven', 'complex'] } },
+  { key: 'precondition',       label: 'While (precon.)', width: 180, type: 'text', visibleWhen: { key: 'ears_type', values: ['state-driven', 'complex'] } },
+  { key: 'unwanted_condition', label: 'If (unwanted)',   width: 180, type: 'text', visibleWhen: { key: 'ears_type', values: ['unwanted-behaviour', 'complex'] } },
+  { key: 'feature',            label: 'Where (feature)', width: 160, type: 'text', visibleWhen: { key: 'ears_type', values: ['optional', 'complex'] } },
+  { key: 'action',             label: 'System shall…',  width: 280, type: 'textarea' },
+  { key: 'rationale',          label: 'Rationale',      width: 240, type: 'textarea' },
+]
+
 // ─── Tab definitions ─────────────────────────────────────────────────────────
 
-type Tab = 'all' | 'adr' | 'fitness-fn' | 'relations'
+type Tab = 'all' | 'adr' | 'fitness-fn' | 'requirement' | 'relations'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'all',        label: 'All Nodes' },
-  { id: 'adr',        label: 'ADRs' },
-  { id: 'fitness-fn', label: 'Fitness Functions' },
-  { id: 'relations',  label: 'Relations' },
+  { id: 'all',         label: 'All Nodes' },
+  { id: 'adr',         label: 'ADRs' },
+  { id: 'fitness-fn',  label: 'Fitness Functions' },
+  { id: 'requirement', label: 'Requirements' },
+  { id: 'relations',   label: 'Relations' },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -157,6 +173,7 @@ export function TableView(): React.ReactElement {
 
   const adrList = useMemo(() => nodeList.filter(n => n.type === 'adr'), [nodeList])
   const ffList  = useMemo(() => nodeList.filter(n => n.type === 'fitness-fn'), [nodeList])
+  const reqList = useMemo(() => nodeList.filter(n => n.type === 'requirement'), [nodeList])
 
   const relList = useMemo(() =>
     visibleNodeIds
@@ -171,14 +188,16 @@ export function TableView(): React.ReactElement {
   )
 
   const cols: ColDef[] =
-    tab === 'adr'        ? ADR_COLS
-    : tab === 'fitness-fn' ? FF_COLS
-    : tab === 'relations'  ? REL_COLS
+    tab === 'adr'         ? ADR_COLS
+    : tab === 'fitness-fn'  ? FF_COLS
+    : tab === 'requirement' ? REQ_COLS
+    : tab === 'relations'   ? REL_COLS
     : ALL_NODES_COLS
 
   const rows: (C4Node | C4Relation)[] =
-    tab === 'adr'        ? adrList
-    : tab === 'fitness-fn' ? ffList
+    tab === 'adr'         ? adrList
+    : tab === 'fitness-fn'  ? ffList
+    : tab === 'requirement' ? reqList
     : tab === 'relations'  ? relList
     : treeRows.map(r => r.node)
 
@@ -335,6 +354,15 @@ export function TableView(): React.ReactElement {
   function renderCell(row: C4Node | C4Relation, col: ColDef, depth = 0): React.ReactNode {
     const isNodeRow = tab !== 'relations'
     const rowId = row.id
+
+    // Check visibleWhen — if this column's condition isn't met, render a dimmed dash
+    if (col.visibleWhen && isNodeRow) {
+      const cur = String((row as unknown as Record<string, unknown>)[col.visibleWhen.key] ?? '')
+      if (!col.visibleWhen.values.includes(cur)) {
+        return <span className="tv-cell-value" style={{ color: 'var(--text-muted)', opacity: 0.4 }}>—</span>
+      }
+    }
+
     const rawVal = isNodeRow
       ? getNodeProp(row as C4Node, col.key, nodes)
       : getRelProp(row as C4Relation, col.key, nodes)
@@ -437,10 +465,11 @@ export function TableView(): React.ReactElement {
   }
 
   const emptyMsg =
-    tab === 'adr'        ? 'No ADRs in this model.' :
-    tab === 'fitness-fn' ? 'No Fitness Functions in this model.' :
-    tab === 'relations'  ? 'No relations.' :
-                           'No nodes.'
+    tab === 'adr'         ? 'No ADRs in this model.' :
+    tab === 'fitness-fn'  ? 'No Fitness Functions in this model.' :
+    tab === 'requirement' ? 'No Requirements in this model.' :
+    tab === 'relations'   ? 'No relations.' :
+                            'No nodes.'
 
   return (
     <div
@@ -476,9 +505,10 @@ export function TableView(): React.ReactElement {
       <div className="tv-tabs">
         {TABS.map(t => {
           const count =
-            t.id === 'all'        ? nodeList.length
-            : t.id === 'adr'      ? adrList.length
+            t.id === 'all'          ? nodeList.length
+            : t.id === 'adr'        ? adrList.length
             : t.id === 'fitness-fn' ? ffList.length
+            : t.id === 'requirement' ? reqList.length
             : relList.length
           return (
             <button
