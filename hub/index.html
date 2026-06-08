@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Architecture Concept Hub — Radical.Tools</title>
+  <meta name="description" content="Browse, preview and import architecture concepts — patterns, fitness functions, requirements and ADR templates — into Radical.Tools." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Navbar ── -->
+  <header class="navbar">
+    <div class="nav-inner">
+      <a href="https://radical.tools" class="nav-logo">Radical<span class="dot">.</span>Tools</a>
+      <nav class="nav-links">
+        <a href="index.html" class="active">Hub</a>
+        <a href="https://radical.tools/manual.html">Manual</a>
+        <a href="https://app.radical.tools">Launch</a>
+      </nav>
+      <div class="nav-actions">
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener" class="btn btn-outline">GitHub</a>
+        <a href="https://app.radical.tools" target="_blank" rel="noopener" class="btn btn-primary">Launch</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Layout ── -->
+  <div class="hub-layout">
+
+    <!-- Sidebar -->
+    <aside class="hub-sidebar">
+      <div class="hub-sidebar-section">
+        <h3>Categories</h3>
+        <ul class="hub-cat-nav" id="cat-nav">
+          <!-- populated by JS -->
+        </ul>
+      </div>
+
+      <div class="hub-sidebar-section">
+        <h3>Search</h3>
+        <input type="text" class="hub-search" id="hub-search" placeholder="Search concepts…" autocomplete="off" />
+      </div>
+
+      <div class="hub-sidebar-section">
+        <h3>Tags</h3>
+        <div class="hub-tag-cloud" id="tag-cloud">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="hub-main" id="hub-main">
+      <div class="hub-hero">
+        <h1>Architecture Concept Hub</h1>
+        <p>Browse ready-made patterns, fitness functions, requirements and ADR templates. Copy or download any concept as a DiagramData JSON file and import it into your architecture model.</p>
+        <div class="hub-result-count" id="hub-result-count"></div>
+      </div>
+
+      <div class="hub-cards" id="hub-cards">
+        <!-- cards rendered by JS -->
+      </div>
+    </main>
+
+  </div>
+
+  <script src="hub.js"></script>
+</body>
+</html>

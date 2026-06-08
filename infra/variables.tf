@@ -50,3 +50,9 @@ variable "app_domain" {
   type        = string
   default     = ""
 }
+
+variable "hub_domain" {
+  description = "Hub subdomain to serve the Architecture Concept Hub (e.g. hub.radical.tools). Leave empty to skip."
+  type        = string
+  default     = ""
+}

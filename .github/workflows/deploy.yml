@@ -87,3 +87,33 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.WEB_CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/index.html" "/manual.html" "/style.css"
+
+      # ── Architecture Hub (hub.radical.tools) ─────────────────────────
+      - name: Sync hub to S3
+        run: |
+          aws s3 sync hub/ \
+            s3://${{ secrets.HUB_S3_BUCKET }}/ \
+            --delete \
+            --exclude "index.html" \
+            --exclude "hub-data.json" \
+            --cache-control "public, max-age=3600"
+
+      - name: Upload hub index.html (no-cache)
+        run: |
+          aws s3 cp hub/index.html \
+            s3://${{ secrets.HUB_S3_BUCKET }}/index.html \
+            --cache-control "no-store" \
+            --content-type "text/html; charset=utf-8"
+
+      - name: Upload hub-data.json (no-cache)
+        run: |
+          aws s3 cp hub/hub-data.json \
+            s3://${{ secrets.HUB_S3_BUCKET }}/hub-data.json \
+            --cache-control "no-store" \
+            --content-type "application/json; charset=utf-8"
+
+      - name: Invalidate CloudFront for hub
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.HUB_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/index.html" "/hub-data.json" "/style.css" "/hub.js"

@@ -50,3 +50,20 @@ output "web_cloudfront_url" {
   description = "Marketing-site URL via CloudFront (available immediately after apply)."
   value       = local.use_web ? "https://${aws_cloudfront_distribution.web[0].domain_name}" : null
 }
+
+# ── Architecture Hub (hub.radical.tools) ──────────────────────────────────────
+
+output "hub_s3_bucket_name" {
+  description = "S3 bucket name for the architecture hub. Set as GitHub secret: HUB_S3_BUCKET"
+  value       = local.use_hub ? aws_s3_bucket.hub[0].id : null
+}
+
+output "hub_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for the architecture hub. Set as GitHub secret: HUB_CLOUDFRONT_DISTRIBUTION_ID"
+  value       = local.use_hub ? aws_cloudfront_distribution.hub[0].id : null
+}
+
+output "hub_cloudfront_url" {
+  description = "Architecture-hub URL via CloudFront (available immediately after apply)."
+  value       = local.use_hub ? "https://${aws_cloudfront_distribution.hub[0].domain_name}" : null
+}

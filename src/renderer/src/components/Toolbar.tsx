@@ -3,6 +3,7 @@ import { useDiagramStore } from '../store/diagramStore'
 import { useDocumentsStore } from '../store/documentStore'
 import { DocumentManagerModal } from './DocumentManager'
 import { AISettingsModal } from './AISettingsModal'
+import { HubImportModal } from './HubImportModal'
 import { useOutsideClick } from '../hooks/useOutsideClick'
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
@@ -210,6 +211,15 @@ const IconAI = () => (
   </svg>
 )
 
+const IconHub = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="5" height="5" rx="1" />
+    <rect x="9" y="2" width="5" height="5" rx="1" />
+    <rect x="2" y="9" width="5" height="5" rx="1" />
+    <path d="M11.5 10v4M9.5 12h4" />
+  </svg>
+)
+
 // ── App menu (hamburger popover) ─────────────────────────────────────────────
 
 type ConnectionMod = 'alt' | 'shift' | 'ctrl' | 'meta'
@@ -221,6 +231,7 @@ function AppMenu({
   smartFitActive, onToggleSmartFit,
   metamodelActive, onToggleMetamodel,
   onOpenAISettings,
+  onOpenHub,
 }: {
   onManage: () => void
   activeDocLabel: string | null
@@ -234,6 +245,7 @@ function AppMenu({
   metamodelActive: boolean
   onToggleMetamodel: () => void
   onOpenAISettings: () => void
+  onOpenHub: () => void
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -291,6 +303,10 @@ function AppMenu({
                   </span>
                 )}
               </span>
+            </button>
+            <button className="app-menu-item" role="menuitem" onClick={run(onOpenHub)}>
+              <span className="app-menu-icon"><IconHub /></span>
+              <span className="app-menu-text">Import from Hub…</span>
             </button>
           </div>
 
@@ -445,6 +461,10 @@ export function Toolbar(): React.ReactElement {
   const handleOpenAISettings = useCallback(() => { setAISettingsOpen(true) }, [])
   const handleCloseAISettings = useCallback(() => { setAISettingsOpen(false) }, [])
 
+  const [hubOpen, setHubOpen] = useState(false)
+  const handleOpenHub = useCallback(() => { setHubOpen(true) }, [])
+  const handleCloseHub = useCallback(() => { setHubOpen(false) }, [])
+
   // Allow other components (e.g. AIPanel) to open the modal via a window event.
   useEffect(() => {
     const onOpen = () => setAISettingsOpen(true)
@@ -455,6 +475,7 @@ export function Toolbar(): React.ReactElement {
   return (
     <div className="toolbar">
       <AISettingsModal open={aiSettingsOpen} onClose={handleCloseAISettings} />
+      <HubImportModal open={hubOpen} onClose={handleCloseHub} />
       <AppMenu
         onManage={handleManage}
         activeDocLabel={activeDoc?.name ?? null}
@@ -468,6 +489,7 @@ export function Toolbar(): React.ReactElement {
         metamodelActive={appMode === 'metamodel'}
         onToggleMetamodel={() => setAppMode(appMode === 'metamodel' ? 'designer' : 'metamodel')}
         onOpenAISettings={handleOpenAISettings}
+        onOpenHub={handleOpenHub}
       />
       <div className="toolbar-sep" />
 

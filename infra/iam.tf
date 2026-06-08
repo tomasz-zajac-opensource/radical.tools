@@ -74,6 +74,10 @@ data "aws_iam_policy_document" "github_deploy_permissions" {
       local.use_web ? [
         aws_s3_bucket.web[0].arn,
         "${aws_s3_bucket.web[0].arn}/*",
+      ] : [],
+      local.use_hub ? [
+        aws_s3_bucket.hub[0].arn,
+        "${aws_s3_bucket.hub[0].arn}/*",
       ] : []
     )
   }
@@ -84,7 +88,8 @@ data "aws_iam_policy_document" "github_deploy_permissions" {
     actions = ["cloudfront:CreateInvalidation"]
     resources = concat(
       [aws_cloudfront_distribution.spa.arn],
-      local.use_web ? [aws_cloudfront_distribution.web[0].arn] : []
+      local.use_web ? [aws_cloudfront_distribution.web[0].arn] : [],
+      local.use_hub ? [aws_cloudfront_distribution.hub[0].arn] : []
     )
   }
 }

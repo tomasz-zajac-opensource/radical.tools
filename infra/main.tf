@@ -66,7 +66,11 @@ resource "aws_acm_certificate" "www" {
   count                     = local.use_www ? 1 : 0
   provider                  = aws.us_east_1
   domain_name               = var.apex_domain
-  subject_alternative_names = local.use_app ? [var.www_domain, var.app_domain] : [var.www_domain]
+  subject_alternative_names = concat(
+    [var.www_domain],
+    local.use_app ? [var.app_domain] : [],
+    local.use_hub ? [var.hub_domain] : [],
+  )
   validation_method         = "DNS"
 
   lifecycle {
@@ -109,6 +113,16 @@ resource "aws_route53_record" "www" {
   name    = var.www_domain
   type    = "CNAME"
   records = [aws_cloudfront_distribution.web[0].domain_name]
+  ttl     = 300
+}
+
+# hub CNAME → CloudFront
+resource "aws_route53_record" "hub" {
+  count   = local.use_hub ? 1 : 0
+  zone_id = aws_route53_zone.apex[0].zone_id
+  name    = var.hub_domain
+  type    = "CNAME"
+  records = [aws_cloudfront_distribution.hub[0].domain_name]
   ttl     = 300
 }
 
