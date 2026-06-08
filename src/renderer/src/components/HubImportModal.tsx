@@ -43,15 +43,15 @@ const S = {
     zIndex: 9000,
   },
   modal: {
-    background: '#1e1e2e',
+    background: 'var(--bg-panel)',
     borderRadius: 12,
     width: '94vw',
     maxWidth: 800,
     maxHeight: '80vh',
     display: 'flex',
     flexDirection: 'column' as const,
-    boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-    color: '#e0e0e0',
+    boxShadow: 'var(--shadow-lg)',
+    color: 'var(--text-primary)',
     overflow: 'hidden',
   },
   header: {
@@ -59,18 +59,18 @@ const S = {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '16px 20px 12px',
-    borderBottom: '1px solid #333',
+    borderBottom: '1px solid var(--border-color)',
   },
   title: {
     margin: 0,
     fontSize: 18,
     fontWeight: 600,
-    color: '#fff',
+    color: 'var(--text-primary)',
   },
   closeBtn: {
     background: 'none',
     border: 'none',
-    color: '#888',
+    color: 'var(--text-muted)',
     fontSize: 20,
     cursor: 'pointer',
     padding: '2px 6px',
@@ -83,7 +83,7 @@ const S = {
     padding: '12px 20px',
     flexWrap: 'wrap' as const,
     alignItems: 'center',
-    borderBottom: '1px solid #2a2a3a',
+    borderBottom: '1px solid var(--border-color)',
   },
   pill: (active: boolean) => ({
     padding: '5px 12px',
@@ -92,8 +92,8 @@ const S = {
     cursor: 'pointer',
     fontSize: 13,
     fontWeight: active ? 600 : 400,
-    background: active ? '#2563eb' : '#2a2a3a',
-    color: active ? '#fff' : '#bbb',
+    background: active ? 'var(--accent)' : 'var(--input-bg)',
+    color: active ? '#fff' : 'var(--text-secondary)',
     transition: 'background 0.15s, color 0.15s',
   }),
   searchInput: {
@@ -101,9 +101,9 @@ const S = {
     minWidth: 160,
     padding: '6px 12px',
     borderRadius: 8,
-    border: '1px solid #444',
-    background: '#2a2a3a',
-    color: '#e0e0e0',
+    border: '1px solid var(--border-color)',
+    background: 'var(--input-bg)',
+    color: 'var(--text-primary)',
     fontSize: 13,
     outline: 'none',
   },
@@ -116,7 +116,7 @@ const S = {
     gap: 10,
   },
   card: {
-    background: '#2a2a3a',
+    background: 'var(--hover-bg)',
     borderRadius: 8,
     padding: '14px 16px',
     display: 'flex',
@@ -132,7 +132,7 @@ const S = {
   cardName: {
     fontSize: 15,
     fontWeight: 600,
-    color: '#fff',
+    color: 'var(--text-primary)',
     margin: 0,
   },
   badge: (bg: string) => ({
@@ -146,7 +146,7 @@ const S = {
   }),
   cardDesc: {
     fontSize: 13,
-    color: '#aaa',
+    color: 'var(--text-secondary)',
     margin: 0,
     lineHeight: 1.45,
   },
@@ -160,8 +160,8 @@ const S = {
     fontSize: 11,
     padding: '2px 8px',
     borderRadius: 10,
-    background: '#383848',
-    color: '#ccc',
+    background: 'var(--input-bg)',
+    color: 'var(--text-secondary)',
     cursor: 'pointer',
   },
   importBtn: {
@@ -169,7 +169,7 @@ const S = {
     padding: '6px 16px',
     borderRadius: 6,
     border: 'none',
-    background: '#2563eb',
+    background: 'var(--accent)',
     color: '#fff',
     fontSize: 13,
     fontWeight: 500,
@@ -180,7 +180,7 @@ const S = {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
-    color: '#888',
+    color: 'var(--text-muted)',
     fontSize: 14,
   },
   warning: {
@@ -402,8 +402,8 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
         {/* ── Active tag filter indicator ─────────────────────────────── */}
         {activeTag && (
           <div style={{ padding: '6px 20px 0', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-            <span style={{ color: '#888' }}>Tag:</span>
-            <span style={{ ...S.tag, background: '#2563eb', color: '#fff' }}>{activeTag}</span>
+            <span style={{ color: 'var(--text-muted)' }}>Tag:</span>
+            <span style={{ ...S.tag, background: 'var(--accent)', color: '#fff' }}>{activeTag}</span>
             <button
               type="button"
               style={{ ...S.closeBtn, fontSize: 14, padding: '0 4px' }}
@@ -418,7 +418,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
         {/* ── Content ────────────────────────────────────────────────── */}
         <div style={S.list}>
           {loading && <div style={S.center}>Loading hub data…</div>}
-          {error && <div style={{ ...S.center, color: '#f87171' }}>⚠ {error}</div>}
+          {error && <div style={{ ...S.center, color: 'var(--danger)' }}>⚠ {error}</div>}
           {!loading && !error && concepts.length === 0 && (
             <div style={S.center}>No concepts match your filters.</div>
           )}
@@ -458,7 +458,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
                         key={t}
                         style={{
                           ...S.tag,
-                          ...(activeTag === t ? { background: '#2563eb', color: '#fff' } : {}),
+                          ...(activeTag === t ? { background: 'var(--accent)', color: '#fff' } : {}),
                         }}
                         onClick={() => setTag(activeTag === t ? null : t)}
                         role="button"
