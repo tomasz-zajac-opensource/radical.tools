@@ -71,6 +71,11 @@ export const useHubStore = create<HubState>()((set, get) => ({
         res = await fetch(FALLBACK_URL)
         if (!res.ok) throw new Error(`Fallback fetch failed: HTTP ${res.status}`)
       }
+      // Guard against HTML error pages being returned instead of JSON
+      const ct = res.headers.get('content-type') ?? ''
+      if (!ct.includes('json')) {
+        throw new Error('Hub returned non-JSON response. CORS or network issue.')
+      }
       const data: HubConcept[] = await res.json()
       set({ concepts: data, lastFetched: Date.now(), loading: false })
     } catch (err) {
