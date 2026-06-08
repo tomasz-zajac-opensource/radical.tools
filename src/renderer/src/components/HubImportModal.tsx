@@ -263,12 +263,22 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
       const centerX = (-vp.x + window.innerWidth / 2) / vp.zoom
       const centerY = (-vp.y + window.innerHeight / 2) / vp.zoom
 
+      // Pre-generate IDs for all nodes so parent references resolve
+      // regardless of ordering in hub-data.json.
+      for (const raw of concept.nodes) {
+        idMap.set(raw.id as string, crypto.randomUUID())
+      }
+
+      // Build node objects with remapped IDs.
+      const newNodes: Record<string, C4Node> = {}
       for (const raw of concept.nodes) {
         const oldId = raw.id as string
+        const newId = idMap.get(oldId)!
         const type = (raw.type as C4ElementType) ?? 'component'
-        const defaults = NODE_SIZES[type] ?? { width: 200, height: 120 }
+        const defaults = NODE_SIZES[type as keyof typeof NODE_SIZES] ?? { width: 200, height: 120 }
 
-        const nodeInput: Omit<C4Node, 'id'> = {
+        const node: C4Node = {
+          id: newId,
           type,
           label: (raw.label as string) ?? concept.name,
           description: (raw.description as string) ?? undefined,
@@ -280,32 +290,44 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
           height: (raw.height as number) ?? defaults.height,
         }
 
-        // Preserve parent mapping within the concept.
         if (raw.parentId && idMap.has(raw.parentId as string)) {
-          nodeInput.parentId = idMap.get(raw.parentId as string)
+          node.parentId = idMap.get(raw.parentId as string)
         }
 
-        const newId = store.addNode(nodeInput)
-        if (newId) idMap.set(oldId, newId)
+        newNodes[newId] = node
       }
 
-      // Import relations with remapped IDs.
+      // Build relation objects with remapped IDs.
+      const newRelations: Record<string, C4Relation> = {}
       if (concept.relations) {
         for (const raw of concept.relations) {
           const srcId = idMap.get(raw.sourceId as string)
           const dstId = idMap.get(raw.targetId as string)
           if (!srcId || !dstId) continue
-
-          const relInput: Omit<C4Relation, 'id'> = {
+          const relId = crypto.randomUUID()
+          newRelations[relId] = {
+            id: relId,
             sourceId: srcId,
             targetId: dstId,
             label: (raw.label as string) ?? undefined,
             technology: (raw.technology as string) ?? undefined,
             relationType: (raw.relationType as string) ?? undefined,
           }
-          store.addRelation(relInput)
         }
       }
+
+      // Single undo + bulk insert — bypasses per-node metamodel validation
+      // so curated hub concepts always import cleanly.
+      store._pushUndo()
+      store._markMilestoneEdit()
+      useDiagramStore.setState((state) => {
+        Object.assign(state.c4Nodes, newNodes)
+        Object.assign(state.c4Relations, newRelations)
+        if (state.activeViewId && state.views[state.activeViewId]) {
+          state.views[state.activeViewId].nodeIds.push(...Object.keys(newNodes))
+        }
+      })
+      store._sync()
 
       store.pushNotification(`Imported "${concept.name}"`, 'info')
       onClose()
