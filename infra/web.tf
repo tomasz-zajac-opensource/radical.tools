@@ -1,5 +1,5 @@
 # Marketing website (radical.tools + www.radical.tools)
-# Separate S3 bucket and CloudFront distribution from the SPA (app.radical.tools).
+# Separate S3 bucket and CloudFront distribution from the SPA (studio.radical.tools).
 # Shares the ACM cert defined in main.tf (which already covers apex + www + app).
 
 locals {

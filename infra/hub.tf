@@ -1,5 +1,5 @@
 # Architecture Concept Hub (hub.radical.tools)
-# Separate S3 bucket and CloudFront distribution from the SPA (app.radical.tools).
+# Separate S3 bucket and CloudFront distribution from the SPA (studio.radical.tools).
 # Shares the ACM cert defined in main.tf (which already covers apex + www + app + hub).
 
 locals {
@@ -67,12 +67,12 @@ resource "aws_cloudfront_origin_access_control" "hub" {
   signing_protocol                  = "sigv4"
 }
 
-# ── CloudFront response headers policy (CORS for app.radical.tools) ──────────
+# ── CloudFront response headers policy (CORS for studio.radical.tools) ──────────
 
 resource "aws_cloudfront_response_headers_policy" "hub_cors" {
   count   = local.use_hub ? 1 : 0
   name    = "${local.name_prefix}-hub-cors"
-  comment = "CORS headers for hub — allows app.radical.tools to fetch hub-data.json"
+  comment = "CORS headers for hub — allows studio.radical.tools to fetch hub-data.json"
 
   cors_config {
     access_control_allow_credentials = false
@@ -86,7 +86,7 @@ resource "aws_cloudfront_response_headers_policy" "hub_cors" {
     }
 
     access_control_allow_origins {
-      items = ["https://app.radical.tools", "https://radical.tools", "http://localhost:*"]
+      items = ["https://studio.radical.tools", "https://radical.tools", "http://localhost:*"]
     }
 
     access_control_max_age_sec = 86400
@@ -137,7 +137,7 @@ resource "aws_cloudfront_distribution" "hub" {
   }
 
   # Concept data: always revalidate so concept updates are immediate.
-  # CORS enabled so app.radical.tools can fetch this cross-origin.
+  # CORS enabled so studio.radical.tools can fetch this cross-origin.
   ordered_cache_behavior {
     path_pattern           = "/hub-data.json"
     target_origin_id       = "s3-${aws_s3_bucket.hub[0].id}"

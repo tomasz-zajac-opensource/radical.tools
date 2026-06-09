@@ -16,18 +16,12 @@
   <header class="navbar" id="home">
     <div class="nav-inner">
       <a href="#home" class="nav-logo">Radical<span class="dot">.</span>Tools</a>
-      <nav class="nav-links">
-        <a href="#home">Home</a>
-        <a href="#concepts">How it works</a>
-        <a href="#features">Features</a>
-        <a href="#screenshots">Screenshots</a>
-        <a href="manual.html">Manual</a>
-        <a href="https://hub.radical.tools" target="_blank" rel="noopener">Hub</a>
-        <a href="#install">Install</a>
-      </nav>
       <div class="nav-actions">
-        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener" class="btn btn-outline">GitHub</a>
-        <a href="https://app.radical.tools" target="_blank" rel="noopener" class="btn btn-primary">Launch</a>
+        <a href="https://hub.radical.tools" target="_blank" rel="noopener" class="btn btn-outline"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="0" y="0" width="7" height="7" rx="1.5"/><rect x="9" y="0" width="7" height="7" rx="1.5"/><rect x="0" y="9" width="7" height="7" rx="1.5"/><rect x="9" y="9" width="7" height="7" rx="1.5"/></svg>Hub</a>
+        <a href="https://studio.radical.tools" target="_blank" rel="noopener" class="btn btn-primary"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61zm1.414 1.06a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354l-1.086-1.086zM11.189 6.25 9.75 4.81l-6.286 6.287a.25.25 0 0 0-.064.108l-.558 1.953 1.953-.558a.249.249 0 0 0 .108-.064l6.286-6.286z"/></svg>Studio</a>
+        <a href="https://github.com/tomasz-zajac-opensource/radical.tools" target="_blank" rel="noopener" class="btn-github" aria-label="GitHub">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="22" height="22" aria-hidden="true"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.532 1.031 1.532 1.031.891 1.528 2.341 1.087 2.91.831.091-.645.349-1.087.635-1.337-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.03-2.682-.103-.253-.447-1.27.098-2.646 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.294 2.747-1.025 2.747-1.025.547 1.376.203 2.393.1 2.646.641.698 1.029 1.591 1.029 2.682 0 3.841-2.337 4.687-4.565 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.744 0 .267.18.579.688.481C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        </a>
       </div>
     </div>
   </header>
@@ -226,71 +220,6 @@
           <p>Browse a curated library of <strong>architecture patterns</strong>, <strong>fitness functions</strong>, <strong>EARS requirements</strong> and <strong>ADR templates</strong>. Import any concept into your model with one click. <a href="https://hub.radical.tools" target="_blank" rel="noopener" style="color:var(--accent);border-bottom:1px dashed var(--accent)">Explore the Hub&nbsp;→</a></p>
         </div>
 
-      </div>
-    </div>
-  </section>
-
-  <!-- ── SCREENSHOTS ── -->
-  <section class="screenshots" id="screenshots">
-    <div class="section-inner">
-      <div class="section-header">
-        <span class="kicker">Screenshots</span>
-        <h2>What it looks like.</h2>
-      </div>
-
-      <div class="shots-primary">
-        <figure class="shot shot-main">
-          <img src="screenshots/canvas.png" alt="Radical.Tools main canvas - C4 banking architecture diagram with 27 nodes, left panel showing element types, right panel showing node tree" />
-          <figcaption>
-            <span class="shot-label">Designer</span>
-            Full C4 model on the canvas. Element palette on the left, node tree on the right. Smart Layout arranges everything automatically.
-          </figcaption>
-        </figure>
-      </div>
-
-      <div class="shots-secondary">
-        <figure class="shot">
-          <img src="screenshots/milestones.png" alt="Milestones panel showing v1 through v4 history of the architecture with node counts and dates" />
-          <figcaption>
-            <span class="shot-label">Milestones</span>
-            Named snapshots with dates and node counts. Diff any two versions visually, restore with one click.
-          </figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="screenshots/viewer.png" alt="Viewer / presentation mode showing views list and slide deck at the bottom with Present button" />
-          <figcaption>
-            <span class="shot-label">Viewer</span>
-            Sequence views into a slide deck. Hit Present for a fullscreen, presenter-ready walkthrough.
-          </figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="screenshots/hierarchy.png" alt="Hierarchy view in light mode showing the Platform system as a treemap with Frontend, Backend, Database, Cache, Auth Service, and End User tiles" />
-          <figcaption>
-            <span class="shot-label">Hierarchy</span>
-            Treemap-based hierarchy view in light mode. Drill into nested systems and containers, control visible depth, and inspect containment without edge clutter.
-          </figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="screenshots/matrix.png" alt="Matrix view showing a dependency structure matrix (DSM) with elements on rows and columns and coloured dots where a relation exists" />
-          <figcaption>
-            <span class="shot-label">Matrix</span>
-            Dependency Structure Matrix. Every relation is a cell — click an empty cell to create one, a marked cell to select it. Ideal for spotting coupling at a glance.
-          </figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="screenshots/table.png" alt="Table view showing an editable spreadsheet with All Nodes, ADRs, Fitness Functions and Relations tabs" />
-          <figcaption>
-            <span class="shot-label">Table</span>
-            Governance-aware spreadsheet. Edit nodes and relations inline and switch tabs to manage ADRs and Fitness Functions alongside the architecture.
-          </figcaption>
-        </figure>
-        <figure class="shot">
-          <img src="screenshots/wiki.png" alt="Wiki view showing a document-style page for Core Banking Platform with navigation tree, inline editing, children cards and an At a Glance infobox" />
-          <figcaption>
-            <span class="shot-label">Wiki</span>
-            Document-style view. Browse every element as a readable page with inline editing, children cards, relationship lists, and metamodel-driven properties.
-          </figcaption>
-        </figure>
       </div>
     </div>
   </section>

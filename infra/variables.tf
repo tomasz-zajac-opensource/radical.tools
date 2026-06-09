@@ -46,7 +46,7 @@ variable "apex_domain" {
 }
 
 variable "app_domain" {
-  description = "App subdomain to serve on CloudFront (e.g. app.radical.tools). Leave empty to skip."
+  description = "App subdomain to serve on CloudFront (e.g. studio.radical.tools). Leave empty to skip."
   type        = string
   default     = ""
 }

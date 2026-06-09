@@ -57,6 +57,7 @@ body {
 
 /* ─── Utility ───────────────────────────────────────────────────────────── */
 .section-inner {
+  width: 100%;
   max-width: var(--max-w);
   margin: 0 auto;
   padding: 0 24px;
@@ -114,26 +115,28 @@ mark {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 11px 24px;
-  border-radius: 8px;
-  font-size: .95rem;
+  gap: 6px;
+  padding: 7px 16px;
+  border-radius: 100px;
+  font-size: .85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background .18s, color .18s, border-color .18s, opacity .18s;
+  transition: background .18s, color .18s, border-color .18s, box-shadow .18s;
 }
+.btn svg { flex-shrink: 0; }
 .btn-primary {
   background: var(--accent);
   color: #fff;
+  box-shadow: 0 1px 3px rgba(37,99,235,.35), inset 0 1px 0 rgba(255,255,255,.12);
 }
-.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:hover { background: #1d4ed8; box-shadow: 0 2px 6px rgba(37,99,235,.45); }
 
 .btn-outline {
-  background: transparent;
+  background: var(--bg-raised);
   color: var(--text);
-  border: 1.5px solid var(--border-strong);
+  border: 1.5px solid var(--border);
 }
-.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
 
 .btn-ghost {
   background: transparent;
@@ -177,7 +180,19 @@ mark {
 }
 .nav-links a:hover { color: var(--accent); }
 
-.nav-actions { margin-left: auto; }
+.nav-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.btn-github {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-muted);
+  border-radius: 6px;
+  transition: color .15s, background .15s;
+  margin-left: 4px;
+}
+.btn-github:hover { color: var(--text); background: var(--surface); }
 
 /* ─── Hero ──────────────────────────────────────────────────────────────── */
 .hero {
@@ -539,8 +554,7 @@ mark {
   border-top: 1px solid var(--border);
   overflow: hidden;
 }
-.install-inner .code-block,
-.install-inner .install-cta { max-width: 760px; }
+
 
 .code-block {
   background: #1e293b;
