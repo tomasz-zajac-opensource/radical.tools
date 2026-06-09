@@ -149,8 +149,6 @@
       `<span class="hub-card-tag" data-tag="${t}">${t}</span>`
     ).join('');
 
-    const jsonStr = escapeHtml(JSON.stringify(buildEnvelope(concept), null, 2));
-
     return `
     <article class="hub-card" data-id="${concept.id}">
       <div class="hub-card-header">
@@ -162,12 +160,10 @@
       ${meta ? `<div class="hub-meta-row">${meta}</div>` : ''}
       ${tags ? `<div class="hub-card-tags">${tags}</div>` : ''}
       <div class="hub-actions">
-        <button class="hub-btn hub-btn-primary" data-copy="${concept.id}">📋 Copy JSON</button>
-        <button class="hub-btn" data-download="${concept.id}">⬇ Download .json</button>
-        <button class="hub-json-toggle" data-toggle="${concept.id}">{ } Preview JSON</button>
+        <button class="hub-json-toggle" data-toggle="${concept.id}">👁 Preview</button>
       </div>
       <div class="hub-json-preview" id="json-${concept.id}">
-        <pre><code>${jsonStr}</code></pre>
+        ${previewHTML(concept)}
       </div>
     </article>`;
   }
@@ -206,6 +202,130 @@
 
   function badge(label, value, cls) {
     return `<span class="hub-badge ${cls || ''}"><span class="hub-badge-label">${label}:</span> ${escapeHtml(value)}</span>`;
+  }
+
+  /* ── Visual Preview ────────────────────────────────────────────────── */
+
+  const NODE_COLORS = {
+    person: '#08427b', system: '#1168bd', container: '#438dd5',
+    component: '#85bbf0', database: '#0e6db5', webapp: '#2563eb',
+    queue: '#7c3aed', domain: '#5b21b6', group: '#4b5563',
+    'fitness-fn': '#0e7490', requirement: '#065f46', adr: '#92400e',
+  };
+  const NODE_TYPE_LABELS = {
+    person: 'Person', system: 'System', container: 'Container',
+    component: 'Component', database: 'Database', webapp: 'Web App',
+    queue: 'Queue', domain: 'Domain', group: 'Group',
+    'fitness-fn': 'Fitness Fn', requirement: 'Requirement', adr: 'ADR',
+  };
+
+  function infoBadge(label, value, cls) {
+    if (value === undefined || value === null || value === '') return '';
+    return `<span class="hub-prev-badge ${cls||''}"><span class="hub-prev-badge-label">${label}</span>${escapeHtml(String(value))}</span>`;
+  }
+
+  function proseSec(label, value) {
+    if (!value) return '';
+    return `<div class="hub-prev-prose"><div class="hub-prev-prose-label">${label}</div><div class="hub-prev-prose-body">${escapeHtml(String(value))}</div></div>`;
+  }
+
+  function nodeExtras(n) {
+    const badges = [];
+    const prose = [];
+    switch (n.type) {
+      case 'fitness-fn':
+        if (n.category) badges.push(infoBadge('Category', n.category));
+        if (n.trigger)  badges.push(infoBadge('Trigger', n.trigger));
+        badges.push(infoBadge('Automated', n.automated ? 'yes' : 'no', n.automated ? 'hub-prev-badge-green' : 'hub-prev-badge-orange'));
+        if (n.status)    badges.push(infoBadge('Status', n.status, n.status === 'active' ? 'hub-prev-badge-green' : ''));
+        if (n.threshold) prose.push(proseSec('Threshold', n.threshold));
+        break;
+      case 'requirement':
+        if (n.ears_type) badges.push(infoBadge('EARS', n.ears_type, 'hub-prev-badge-accent'));
+        if (n.priority)  badges.push(infoBadge('Priority', n.priority, n.priority === 'must' ? 'hub-prev-badge-orange' : ''));
+        if (n.status)    badges.push(infoBadge('Status', n.status, n.status === 'approved' ? 'hub-prev-badge-green' : ''));
+        if (n.action)    prose.push(proseSec('Action', n.action));
+        if (n.rationale) prose.push(proseSec('Rationale', n.rationale));
+        if (n.trigger)   prose.push(proseSec('Trigger', n.trigger));
+        if (n.precondition) prose.push(proseSec('Precondition', n.precondition));
+        if (n.unwanted_condition) prose.push(proseSec('Unwanted condition', n.unwanted_condition));
+        if (n.feature)   prose.push(proseSec('Feature', n.feature));
+        break;
+      case 'adr':
+        if (n.status) badges.push(infoBadge('Status', n.status, n.status === 'accepted' ? 'hub-prev-badge-green' : 'hub-prev-badge-orange'));
+        if (n.date)   badges.push(infoBadge('Date', n.date));
+        if (n.context)      prose.push(proseSec('Context', n.context));
+        if (n.decision)     prose.push(proseSec('Decision', n.decision));
+        if (n.consequences) prose.push(proseSec('Consequences', n.consequences));
+        if (n.alternatives) prose.push(proseSec('Alternatives considered', n.alternatives));
+        break;
+      case 'system':
+      case 'person':
+        if (n.external) badges.push(infoBadge('External', 'yes', 'hub-prev-badge-orange'));
+        break;
+    }
+    return { badges: badges.join(''), prose: prose.join('') };
+  }
+
+  function previewHTML(concept) {
+    const nodeMap = {};
+    for (const n of (concept.nodes || [])) nodeMap[n.id] = n;
+
+    const childrenOf = {};
+    for (const n of (concept.nodes || [])) {
+      if (n.parentId) {
+        if (!childrenOf[n.parentId]) childrenOf[n.parentId] = [];
+        childrenOf[n.parentId].push(n);
+      }
+    }
+    const rootNodes = (concept.nodes || []).filter(n => !n.parentId);
+
+    function renderNode(n, depth) {
+      const color = NODE_COLORS[n.type] || '#6b7280';
+      const typeLabel = NODE_TYPE_LABELS[n.type] || n.type;
+      const children = childrenOf[n.id] || [];
+      const extras = nodeExtras(n);
+      const techHtml = n.technology ? `<span class="hub-prev-tech">${escapeHtml(n.technology)}</span>` : '';
+      const descHtml = n.description ? `<div class="hub-prev-desc">${escapeHtml(n.description)}</div>` : '';
+      return `<div class="hub-prev-node" style="--node-color:${color};margin-left:${depth * 18}px">
+        <div class="hub-prev-node-row">
+          <span class="hub-prev-type">${typeLabel}</span>
+          <span class="hub-prev-name">${escapeHtml(n.label || '')}</span>
+          ${techHtml}
+        </div>
+        ${descHtml}
+        ${extras.badges ? `<div class="hub-prev-badges">${extras.badges}</div>` : ''}
+        ${extras.prose}
+        ${children.map(c => renderNode(c, depth + 1)).join('')}
+      </div>`;
+    }
+
+    const nodesHtml = rootNodes.map(n => renderNode(n, 0)).join('');
+
+    const relHtml = (concept.relations || []).map(r => {
+      const src = nodeMap[r.sourceId];
+      const tgt = nodeMap[r.targetId];
+      if (!src || !tgt) return '';
+      return `<div class="hub-prev-rel">
+        <span class="hub-prev-rel-node">${escapeHtml(src.label || r.sourceId)}</span>
+        <span class="hub-prev-rel-arrow">→</span>
+        ${r.label ? `<span class="hub-prev-rel-label">${escapeHtml(r.label)}</span>` : ''}
+        ${r.technology ? `<span class="hub-prev-rel-tech">[${escapeHtml(r.technology)}]</span>` : ''}
+        <span class="hub-prev-rel-arrow">→</span>
+        <span class="hub-prev-rel-node">${escapeHtml(tgt.label || r.targetId)}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="hub-preview-panel">
+      <div class="hub-prev-section">
+        <div class="hub-prev-title">Elements (${(concept.nodes||[]).length})</div>
+        <div class="hub-prev-nodes">${nodesHtml}</div>
+      </div>
+      ${relHtml ? `<div class="hub-prev-section">
+        <div class="hub-prev-title">Relations (${(concept.relations||[]).length})</div>
+        <div class="hub-prev-rels">${relHtml}</div>
+      </div>` : ''}
+    </div>`;
   }
 
   /* ── DiagramData Envelope ───────────────────────────────────────────── */

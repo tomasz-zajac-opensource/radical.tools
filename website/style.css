@@ -645,9 +645,9 @@ body.doc-page {
 .doc-layout {
   display: grid;
   grid-template-columns: 220px 1fr;
-  max-width: calc(var(--max-w) + 220px + 40px);
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 80px 24px 0;
+  padding: 80px 32px 0;
   gap: 48px;
   align-items: start;
   min-height: 100dvh;

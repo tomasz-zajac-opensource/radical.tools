@@ -46,9 +46,9 @@ const S = {
   modal: {
     background: 'var(--bg-panel)',
     borderRadius: 12,
-    width: '94vw',
-    maxWidth: 800,
-    maxHeight: '80vh',
+    width: '96vw',
+    maxWidth: '96vw',
+    maxHeight: '88vh',
     display: 'flex',
     flexDirection: 'column' as const,
     boxShadow: 'var(--shadow-lg)',
