@@ -439,6 +439,923 @@
   },
 
   {
+    "id": "req-page-load-time",
+    "category": "requirement",
+    "name": "Page Load Time",
+    "description": "Performance: state-driven requirement ensuring web pages load within acceptable time under normal operating conditions.",
+    "tags": ["performance", "latency", "web", "nfr", "core-web-vitals"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-page-load-1",
+        "type": "requirement",
+        "label": "Page Load Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the user is on a standard broadband connection and the system is under normal load",
+        "action": "render the initial page and make it interactive (TTI) within 3 seconds for 95% of users",
+        "rationale": "Studies show that pages taking longer than 3 seconds lose ~53% of mobile visitors. Core Web Vitals impact SEO ranking."
+      }
+    ]
+  },
+
+  {
+    "id": "req-throughput",
+    "category": "requirement",
+    "name": "System Throughput",
+    "description": "Performance: ubiquitous requirement defining the minimum transaction processing rate the system must sustain.",
+    "tags": ["performance", "throughput", "capacity", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-throughput-1",
+        "type": "requirement",
+        "label": "System Throughput",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "sustain a minimum of 1000 transactions per second under peak load without degrading response times beyond defined SLOs",
+        "rationale": "Peak traffic during promotional events requires sufficient throughput headroom to avoid revenue-impacting degradation."
+      }
+    ]
+  },
+
+  {
+    "id": "req-cpu-utilisation",
+    "category": "requirement",
+    "name": "CPU Utilisation Ceiling",
+    "description": "Performance: state-driven requirement preventing runaway resource usage under normal operating conditions.",
+    "tags": ["performance", "resource", "cpu", "nfr", "infrastructure"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-cpu-1",
+        "type": "requirement",
+        "label": "CPU Utilisation Ceiling",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "should",
+        "precondition": "the system is handling normal production traffic",
+        "action": "keep average CPU utilisation below 75% on all compute nodes, triggering auto-scaling before the ceiling is reached",
+        "rationale": "Sustained CPU above 80% leaves no headroom for traffic spikes and can cascade into latency degradation."
+      }
+    ]
+  },
+
+  {
+    "id": "req-onboarding-time",
+    "category": "requirement",
+    "name": "User Onboarding Time",
+    "description": "Usability: ubiquitous requirement ensuring first-time users can reach core value quickly without external help.",
+    "tags": ["usability", "onboarding", "ux", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-onboarding-1",
+        "type": "requirement",
+        "label": "User Onboarding Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "enable a first-time user to complete the primary onboarding flow and reach the core value moment within 5 minutes without external assistance",
+        "rationale": "Time-to-value is a key driver of trial-to-paid conversion. Friction in onboarding directly impacts revenue."
+      }
+    ]
+  },
+
+  {
+    "id": "req-error-recovery",
+    "category": "requirement",
+    "name": "Error Recovery Guidance",
+    "description": "Usability: ubiquitous requirement ensuring every system error provides actionable recovery guidance.",
+    "tags": ["usability", "error-handling", "ux", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-error-recovery-1",
+        "type": "requirement",
+        "label": "Error Recovery Guidance",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "must",
+        "action": "display a human-readable error message with a specific corrective action or next step for every user-facing error state",
+        "rationale": "Dead-end error states cause abandonment. Users who understand what went wrong and how to fix it have significantly higher task completion rates."
+      }
+    ]
+  },
+
+  {
+    "id": "req-test-coverage",
+    "category": "requirement",
+    "name": "Automated Test Coverage",
+    "description": "Maintainability: ubiquitous requirement ensuring sufficient automated test coverage of business logic.",
+    "tags": ["maintainability", "testing", "quality", "nfr", "ci-cd"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-test-cov-1",
+        "type": "requirement",
+        "label": "Automated Test Coverage",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "maintain automated unit and integration test coverage of at least 80% for all business-logic modules, enforced via CI pipeline gates",
+        "rationale": "Test coverage acts as a safety net for refactoring. Below 80% coverage, defect escape rates increase significantly."
+      }
+    ]
+  },
+
+  {
+    "id": "req-cyclomatic-complexity",
+    "category": "requirement",
+    "name": "Code Complexity Limit",
+    "description": "Maintainability: ubiquitous requirement capping cyclomatic complexity per function to keep code understandable and testable.",
+    "tags": ["maintainability", "code-quality", "complexity", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-complexity-1",
+        "type": "requirement",
+        "label": "Code Complexity Limit",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "should",
+        "action": "keep cyclomatic complexity per function below 10, enforced by static analysis in the CI pipeline with build failure on violation",
+        "rationale": "Functions with complexity above 10 require exponentially more test cases and are significantly harder to debug and refactor."
+      }
+    ]
+  },
+
+  {
+    "id": "req-ci-pipeline-time",
+    "category": "requirement",
+    "name": "CI Pipeline Duration",
+    "description": "Maintainability: state-driven requirement keeping the CI/CD feedback loop short enough to maintain developer flow.",
+    "tags": ["maintainability", "ci-cd", "developer-experience", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-ci-time-1",
+        "type": "requirement",
+        "label": "CI Pipeline Duration",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "draft",
+        "priority": "should",
+        "precondition": "a developer pushes a commit to a feature branch",
+        "action": "complete the full build, lint, test, and security scan pipeline within 10 minutes",
+        "rationale": "Pipelines longer than 10 minutes break developer flow, discourage frequent commits, and slow down feedback on regressions."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-standard",
+    "category": "requirement",
+    "name": "REST API Standard",
+    "description": "Interoperability: ubiquitous requirement mandating OpenAPI documentation for all public service endpoints.",
+    "tags": ["interoperability", "api", "openapi", "standards", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-api-std-1",
+        "type": "requirement",
+        "label": "REST API Standard",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "expose all public service interfaces as RESTful APIs documented with OpenAPI 3.0 specifications, version-controlled alongside the service code",
+        "rationale": "OpenAPI documentation enables automated client generation, contract testing, and accelerates third-party integrations."
+      }
+    ]
+  },
+
+  {
+    "id": "req-backward-compatibility",
+    "category": "requirement",
+    "name": "API Backward Compatibility",
+    "description": "Interoperability: unwanted-behaviour requirement preventing breaking changes from being silently introduced into published APIs.",
+    "tags": ["interoperability", "api", "versioning", "nfr", "compatibility"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-compat-1",
+        "type": "requirement",
+        "label": "API Backward Compatibility",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "unwanted-behaviour",
+        "status": "approved",
+        "priority": "must",
+        "unwanted_condition": "a breaking change is introduced to a published API (field removal, type change, or status code change)",
+        "action": "increment the major version and maintain the previous version for a minimum of 6 months with a deprecation notice",
+        "rationale": "Unannounced breaking changes break partner integrations. Stable contracts are a prerequisite for ecosystem adoption."
+      }
+    ]
+  },
+
+  {
+    "id": "req-mfa",
+    "category": "requirement",
+    "name": "Multi-Factor Authentication",
+    "description": "Security: optional requirement mandating MFA for privileged access and sensitive operations.",
+    "tags": ["security", "authentication", "mfa", "nfr", "access-control"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-mfa-1",
+        "type": "requirement",
+        "label": "Multi-Factor Authentication",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "optional",
+        "status": "approved",
+        "priority": "must",
+        "feature": "a user accesses administrative functions or performs a high-risk operation",
+        "action": "require multi-factor authentication using TOTP or a hardware key before granting access",
+        "rationale": "Stolen credentials alone are insufficient to compromise admin accounts. MFA prevents the majority of account-takeover attacks."
+      }
+    ]
+  },
+
+  {
+    "id": "req-tls-in-transit",
+    "category": "requirement",
+    "name": "Encryption in Transit",
+    "description": "Security: ubiquitous requirement mandating TLS for all network communication carrying sensitive data.",
+    "tags": ["security", "encryption", "tls", "nfr", "privacy"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-tls-1",
+        "type": "requirement",
+        "label": "Encryption in Transit",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "encrypt all network communication carrying personal data or credentials using TLS 1.2 or higher, rejecting plaintext connections",
+        "rationale": "Plaintext transport exposes data to interception. TLS is the baseline for protecting data in motion per GDPR, PCI-DSS, and HIPAA."
+      }
+    ]
+  },
+
+  {
+    "id": "req-vulnerability-scanning",
+    "category": "requirement",
+    "name": "Dependency Vulnerability Scanning",
+    "description": "Security: event-driven requirement blocking deployments that include known critical vulnerabilities in dependencies.",
+    "tags": ["security", "dependencies", "cve", "nfr", "supply-chain"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-vuln-scan-1",
+        "type": "requirement",
+        "label": "Dependency Vulnerability Scanning",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "a new build is triggered or a critical CVE is published for a dependency in use",
+        "action": "scan all runtime dependencies for known CVEs and block the pipeline on any critical (CVSS ≥ 9.0) or high (CVSS ≥ 7.0) severity finding",
+        "rationale": "Supply-chain attacks via compromised dependencies are a leading attack vector. Log4Shell showed that a single library flaw can expose millions of systems."
+      }
+    ]
+  },
+
+  {
+    "id": "req-health-checks",
+    "category": "requirement",
+    "name": "Service Health Checks",
+    "description": "Manageability: ubiquitous requirement ensuring every service exposes a standardised health endpoint for monitoring and orchestration.",
+    "tags": ["manageability", "monitoring", "observability", "nfr", "operations"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-health-1",
+        "type": "requirement",
+        "label": "Service Health Checks",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "expose a /health endpoint returning HTTP 200 with liveness and readiness status, including dependency health, within 200ms",
+        "rationale": "Orchestrators and load balancers require health endpoints to route traffic away from unhealthy instances. Missing checks mean zombie processes receive live traffic."
+      }
+    ]
+  },
+
+  {
+    "id": "req-centralised-logging",
+    "category": "requirement",
+    "name": "Centralised Structured Logging",
+    "description": "Manageability: ubiquitous requirement mandating structured, centralised log collection across all services.",
+    "tags": ["manageability", "logging", "observability", "nfr", "operations"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-logging-1",
+        "type": "requirement",
+        "label": "Centralised Structured Logging",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "emit all logs in structured JSON format with correlation IDs, severity, timestamp, and service name, aggregated into a centralised log store with a minimum 30-day retention",
+        "rationale": "Unstructured logs scattered across hosts are unqueryable in production incidents. Structured, centralised logs reduce mean time to diagnosis."
+      }
+    ]
+  },
+
+  {
+    "id": "req-alerting-slo",
+    "category": "requirement",
+    "name": "SLO Breach Alerting",
+    "description": "Manageability: event-driven requirement triggering on-call alerting before an SLO breach occurs.",
+    "tags": ["manageability", "monitoring", "alerting", "nfr", "sre"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-alert-slo-1",
+        "type": "requirement",
+        "label": "SLO Breach Alerting",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "any service metric (error rate, latency, availability) approaches 80% of its SLO error budget",
+        "action": "fire a P2 alert to the on-call engineer via PagerDuty with the affected metric, current value, and a link to the relevant dashboard",
+        "rationale": "Reacting to SLO breaches after the fact is too late. Burn-rate alerting allows intervention before users are impacted."
+      }
+    ]
+  },
+
+  {
+    "id": "req-idempotency",
+    "category": "requirement",
+    "name": "Idempotent Operations",
+    "description": "Dependability: ubiquitous requirement ensuring that retried or duplicated requests do not cause unintended side effects.",
+    "tags": ["dependability", "reliability", "idempotency", "nfr", "data-integrity"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-idempotency-1",
+        "type": "requirement",
+        "label": "Idempotent Operations",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "implement idempotency keys for all state-changing API operations, ensuring that duplicate requests within a 24-hour window produce the same result without creating duplicate records",
+        "rationale": "Network retries are unavoidable. Without idempotency, transient failures cause double-charges, duplicate orders, or data corruption."
+      }
+    ]
+  },
+
+  {
+    "id": "req-data-integrity",
+    "category": "requirement",
+    "name": "Referential Data Integrity",
+    "description": "Dependability: ubiquitous requirement preventing orphaned or inconsistent data across service boundaries.",
+    "tags": ["dependability", "data-integrity", "correctness", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-integrity-1",
+        "type": "requirement",
+        "label": "Referential Data Integrity",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "enforce referential integrity for all cross-entity relationships at the database or application layer, rejecting any operation that would leave orphaned records",
+        "rationale": "Orphaned records cause silent calculation errors, billing anomalies, and compliance violations that are expensive to detect and remediate."
+      }
+    ]
+  },
+
+  {
+    "id": "req-graceful-degradation",
+    "category": "requirement",
+    "name": "Graceful Degradation",
+    "description": "Availability: event-driven requirement ensuring the system remains partially functional when a non-critical dependency is unavailable.",
+    "tags": ["availability", "resilience", "nfr", "reliability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-degrade-1",
+        "type": "requirement",
+        "label": "Graceful Degradation",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "draft",
+        "priority": "should",
+        "trigger": "a non-critical downstream service or third-party dependency becomes unavailable",
+        "action": "continue serving core functionality using cached data or a reduced feature set, displaying a clear status notice to affected users rather than returning an error",
+        "rationale": "Total failures caused by partial outages erode user trust far more than reduced functionality. Circuit breakers and fallbacks are the standard mitigation."
+      }
+    ]
+  },
+
+  {
+    "id": "req-iac",
+    "category": "requirement",
+    "name": "Infrastructure as Code",
+    "description": "Automatability: ubiquitous requirement mandating all infrastructure be defined and provisioned via code.",
+    "tags": ["automatability", "infrastructure", "devops", "nfr", "iac"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-iac-1",
+        "type": "requirement",
+        "label": "Infrastructure as Code",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "define and provision all cloud infrastructure using IaC tooling (Terraform, Pulumi, or CloudFormation), with all changes applied exclusively via version-controlled pipelines",
+        "rationale": "Manual infrastructure changes are untracked, unrepeatable, and create snowflake environments. IaC enables reproducible environments and disaster recovery."
+      }
+    ]
+  },
+
+  {
+    "id": "req-zero-downtime-deploy",
+    "category": "requirement",
+    "name": "Zero-Downtime Deployment",
+    "description": "Automatability: ubiquitous requirement ensuring deployments do not interrupt active users.",
+    "tags": ["automatability", "deployment", "ci-cd", "nfr", "availability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-zdd-1",
+        "type": "requirement",
+        "label": "Zero-Downtime Deployment",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "deploy all service updates using blue/green or rolling deployment strategies with automated smoke tests, completing without dropping any in-flight requests",
+        "rationale": "Maintenance windows are incompatible with global 24/7 services. Zero-downtime deploys allow continuous delivery without SLA violations."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-response-time",
+    "category": "requirement",
+    "name": "API Response Time",
+    "description": "Performance: REST API endpoints must respond within 200ms for the majority of requests under normal load.",
+    "tags": ["performance", "latency", "api", "nfr", "response-time"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-api-rt-1",
+        "type": "requirement",
+        "label": "API Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is handling normal production traffic",
+        "action": "respond to REST API requests within 200ms at the 90th percentile, with a hard ceiling of 1 second at the 99th percentile",
+        "rationale": "API latency directly impacts downstream integration performance. Amazon found every 100ms of latency cost 1% in sales. Sub-200ms responses are required for a seamless UX."
+      }
+    ]
+  },
+
+  {
+    "id": "req-auth-response-time",
+    "category": "requirement",
+    "name": "Authentication Response Time",
+    "description": "Performance: user login and token verification must complete within 2 seconds to avoid abandonment.",
+    "tags": ["performance", "authentication", "latency", "nfr", "ux"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-auth-rt-1",
+        "type": "requirement",
+        "label": "Authentication Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is under normal load with up to 1000 concurrent login attempts",
+        "action": "complete user authentication (credential validation, token issuance) within 2 seconds for 95% of requests",
+        "rationale": "Login delays over 2 seconds erode user trust and increase abandonment. The authentication step is the first impression of system reliability."
+      }
+    ]
+  },
+
+  {
+    "id": "req-db-query-response",
+    "category": "requirement",
+    "name": "Database Query Response Time",
+    "description": "Performance: OLTP database queries must execute within 100ms to prevent query latency from dominating API response times.",
+    "tags": ["performance", "database", "latency", "nfr", "oltp"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-db-rt-1",
+        "type": "requirement",
+        "label": "Database Query Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is running standard OLTP operations on a production-size dataset",
+        "action": "execute standard transactional queries within 100ms at the 90th percentile, monitored via continuous database performance telemetry",
+        "rationale": "Database query time is typically the largest single contributor to API latency. Queries exceeding 100ms expose APIs to SLO breaches under concurrent load."
+      }
+    ]
+  },
+
+  {
+    "id": "req-search-response-time",
+    "category": "requirement",
+    "name": "Search Functionality Response Time",
+    "description": "Performance: search queries must return results within 500ms to maintain a usable search experience.",
+    "tags": ["performance", "search", "latency", "nfr", "ux"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-search-rt-1",
+        "type": "requirement",
+        "label": "Search Functionality Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "should",
+        "precondition": "a user submits a search query against a production-size dataset",
+        "action": "return search results within 500ms for 90% of queries, using appropriate indexing strategies validated by performance testing with representative data",
+        "rationale": "Users expect near-instant search results. Results taking over 1 second cause a sharp drop in search engagement and perceived product quality."
+      }
+    ]
+  },
+
+  {
+    "id": "req-report-generation",
+    "category": "requirement",
+    "name": "Report Generation Time",
+    "description": "Performance: standard business reports must complete within 30 seconds to avoid user abandonment of reporting workflows.",
+    "tags": ["performance", "reporting", "latency", "nfr", "analytics"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-report-1",
+        "type": "requirement",
+        "label": "Report Generation Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "draft",
+        "priority": "should",
+        "precondition": "a user requests a standard report against a production-size dataset",
+        "action": "complete standard report generation and delivery within 30 seconds, validated by volume testing with production-scale data",
+        "rationale": "Reports taking over 30 seconds are frequently abandoned. If generation is longer, an async model with notification should be used instead of a blocking request."
+      }
+    ]
+  },
+
+  {
+    "id": "req-task-success-rate",
+    "category": "requirement",
+    "name": "Primary Workflow Task Success Rate",
+    "description": "Usability: users must be able to complete the primary workflow without external help, measured by task success rate in usability testing.",
+    "tags": ["usability", "ux", "task-completion", "nfr", "quality"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-task-success-1",
+        "type": "requirement",
+        "label": "Primary Workflow Task Success Rate",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "achieve a task success rate of at least 95% for the primary user workflow in moderated usability testing with representative users, without external assistance",
+        "rationale": "Task success rate is the most direct measure of usability. Airbnb doubled revenue by focusing on removing friction from primary workflows."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-documentation",
+    "category": "requirement",
+    "name": "API Documentation Coverage",
+    "description": "Maintainability: all public interfaces must be fully documented to enable safe integration and reduce support burden.",
+    "tags": ["maintainability", "documentation", "api", "nfr", "developer-experience"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-api-docs-1",
+        "type": "requirement",
+        "label": "API Documentation Coverage",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "maintain 100% documentation coverage for all public API endpoints, including request/response schemas, error codes, and usage examples, kept current via peer-reviewed documentation standards",
+        "rationale": "Undocumented APIs force integrators to reverse-engineer behaviour, increasing support tickets and integration errors. Complete docs reduce integration time and defect rates."
+      }
+    ]
+  },
+
+  {
+    "id": "req-mission-critical-sla",
+    "category": "requirement",
+    "name": "Mission-Critical Service SLA",
+    "description": "Availability: mission-critical services require four-nines uptime (99.99%), achieved through multi-region active-active architecture.",
+    "tags": ["availability", "sla", "uptime", "nfr", "reliability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-mc-sla-1",
+        "type": "requirement",
+        "label": "Mission-Critical Service SLA",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "maintain 99.99% availability (four nines, < 52 minutes downtime per year) for mission-critical services, implemented via multi-region active-active architecture with automated failover",
+        "rationale": "Four-nines uptime is the industry standard for revenue-generating and safety-critical systems. Each additional nine costs exponentially more but protects against high-impact outages."
+      }
+    ]
+  },
+
+  {
+    "id": "req-internal-tools-sla",
+    "category": "requirement",
+    "name": "Internal Tools SLA",
+    "description": "Availability: internal and back-office tools have a lower but still contractual uptime target of 99.0%, backed by standard backup and restore.",
+    "tags": ["availability", "sla", "uptime", "nfr", "internal"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-internal-sla-1",
+        "type": "requirement",
+        "label": "Internal Tools SLA",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "should",
+        "action": "maintain 99.0% availability (two nines, < 3.6 days downtime per year) for internal tooling and back-office systems, backed by standard backup-and-restore recovery procedures",
+        "rationale": "Internal tools don't require the same investment as customer-facing systems, but unplanned downtime still disrupts employee productivity. A 99.0% target balances cost and impact."
+      }
+    ]
+  },
+
+  {
+    "id": "req-batch-processing-sla",
+    "category": "requirement",
+    "name": "Batch Processing SLA",
+    "description": "Availability: batch and scheduled processing workloads require 95% availability with queue-based retry logic to handle transient failures.",
+    "tags": ["availability", "sla", "batch", "nfr", "reliability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-batch-sla-1",
+        "type": "requirement",
+        "label": "Batch Processing SLA",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "achieve 95% successful completion rate for scheduled batch jobs, using queue-based retry logic to tolerate transient failures without manual intervention",
+        "rationale": "Batch jobs are more tolerant of brief delays than interactive systems. Queue-based retries absorb transient failures without operator intervention, making 95% a realistic and cost-effective target."
+      }
+    ]
+  },
+
+  {
+    "id": "req-messaging-standard",
+    "category": "requirement",
+    "name": "Async Messaging Standard",
+    "description": "Interoperability: asynchronous event processing must use standardised messaging protocols to ensure reliable, decoupled integration across services.",
+    "tags": ["interoperability", "messaging", "async", "nfr", "events"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-messaging-1",
+        "type": "requirement",
+        "label": "Async Messaging Standard",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "implement all asynchronous inter-service communication using AMQP (via RabbitMQ/Azure Service Bus) or MQTT for IoT workloads, with end-to-end message tracing enabled",
+        "rationale": "Standardised messaging protocols decouple producers from consumers, enable broker-level durability, and allow services to evolve independently without tight-coupling."
+      }
+    ]
+  },
+
+  {
+    "id": "req-data-format-standard",
+    "category": "requirement",
+    "name": "Data Format Standard",
+    "description": "Interoperability: all service payloads must conform to a shared enterprise data schema to preserve semantic integrity across system boundaries.",
+    "tags": ["interoperability", "data-format", "schema", "nfr", "standards"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-data-fmt-1",
+        "type": "requirement",
+        "label": "Data Format Standard",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "define a canonical enterprise data schema (JSON-LD for semantic web contexts, Protobuf for high-throughput services) and validate all service payloads against it via semantic unit tests",
+        "rationale": "Without a shared schema, a 'Customer ID' in one system has a different meaning in another. Semantic drift across services causes silent data corruption and expensive migration projects."
+      }
+    ]
+  },
+
+  {
+    "id": "req-least-privilege",
+    "category": "requirement",
+    "name": "Principle of Least Privilege",
+    "description": "Security: users and services must be granted only the minimum permissions required for their role, reducing blast radius from compromised accounts.",
+    "tags": ["security", "access-control", "authorisation", "nfr", "iam"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-least-priv-1",
+        "type": "requirement",
+        "label": "Principle of Least Privilege",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "grant every user account and service identity the minimum set of permissions necessary to perform its function, with access reviewed quarterly and excess permissions revoked",
+        "rationale": "Least privilege limits blast radius when credentials are compromised. Google's BeyondCorp and Zero Trust models prove that eliminating implicit trust is the most effective defence against lateral movement."
+      }
+    ]
+  },
+
+  {
+    "id": "req-config-propagation",
+    "category": "requirement",
+    "name": "Configuration Propagation Speed",
+    "description": "Manageability: global configuration changes must propagate to all nodes within 5 minutes to enable timely operational control.",
+    "tags": ["manageability", "configuration", "operations", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-config-prop-1",
+        "type": "requirement",
+        "label": "Configuration Propagation Speed",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "an operator applies a configuration change via the control plane",
+        "action": "propagate configuration changes to all running nodes within 5 minutes (300 seconds), with propagation lag monitored and alerted if the threshold is exceeded",
+        "rationale": "Slow config propagation delays operational responses to incidents. Feature flag changes, rate limit updates, and circuit breaker thresholds must take effect before an incident escalates."
+      }
+    ]
+  },
+
+  {
+    "id": "req-alert-delivery",
+    "category": "requirement",
+    "name": "Alert Delivery Reliability",
+    "description": "Manageability: critical operational alerts must be reliably delivered to the paging system to ensure on-call engineers are notified without delay.",
+    "tags": ["manageability", "alerting", "reliability", "nfr", "operations"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-alert-del-1",
+        "type": "requirement",
+        "label": "Alert Delivery Reliability",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "a critical alert condition is detected by the monitoring system",
+        "action": "deliver critical alerts to the paging system (PagerDuty / OpsGenie) within 60 seconds of detection with 99.9% delivery reliability, verified by periodic end-to-end alert drills",
+        "rationale": "An alert that doesn't arrive is worse than no alert system at all. The Target breach worsened because alerts were ignored due to noise. High delivery reliability ensures the team actually gets notified."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-scriptability",
+    "category": "requirement",
+    "name": "API Scripting Coverage",
+    "description": "Automatability: all core system functions must be accessible via API to enable deterministic automation without UI interaction.",
+    "tags": ["automatability", "api", "scripting", "nfr", "rpa"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-scripta-1",
+        "type": "requirement",
+        "label": "API Scripting Coverage",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "expose 100% of core data-entry and state-changing operations via headless REST API, enabling complete UI-less interaction for scripting, RPA, and programmatic integration",
+        "rationale": "Systems without complete API coverage force automation tools to use brittle UI scraping. API-first design is a prerequisite for both RPA and agentic AI workflows."
+      }
+    ]
+  },
+
+  {
+    "id": "req-ml-extraction",
+    "category": "requirement",
+    "name": "Intelligent Document Extraction Accuracy",
+    "description": "Automatability: ML-powered document processing must achieve sufficient accuracy to be trusted for automated data extraction workflows.",
+    "tags": ["automatability", "machine-learning", "extraction", "nfr", "idp"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-ml-ext-1",
+        "type": "requirement",
+        "label": "Intelligent Document Extraction Accuracy",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "achieve an F1 score of at least 95% for ML-based extraction of structured fields from unstructured documents (PDFs, forms), validated against a representative labelled test corpus",
+        "rationale": "Below 95% accuracy, the cost of human review corrections exceeds the automation savings. F1 score balances precision and recall to prevent both missed extractions and false positives."
+      }
+    ]
+  },
+
+  {
+    "id": "req-agentic-resolution",
+    "category": "requirement",
+    "name": "AI Agent Autonomous Resolution Rate",
+    "description": "Automatability: AI agents must autonomously resolve a high proportion of routine inquiries without human escalation to deliver meaningful automation ROI.",
+    "tags": ["automatability", "agentic-ai", "llm", "nfr", "automation"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-agentic-1",
+        "type": "requirement",
+        "label": "AI Agent Autonomous Resolution Rate",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "enable AI agents to autonomously resolve at least 80% of routine customer or internal inquiries without human escalation, measured by success rate analytics over a rolling 30-day window",
+        "rationale": "Below 80% autonomous resolution, the cost of human escalation handling erodes the ROI of the agentic AI investment. Salesforce Agentforce targets this threshold as the commercial viability benchmark."
+      }
+    ]
+  },
+
+  {
+    "id": "req-ai-truthfulness",
+    "category": "requirement",
+    "name": "AI Agent Truthfulness",
+    "description": "Dependability: AI agents must cite verifiable sources for every factual claim, preventing hallucinations that could cause legal liability or user harm.",
+    "tags": ["dependability", "agentic-ai", "truthfulness", "nfr", "rag"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-ai-truth-1",
+        "type": "requirement",
+        "label": "AI Agent Truthfulness",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "require AI agents to cite a specific retrieved document or governed data source for every factual claim, with groundedness score validated via LLM-as-a-Judge and audited monthly",
+        "rationale": "Air Canada was held legally liable when its chatbot hallucinated a policy. The NIST AI RMF requires explainability. RAG-grounded agents eliminate hallucinations by design."
+      }
+    ]
+  },
+
+  {
+    "id": "req-system-reliability",
+    "category": "requirement",
+    "name": "Transaction Reliability",
+    "description": "Dependability: the system must complete the overwhelming majority of transactions without error to be justifiably trusted for business-critical operations.",
+    "tags": ["dependability", "reliability", "mtbf", "nfr", "correctness"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-reliability-1",
+        "type": "requirement",
+        "label": "Transaction Reliability",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "complete at least 99.999% of all business transactions without system-induced errors, tracked via Mean Time Between Failures (MTBF) and error rate dashboards",
+        "rationale": "Five-nines transaction reliability (1 failure per 100,000) is the threshold for systems trusted with financial, medical, or safety-critical operations. Below this, error rates cause measurable downstream harm."
+      }
+    ]
+  },
+
+  {
     "id": "adr-tech-stack",
     "category": "adr",
     "name": "Technology Stack Selection",
