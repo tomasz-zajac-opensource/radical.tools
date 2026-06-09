@@ -4,6 +4,7 @@ import { useHubStore, type HubConcept } from '../store/hubStore'
 import { useDiagramStore } from '../store/diagramStore'
 import type { C4Node, C4Relation, C4ElementType } from '../types/c4'
 import { NODE_SIZES } from '../types/c4'
+import { isParentAllowed } from '../types/metamodel'
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -247,6 +248,22 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
   ])
 
   const activeMetamodelId = useDiagramStore((s) => s.metamodel?.id)
+  const metamodel       = useDiagramStore((s) => s.metamodel)
+  const selectedNodeId  = useDiagramStore((s) => s.selectedNodeId)
+  const c4Nodes         = useDiagramStore((s) => s.c4Nodes)
+
+  // If a node is selected, check whether a concept's root nodes can all be
+  // placed inside it. Returns 'ok' | 'incompatible' | null (no selection).
+  const getDropTarget = useCallback((concept: HubConcept): 'ok' | 'incompatible' | null => {
+    if (!selectedNodeId) return null
+    const parentNode = c4Nodes[selectedNodeId]
+    if (!parentNode) return null
+    const rootTypes = concept.nodes
+      .filter((n) => !n.parentId)
+      .map((n) => (n.type as string) ?? 'component')
+    const allAllowed = rootTypes.every((t) => isParentAllowed(metamodel, t, parentNode.type))
+    return allAllowed ? 'ok' : 'incompatible'
+  }, [selectedNodeId, c4Nodes, metamodel])
 
   const handleImport = useCallback(
     (concept: HubConcept) => {
@@ -255,7 +272,16 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
       // Map old concept node IDs → new store IDs.
       const idMap = new Map<string, string>()
 
-      // Determine a rough center to place nodes at.
+      // If a compatible node is selected, we'll import root nodes as its children.
+      const dropParentId = store.selectedNodeId ?? null
+      const dropParent   = dropParentId ? store.c4Nodes[dropParentId] ?? null : null
+      const useDropParent =
+        dropParent !== null &&
+        concept.nodes
+          .filter((n) => !n.parentId)
+          .every((n) => isParentAllowed(store.metamodel, (n.type as string) ?? 'component', dropParent.type))
+
+      // Determine the viewport center in canvas coordinates.
       const getViewport = (window as any).__rfGetViewport as
         | (() => { x: number; y: number; zoom: number })
         | undefined
@@ -269,6 +295,27 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
         idMap.set(raw.id as string, crypto.randomUUID())
       }
 
+      // Compute the bounding-box of root nodes (no parentId) using the raw
+      // positions stored in hub-data. Child-node positions are already
+      // relative to their parent in hub-data, so they must NOT be shifted.
+      const rootNodes = concept.nodes.filter((n) => !n.parentId)
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const n of rootNodes) {
+        const rx = (n.x as number) ?? 0
+        const ry = (n.y as number) ?? 0
+        const rw = (n.width as number) ?? 200
+        const rh = (n.height as number) ?? 120
+        if (rx < minX) minX = rx
+        if (ry < minY) minY = ry
+        if (rx + rw > maxX) maxX = rx + rw
+        if (ry + rh > maxY) maxY = ry + rh
+      }
+      // Offset that shifts the root-node cluster to land on the viewport center.
+      const clusterW = maxX - minX
+      const clusterH = maxY - minY
+      const offsetX = isFinite(minX) ? centerX - minX - clusterW / 2 : centerX
+      const offsetY = isFinite(minY) ? centerY - minY - clusterH / 2 : centerY
+
       // Build node objects with remapped IDs.
       const newNodes: Record<string, C4Node> = {}
       for (const raw of concept.nodes) {
@@ -276,6 +323,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
         const newId = idMap.get(oldId)!
         const type = (raw.type as C4ElementType) ?? 'component'
         const defaults = NODE_SIZES[type as keyof typeof NODE_SIZES] ?? { width: 200, height: 120 }
+        const isChild = !!raw.parentId
 
         const node: C4Node = {
           id: newId,
@@ -284,14 +332,24 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
           description: (raw.description as string) ?? undefined,
           technology: (raw.technology as string) ?? undefined,
           collapsed: (raw.collapsed as boolean) ?? false,
-          x: centerX + (Math.random() - 0.5) * 100,
-          y: centerY + (Math.random() - 0.5) * 100,
+          // Children: keep hub-data relative coords as-is (they're relative to their concept-parent).
+          // Roots dropped into a selected parent: use hub-data positions as relative coords inside the new parent.
+          // Roots without a drop target: apply the viewport centering offset.
+          x: isChild ? ((raw.x as number) ?? 20)
+            : useDropParent ? ((raw.x as number) ?? 20)
+            : ((raw.x as number) ?? 0) + offsetX,
+          y: isChild ? ((raw.y as number) ?? 20)
+            : useDropParent ? ((raw.y as number) ?? 20)
+            : ((raw.y as number) ?? 0) + offsetY,
           width: (raw.width as number) ?? defaults.width,
           height: (raw.height as number) ?? defaults.height,
         }
 
         if (raw.parentId && idMap.has(raw.parentId as string)) {
           node.parentId = idMap.get(raw.parentId as string)
+        } else if (!raw.parentId && useDropParent && dropParentId) {
+          // Root node → reparent under the selected canvas node.
+          node.parentId = dropParentId
         }
 
         newNodes[newId] = node
@@ -327,9 +385,25 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
           state.views[state.activeViewId].nodeIds.push(...Object.keys(newNodes))
         }
       })
+
+      // Resize all parent nodes bottom-up so that any parent (including the
+      // drop-target and any concept-internal parents) visually contains its
+      // newly added children without needing an auto-layout run.
+      {
+        const storeAfter = useDiagramStore.getState()
+        const view = storeAfter.activeViewId ? storeAfter.views[storeAfter.activeViewId] : undefined
+        const vf = view ? new Set(view.nodeIds) : undefined
+        storeAfter._resizeParentsBottomUp(vf)
+      }
+
       store._sync()
 
-      store.pushNotification(`Imported "${concept.name}"`, 'info')
+      store.pushNotification(
+        useDropParent
+          ? `Imported "${concept.name}" into "${dropParent!.label}"`
+          : `Imported "${concept.name}"`,
+        'info',
+      )
       onClose()
     },
     [onClose],
@@ -426,6 +500,8 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
           {concepts.map((c) => {
             const metamodelMismatch =
               c.requiredMetamodel && activeMetamodelId && c.requiredMetamodel !== activeMetamodelId
+            const dropTarget = getDropTarget(c)
+            const selectedNodeLabel = selectedNodeId ? c4Nodes[selectedNodeId]?.label : null
             return (
               <div key={c.id} style={S.card}>
                 <div style={S.cardHeader}>
@@ -439,6 +515,17 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
                     {metamodelMismatch && (
                       <span style={S.warning} title={`Requires metamodel: ${c.requiredMetamodel}`}>
                         ⚠ metamodel
+                      </span>
+                    )}
+                    {dropTarget === 'ok' && selectedNodeLabel && (
+                      <span style={{ ...S.badge('#065f46'), maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                        title={`Will be added inside "${selectedNodeLabel}"`}>
+                        ↳ {selectedNodeLabel}
+                      </span>
+                    )}
+                    {dropTarget === 'incompatible' && selectedNodeLabel && (
+                      <span style={S.warning} title={`Cannot place inside "${selectedNodeLabel}" — incompatible type`}>
+                        ✕ incompatible
                       </span>
                     )}
                   </div>
