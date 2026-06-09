@@ -341,11 +341,11 @@ export const RelationEdge = memo(
                 background:      'var(--edge-label-bg)',
                 border:          '1px solid var(--edge-label-border)',
                 borderRadius:    4,
-                padding:         '2px 6px',
-                fontSize:        11,
-                color:           strokeColor,
+                padding:         '3px 8px',
+                fontSize:        17,
+                color:           'var(--text-primary)',
                 pointerEvents:   'none',
-                maxWidth:        160,
+                maxWidth:        200,
                 textAlign:       'center',
                 lineHeight:      1.4,
                 backdropFilter:  'blur(4px)',
@@ -355,10 +355,10 @@ export const RelationEdge = memo(
             >
               {data.label
                 ? <div>{data.label}</div>
-                : data.relationType && <div style={{ opacity: 0.6, fontStyle: 'italic' }}>{data.relationType}</div>
+                : data.relationType && <div style={{ opacity: 0.85, fontStyle: 'italic' }}>{data.relationType}</div>
               }
               {data.technology && (
-                <div style={{ fontStyle: 'italic', opacity: 0.7, fontSize: 10 }}>
+                <div style={{ fontStyle: 'italic', opacity: 0.85, fontSize: 14 }}>
                   [{data.technology}]
                 </div>
               )}

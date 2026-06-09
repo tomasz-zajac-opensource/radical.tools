@@ -17,9 +17,9 @@
   --bg-canvas:    #0f0f1c;
   --border-color: #2b2b44;
   --border-color-strong: #3a3a5c;
-  --text-primary: #e8e8f4;
-  --text-secondary: #b8b8d0;
-  --text-muted:   #7a7a96;
+  --text-primary: #eeeef8;
+  --text-secondary: #cacae0;
+  --text-muted:   #9898b8;
   --accent:       #6ea8ff;
   --accent-rgb:   110,168,255;
   --accent-soft:  rgba(110,168,255,0.12);
@@ -65,7 +65,7 @@
   --bg-app:       #f4f5f9;
   --bg-panel:     #ffffff;
   --bg-toolbar:   rgba(248, 249, 252, 0.78);
-  --bg-canvas:    #eaebf2;
+  --bg-canvas:    #f2f3f7;
   --border-color: #e1e3eb;
   --border-color-strong: #c8cbd6;
   --text-primary: #1a1a2e;
@@ -2721,7 +2721,7 @@ body {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: rgba(255,255,255,0.78);
+  color: rgba(255,255,255,0.92);
   text-transform: uppercase;
   flex-shrink: 0;
 }
@@ -2756,7 +2756,7 @@ body {
 
 .c4-node-tech {
   font-size: 14px;
-  color: rgba(255,255,255,0.75);
+  color: rgba(255,255,255,0.88);
   padding: 0 10px 3px;
   font-style: italic;
   overflow: hidden;
@@ -2766,7 +2766,7 @@ body {
 
 .c4-node-desc {
   font-size: 16px;
-  color: rgba(255,255,255,0.9);
+  color: rgba(255,255,255,0.95);
   padding: 4px 10px 8px;
   line-height: 1.35;
   /* Fill all the remaining vertical space inside the node body so there
