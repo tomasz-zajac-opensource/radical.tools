@@ -5,6 +5,7 @@ import { DocumentManagerModal } from './DocumentManager'
 import { AISettingsModal } from './AISettingsModal'
 import { HubImportModal } from './HubImportModal'
 import { useOutsideClick } from '../hooks/useOutsideClick'
+import { useExport } from '../hooks/useExport'
 
 // ── SVG icons ────────────────────────────────────────────────────────────────
 
@@ -220,6 +221,33 @@ const IconHub = () => (
   </svg>
 )
 
+const IconExportPNG = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round">
+    <rect x="1" y="3" width="14" height="10" rx="1.5" />
+    <path d="M3.5 9.5V6.5h1c.6 0 1 .4 1 1s-.4 1-1 1H3.5" />
+    <path d="M7.5 9.5V6.5l1.5 2 1.5-2v3" />
+    <path d="M12.5 6.5H11v3h1.5" />
+    <path d="M11 8h1.2" />
+  </svg>
+)
+
+const IconExportSVG = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round">
+    <rect x="1" y="3" width="14" height="10" rx="1.5" />
+    <path d="M4.5 9.5c-.5 0-1-.3-1-1s.5-1 1-1h1c.5 0 1-.3 1-1s-.5-1-1-1" />
+    <path d="M9 6.5l1 3 1-3" />
+    <path d="M13 6.5h-1.5c-.3 0-.5.2-.5.5v.5c0 .3.2.5.5.5h1c.3 0 .5.2.5.5v.5c0 .3-.2.5-.5.5H11" />
+  </svg>
+)
+
+const IconClipboard = () => (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="1" width="6" height="3" rx="1" />
+    <path d="M5 2H3a1 1 0 00-1 1v11a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1h-2" />
+    <path d="M5 8h6M5 11h4" />
+  </svg>
+)
+
 // ── App menu (hamburger popover) ─────────────────────────────────────────────
 
 type ConnectionMod = 'alt' | 'shift' | 'ctrl' | 'meta'
@@ -232,6 +260,10 @@ function AppMenu({
   metamodelActive, onToggleMetamodel,
   onOpenAISettings,
   onOpenHub,
+  onExportPNG,
+  onExportSVG,
+  onCopyToClipboard,
+  exportBusy,
 }: {
   onManage: () => void
   activeDocLabel: string | null
@@ -246,6 +278,10 @@ function AppMenu({
   onToggleMetamodel: () => void
   onOpenAISettings: () => void
   onOpenHub: () => void
+  onExportPNG: () => void
+  onExportSVG: () => void
+  onCopyToClipboard: () => void
+  exportBusy: boolean
 }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -380,6 +416,39 @@ function AppMenu({
               <span className="app-menu-text">AI providers…</span>
             </button>
           </div>
+
+          <div className="app-menu-divider" />
+
+          <div className="app-menu-section">
+            <div className="app-menu-label">Export</div>
+            <button
+              className="app-menu-item"
+              role="menuitem"
+              onClick={run(onExportPNG)}
+              disabled={exportBusy}
+            >
+              <span className="app-menu-icon"><IconExportPNG /></span>
+              <span className="app-menu-text">Export as PNG…</span>
+            </button>
+            <button
+              className="app-menu-item"
+              role="menuitem"
+              onClick={run(onExportSVG)}
+              disabled={exportBusy}
+            >
+              <span className="app-menu-icon"><IconExportSVG /></span>
+              <span className="app-menu-text">Export as SVG…</span>
+            </button>
+            <button
+              className="app-menu-item"
+              role="menuitem"
+              onClick={run(onCopyToClipboard)}
+              disabled={exportBusy}
+            >
+              <span className="app-menu-icon"><IconClipboard /></span>
+              <span className="app-menu-text">Copy to clipboard</span>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -465,6 +534,10 @@ export function Toolbar(): React.ReactElement {
   const handleOpenHub = useCallback(() => { setHubOpen(true) }, [])
   const handleCloseHub = useCallback(() => { setHubOpen(false) }, [])
 
+  const { exportBusy, exportAs, copyToClipboard } = useExport()
+  const handleExportPNG = useCallback(() => exportAs('png'), [exportAs])
+  const handleExportSVG = useCallback(() => exportAs('svg'), [exportAs])
+
   // Allow other components (e.g. AIPanel) to open the modal via a window event.
   useEffect(() => {
     const onOpen = () => setAISettingsOpen(true)
@@ -490,6 +563,10 @@ export function Toolbar(): React.ReactElement {
         onToggleMetamodel={() => setAppMode(appMode === 'metamodel' ? 'designer' : 'metamodel')}
         onOpenAISettings={handleOpenAISettings}
         onOpenHub={handleOpenHub}
+        onExportPNG={handleExportPNG}
+        onExportSVG={handleExportSVG}
+        onCopyToClipboard={copyToClipboard}
+        exportBusy={exportBusy}
       />
       <div className="toolbar-sep" />
 
