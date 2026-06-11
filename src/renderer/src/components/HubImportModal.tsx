@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useHubStore, type HubConcept } from '../store/hubStore'
+import { useHubStore, type HubConcept, type TemplateParam } from '../store/hubStore'
 import { useDiagramStore } from '../store/diagramStore'
 import type { C4Node, C4Relation, C4ElementType } from '../types/c4'
 import { NODE_SIZES } from '../types/c4'
@@ -44,6 +44,7 @@ const S = {
     zIndex: 9000,
   },
   modal: {
+    position: 'relative' as const,
     background: 'var(--bg-panel)',
     borderRadius: 12,
     width: '96vw',
@@ -54,6 +55,61 @@ const S = {
     boxShadow: 'var(--shadow-lg)',
     color: 'var(--text-primary)',
     overflow: 'hidden',
+  },
+  templateOverlay: {
+    position: 'absolute' as const,
+    inset: 0,
+    background: 'var(--bg-panel)',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    zIndex: 10,
+  },
+  templateHeader: {
+    padding: '16px 20px 12px',
+    borderBottom: '1px solid var(--border-color)',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  templateBody: {
+    flex: 1,
+    overflowY: 'auto' as const,
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 16,
+  },
+  templateField: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 6,
+  },
+  templateLabel: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: 'var(--text-primary)',
+  },
+  templateHint: {
+    fontSize: 11,
+    color: 'var(--text-muted)',
+    marginTop: 2,
+  },
+  templateInput: {
+    padding: '8px 12px',
+    borderRadius: 6,
+    border: '1px solid var(--border-color)',
+    background: 'var(--input-bg)',
+    color: 'var(--text-primary)',
+    fontSize: 14,
+    outline: 'none',
+  },
+  templateFooter: {
+    display: 'flex',
+    gap: 8,
+    justifyContent: 'flex-end',
+    padding: '12px 20px 16px',
+    borderTop: '1px solid var(--border-color)',
   },
   header: {
     display: 'flex',
@@ -202,6 +258,26 @@ const CATEGORY_BADGE_COLORS: Record<string, string> = {
   adr: '#92400e',
 }
 
+// ─── Template substitution ──────────────────────────────────────────────────
+
+/** Replace all {{KEY}} tokens in a string with values from the provided map. */
+function substituteParams(str: string, values: Record<string, string>): string {
+  return str.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_, key: string) => values[key] ?? `{{${key}}}`)
+}
+
+/** Return a copy of the concept with {{KEY}} tokens substituted in all node string fields. */
+function applyTemplate(concept: HubConcept, values: Record<string, string>): HubConcept {
+  if (!concept.templateParams?.length) return concept
+  const subst = (node: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(node)) {
+      out[k] = typeof v === 'string' ? substituteParams(v, values) : v
+    }
+    return out
+  }
+  return { ...concept, nodes: concept.nodes.map(subst) }
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function HubImportModal({ open, onClose }: Props): React.ReactElement | null {
@@ -246,6 +322,21 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
     searchQuery,
     activeTag,
   ])
+
+  // Template parameter fill state: set when user clicks "Add to Model" on a
+  // concept that has templateParams.
+  const [pendingConcept, setPendingConcept] = useState<HubConcept | null>(null)
+  const [paramValues, setParamValues] = useState<Record<string, string>>({})
+
+  // Initialise default values whenever a new concept is pending.
+  useEffect(() => {
+    if (!pendingConcept?.templateParams) return
+    const defaults: Record<string, string> = {}
+    for (const p of pendingConcept.templateParams) {
+      defaults[p.key] = p.defaultValue ?? ''
+    }
+    setParamValues(defaults)
+  }, [pendingConcept])
 
   const activeMetamodelId = useDiagramStore((s) => s.metamodel?.id)
   const metamodel       = useDiagramStore((s) => s.metamodel)
@@ -415,6 +506,19 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
     [onClose],
   )
 
+  // Clicking "Add to Model": show template fill form if the concept has params,
+  // otherwise import immediately.
+  const handleImportClick = useCallback(
+    (concept: HubConcept) => {
+      if (concept.templateParams?.length) {
+        setPendingConcept(concept)
+      } else {
+        handleImport(concept)
+      }
+    },
+    [handleImport],
+  )
+
   if (!open) return null
 
   return createPortal(
@@ -538,7 +642,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
                   <button
                     type="button"
                     style={S.importBtn}
-                    onClick={() => handleImport(c)}
+                    onClick={() => handleImportClick(c)}
                   >
                     Add to Model
                   </button>
@@ -567,6 +671,69 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
             )
           })}
         </div>
+
+        {/* ── Template parameter fill overlay ─────────────────────────── */}
+        {pendingConcept && (
+          <div style={S.templateOverlay}>
+            <div style={S.templateHeader}>
+              <div>
+                <h3 style={S.title}>Configure: {pendingConcept.name}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  Fill in the template parameters before importing.
+                </p>
+              </div>
+              <button
+                type="button"
+                style={S.closeBtn}
+                onClick={() => setPendingConcept(null)}
+                aria-label="Cancel template"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={S.templateBody}>
+              {(pendingConcept.templateParams ?? []).map((p: TemplateParam) => (
+                <div key={p.key} style={S.templateField}>
+                  <label style={S.templateLabel}>{p.label}</label>
+                  <input
+                    style={S.templateInput}
+                    type={p.type === 'number' ? 'number' : 'text'}
+                    placeholder={p.hint ?? ''}
+                    value={paramValues[p.key] ?? ''}
+                    onChange={(e) =>
+                      setParamValues((prev) => ({ ...prev, [p.key]: e.target.value }))
+                    }
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {p.hint && <span style={S.templateHint}>e.g. {p.hint}</span>}
+                </div>
+              ))}
+            </div>
+
+            <div style={S.templateFooter}>
+              <button
+                type="button"
+                style={{ ...S.importBtn, background: 'var(--input-bg)', color: 'var(--text-secondary)' }}
+                onClick={() => setPendingConcept(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                style={S.importBtn}
+                onClick={() => {
+                  const resolved = applyTemplate(pendingConcept, paramValues)
+                  setPendingConcept(null)
+                  handleImport(resolved)
+                }}
+              >
+                Import
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>,
     document.body,

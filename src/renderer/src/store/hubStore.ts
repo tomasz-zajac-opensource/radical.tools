@@ -2,6 +2,15 @@ import { create } from 'zustand'
 
 // ─── Hub concept shape (mirrors hub-data.json) ──────────────────────────────
 
+/** A single parameter that must be filled in before a hub concept is imported. */
+export interface TemplateParam {
+  key: string
+  label: string
+  hint?: string
+  type?: 'text' | 'number'
+  defaultValue?: string
+}
+
 export interface HubConcept {
   id: string
   category: 'pattern' | 'fitness-function' | 'requirement' | 'adr'
@@ -9,6 +18,9 @@ export interface HubConcept {
   description: string
   tags: string[]
   requiredMetamodel?: string
+  /** Parameters the user must fill in before import; values are substituted
+   *  into node fields using {{KEY}} syntax. */
+  templateParams?: TemplateParam[]
   nodes: Array<Record<string, unknown>>
   relations?: Array<Record<string, unknown>>
 }
