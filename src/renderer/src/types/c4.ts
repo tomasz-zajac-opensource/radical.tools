@@ -218,6 +218,8 @@ export interface DiagramData {
   /** Per-document metamodel (object types + allowed relations + constraints).
    *  When absent, the built-in C4 preset is used. */
   metamodel?: Metamodel
+  /** Hub import template records — allows reconfiguring template values after import. */
+  hubTemplates?: Record<string, import('../store/hubStore').HubImportRecord>
 }
 
 // ─── React Flow data shapes ──────────────────────────────────────────────────

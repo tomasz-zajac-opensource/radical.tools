@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useHubStore, type HubConcept, type TemplateParam } from '../store/hubStore'
+import { useHubStore, type HubConcept, type TemplateParam, type HubImportRecord } from '../store/hubStore'
 import { useDiagramStore } from '../store/diagramStore'
 import type { C4Node, C4Relation, C4ElementType } from '../types/c4'
 import { NODE_SIZES } from '../types/c4'
@@ -357,7 +357,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
   }, [selectedNodeId, c4Nodes, metamodel])
 
   const handleImport = useCallback(
-    (concept: HubConcept) => {
+    (concept: HubConcept, templateData?: { originalConcept: HubConcept; paramValues: Record<string, string> }) => {
       const store = useDiagramStore.getState()
 
       // Map old concept node IDs → new store IDs.
@@ -494,6 +494,25 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
       }
 
       store._sync()
+
+      // Persist hub template record so values can be reconfigured later.
+      if (templateData && concept.templateParams?.length) {
+        const importId = crypto.randomUUID()
+        const originalNodesMap: Record<string, Record<string, unknown>> = {}
+        for (const origNode of templateData.originalConcept.nodes) {
+          const newId = idMap.get(origNode.id as string)
+          if (newId) originalNodesMap[newId] = origNode as Record<string, unknown>
+        }
+        const record: HubImportRecord = {
+          conceptId: concept.id,
+          conceptName: concept.name,
+          templateParams: concept.templateParams,
+          paramValues: { ...templateData.paramValues },
+          nodeIds: Object.keys(newNodes),
+          originalNodes: originalNodesMap,
+        }
+        store.upsertHubTemplate(importId, record)
+      }
 
       store.pushNotification(
         useDropParent
@@ -724,9 +743,10 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
                 type="button"
                 style={S.importBtn}
                 onClick={() => {
+                  const originalConcept = pendingConcept
                   const resolved = applyTemplate(pendingConcept, paramValues)
                   setPendingConcept(null)
-                  handleImport(resolved)
+                  handleImport(resolved, { originalConcept, paramValues: { ...paramValues } })
                 }}
               >
                 Import

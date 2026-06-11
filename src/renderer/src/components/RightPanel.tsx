@@ -1,8 +1,8 @@
-import React, { ChangeEvent, useState, useMemo } from 'react'
+import React, { ChangeEvent, useState, useMemo, useEffect } from 'react'
 import { useDiagramStore, nodeEffectivelyCollapsedInView } from '../store/diagramStore'
 import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS, NODE_FG, isContainerType } from '../types/c4'
 import { resolveEarsSubject } from '../types/metamodel'
-// SlidesColumn was used here; now lives in the bottom PresenterDock
+import type { HubImportRecord } from '../store/hubStore'
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -1364,6 +1364,116 @@ function EarsSentencePreview({ node, nodeId, subject: subjectProp, readOnly, upd
   )
 }
 
+// ── Hub Template Reconfigure ──────────────────────────────────────────────────
+
+function substituteInStr(str: string, values: Record<string, string>): string {
+  return str.replace(/\{\{([A-Z0-9_]+)\}\}/g, (_, key: string) => values[key] ?? `{{${key}}}`)
+}
+
+function reapplyTemplate(
+  record: HubImportRecord,
+  newValues: Record<string, string>,
+  updateNode: (id: string, updates: Record<string, unknown>) => void,
+): void {
+  for (const [nodeId, origNode] of Object.entries(record.originalNodes)) {
+    const patch: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(origNode)) {
+      // Never overwrite structural / position fields
+      if (['id', 'type', 'parentId', 'x', 'y', 'width', 'height', 'collapsed'].includes(k)) continue
+      if (typeof v === 'string') patch[k] = substituteInStr(v, newValues)
+    }
+    updateNode(nodeId, patch)
+  }
+}
+
+function HubTemplateSection({
+  record,
+  importId,
+  readOnly,
+  updateNode,
+}: {
+  record: HubImportRecord
+  importId: string
+  readOnly: boolean
+  updateNode: (id: string, updates: Record<string, unknown>) => void
+}) {
+  const upsertHubTemplate = useDiagramStore((s) => s.upsertHubTemplate)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<Record<string, string>>(record.paramValues)
+
+  // Sync draft when record changes externally (e.g. after save/load)
+  useEffect(() => { setDraft({ ...record.paramValues }) }, [importId, JSON.stringify(record.paramValues)]) // eslint-disable-line
+
+  if (!editing) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span className="props-section-title" style={{ margin: 0 }}>Hub Template</span>
+          {!readOnly && (
+            <button
+              className="props-delete"
+              style={{ padding: '3px 10px', fontSize: 11, background: 'var(--accent)', color: '#fff', marginTop: 0 }}
+              onClick={() => { setDraft({ ...record.paramValues }); setEditing(true) }}
+            >
+              ✏ Edit
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {record.templateParams.map(p => (
+            <div key={p.key} className="props-field" style={{ marginBottom: 0 }}>
+              <label className="props-label">{p.label}</label>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0' }}>
+                {record.paramValues[p.key] ?? '—'}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <div className="props-section-title">Hub Template</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {record.templateParams.map(p => (
+          <div key={p.key} className="props-field">
+            <label className="props-label">{p.label}</label>
+            {p.hint && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.hint}</span>}
+            <input
+              className="props-input"
+              type={p.type === 'number' ? 'number' : 'text'}
+              value={draft[p.key] ?? ''}
+              onChange={e => setDraft(d => ({ ...d, [p.key]: e.target.value }))}
+            />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <button
+          className="props-delete"
+          style={{ flex: 1, background: 'var(--accent)', color: '#fff', padding: '5px 0', marginTop: 0 }}
+          onClick={() => {
+            reapplyTemplate(record, draft, updateNode)
+            upsertHubTemplate(importId, { ...record, paramValues: draft })
+            setEditing(false)
+          }}
+        >
+          Apply
+        </button>
+        <button
+          className="props-delete"
+          style={{ padding: '5px 12px', marginTop: 0 }}
+          onClick={() => { setDraft({ ...record.paramValues }); setEditing(false) }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
   const selectedNodeId = useDiagramStore((s) => s.selectedNodeId)
   const selectedEdgeId = useDiagramStore((s) => s.selectedEdgeId)
@@ -1376,6 +1486,7 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
   const removeRelation = useDiagramStore((s) => s.removeRelation)
   const selectNode = useDiagramStore((s) => s.selectNode)
   const selectEdge = useDiagramStore((s) => s.selectEdge)
+  const hubTemplates = useDiagramStore((s) => s.hubTemplates)
 
   // ── Node ──────────────────────────────────────────────────────────────────
   if (selectedNodeId && c4Nodes[selectedNodeId]) {
@@ -1567,6 +1678,20 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
           }
           {parentSelector}
         </div>
+        {(() => {
+          const entry = Object.entries(hubTemplates as Record<string, HubImportRecord>)
+            .find(([, rec]) => rec.nodeIds.includes(node.id))
+          if (!entry) return null
+          const [importId, record] = entry
+          return (
+            <HubTemplateSection
+              record={record}
+              importId={importId}
+              readOnly={readOnly}
+              updateNode={(id, patch) => updateNode(id, patch as Parameters<typeof updateNode>[1])}
+            />
+          )
+        })()}
         {!readOnly && (
           <button className="props-delete" onClick={() => { removeNode(node.id); selectNode(null) }}>
             🗑 Delete node (and children)

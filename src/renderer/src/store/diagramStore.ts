@@ -40,6 +40,7 @@ import {
   canAddMoreOfType,
   inferRelationType,
 } from '../types/metamodel'
+import type { HubImportRecord } from './hubStore'
 import { applyElkLayout, applyTreeLayout } from '../layout/elkLayout'
 import { applyColaLayout } from '../layout/colaLayout'
 import { applyRadicalLayout } from '../layout/radicalLayout'
@@ -1066,6 +1067,12 @@ interface DiagramStore {
   upsertRelationType: (def: RelationTypeDef) => void
   removeRelationType: (id: string) => void
 
+  // ── hub import templates (per document) ──
+  /** Keyed by import-instance UUID. Allows reconfiguring template values after import. */
+  hubTemplates: Record<string, HubImportRecord>
+  upsertHubTemplate: (id: string, record: HubImportRecord) => void
+  deleteHubTemplate: (id: string) => void
+
   // ── transient notifications (toasts) ──
   notifications: Array<{ id: string; severity: 'error' | 'warning' | 'info'; message: string; ts: number }>
   pushNotification: (message: string, severity?: 'error' | 'warning' | 'info') => void
@@ -1261,6 +1268,7 @@ export const useDiagramStore = create<DiagramStore>()(
       showDiff: false,
       appMode: 'designer' as const,
       metamodel: initMetamodel,
+      hubTemplates: (persisted?.hubTemplates ?? {}) as Record<string, HubImportRecord>,
       notifications: [],
       presentations: initPres.presentations,
       activePresentationId: initPres.activeId,
@@ -3750,6 +3758,14 @@ export const useDiagramStore = create<DiagramStore>()(
         })
       },
 
+      // ── Hub import templates ────────────────────────────────────────────
+      upsertHubTemplate(id, record) {
+        set((state) => { (state.hubTemplates as Record<string, HubImportRecord>)[id] = record })
+      },
+      deleteHubTemplate(id) {
+        set((state) => { delete (state.hubTemplates as Record<string, HubImportRecord>)[id] })
+      },
+
       // ── Presentation mode ──────────────────────────────────────────────
       addPresentation(name) {
         const id = uid()
@@ -4161,6 +4177,7 @@ export const useDiagramStore = create<DiagramStore>()(
             if (dm.id === 'c4-ddd-governance-builtin') return builtInGovernanceMetamodel()
             return dm
           })()
+          state.hubTemplates = (data.hubTemplates ?? {}) as any
         })
         get()._sync()
         // skipBulk=true: loaded positions are already correct; the 110-iteration
@@ -4205,6 +4222,7 @@ export const useDiagramStore = create<DiagramStore>()(
           snapshots: snapshots as DiagramSnapshot[],
           presentations: presentations as Presentation[],
           metamodel: metamodel as Metamodel,
+          hubTemplates: get().hubTemplates as Record<string, HubImportRecord>,
         }
       },
 
@@ -4238,6 +4256,7 @@ export const useDiagramStore = create<DiagramStore>()(
           state.presentationActive = false
           state.presentationSlideIndex = 0
           state.metamodel = builtInC4Metamodel() as any
+          state.hubTemplates = {} as any
         })
         get()._sync()
         get().startLiveLayout()
@@ -4268,6 +4287,7 @@ export const useDiagramStore = create<DiagramStore>()(
           state.presentationActive = false
           state.presentationSlideIndex = 0
           state.metamodel = builtInC4Metamodel() as any
+          state.hubTemplates = {} as any
         })
         get()._sync()
         get().startLiveLayout()

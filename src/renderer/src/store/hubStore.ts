@@ -11,6 +11,26 @@ export interface TemplateParam {
   defaultValue?: string
 }
 
+/**
+ * Persisted record of a hub concept import that used template parameters.
+ * Stored in the diagram so the user can reconfigure values later.
+ */
+export interface HubImportRecord {
+  conceptId: string
+  conceptName: string
+  templateParams: TemplateParam[]
+  /** Current substitution values (may change on reconfigure). */
+  paramValues: Record<string, string>
+  /** New node IDs (UUIDs) that were created by this import. */
+  nodeIds: string[]
+  /**
+   * Original template nodes keyed by new node UUID.
+   * Contains the {{TOKEN}} placeholders before substitution.
+   * Positions (x/y/width/height) are excluded — they are user-managed.
+   */
+  originalNodes: Record<string, Record<string, unknown>>
+}
+
 export interface HubConcept {
   id: string
   category: 'pattern' | 'fitness-function' | 'requirement' | 'adr'
