@@ -326,12 +326,18 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
         const isChild = !!raw.parentId
 
         const node: C4Node = {
+          // Spread all raw fields first so metamodel-specific fields (ears_type, action,
+          // rationale, precondition, trigger, unwanted_condition, feature, status, priority,
+          // etc.) are preserved. Structural fields below override any raw values.
+          ...(raw as Record<string, unknown>),
           id: newId,
           type,
           label: (raw.label as string) ?? concept.name,
           description: (raw.description as string) ?? undefined,
           technology: (raw.technology as string) ?? undefined,
           collapsed: (raw.collapsed as boolean) ?? false,
+          // parentId is intentionally omitted here — handled below after ID remapping.
+          parentId: undefined,
           // Children: keep hub-data relative coords as-is (they're relative to their concept-parent).
           // Roots dropped into a selected parent: use hub-data positions as relative coords inside the new parent.
           // Roots without a drop target: apply the viewport centering offset.
@@ -343,7 +349,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
             : ((raw.y as number) ?? 0) + offsetY,
           width: (raw.width as number) ?? defaults.width,
           height: (raw.height as number) ?? defaults.height,
-        }
+        } as C4Node
 
         if (raw.parentId && idMap.has(raw.parentId as string)) {
           node.parentId = idMap.get(raw.parentId as string)
