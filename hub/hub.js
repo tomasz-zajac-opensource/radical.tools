@@ -158,6 +158,7 @@
       </div>
       <p class="hub-card-desc">${escapeHtml(concept.description)}</p>
       ${meta ? `<div class="hub-meta-row">${meta}</div>` : ''}
+      ${templateParamsHTML(concept)}
       ${tags ? `<div class="hub-card-tags">${tags}</div>` : ''}
       <div class="hub-actions">
         <button class="hub-json-toggle" data-toggle="${concept.id}">👁 Preview</button>
@@ -166,6 +167,16 @@
         ${previewHTML(concept)}
       </div>
     </article>`;
+  }
+
+  function templateParamsHTML(concept) {
+    const params = concept.templateParams;
+    if (!params || params.length === 0) return '';
+    const pills = params.map(p => {
+      const tooltip = p.hint ? `${p.label} (default: ${p.hint})` : p.label;
+      return `<span class="hub-param-pill" title="${escapeHtml(tooltip)}">${escapeHtml(p.key)}</span>`;
+    }).join('');
+    return `<div class="hub-param-row"><span class="hub-param-label">params:</span>${pills}</div>`;
   }
 
   function buildMetaBadges(concept) {

@@ -662,6 +662,28 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
                   </button>
                 </div>
                 <p style={S.cardDesc}>{c.description}</p>
+                {c.templateParams && c.templateParams.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', marginRight: 2 }}>params:</span>
+                    {c.templateParams.map((p) => (
+                      <span
+                        key={p.key}
+                        title={p.hint ? `${p.label} (default: ${p.hint})` : p.label}
+                        style={{
+                          fontSize: 11,
+                          padding: '2px 8px',
+                          borderRadius: 10,
+                          background: 'rgba(99,102,241,0.15)',
+                          color: 'var(--accent)',
+                          fontFamily: 'monospace',
+                          whiteSpace: 'nowrap' as const,
+                        }}
+                      >
+                        {p.key}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {c.tags.length > 0 && (
                   <div style={S.tagRow}>
                     {c.tags.map((t) => (

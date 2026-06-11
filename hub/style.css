@@ -645,3 +645,28 @@ a { color: inherit; text-decoration: none; }
   .nav-links { display: none; }
   .nav-actions .btn-outline { display: none; }
 }
+
+/* ─── Template params row ────────────────────────────────────────────────── */
+.hub-param-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 2px;
+}
+.hub-param-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.hub-param-pill {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  white-space: nowrap;
+  cursor: default;
+}
