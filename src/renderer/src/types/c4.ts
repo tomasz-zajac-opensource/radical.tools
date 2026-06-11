@@ -268,7 +268,7 @@ export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }
   group:        { width: 520, height: 360 },
   adr:          { width: 180, height: 52 },
   'fitness-fn': { width: 180, height: 52 },
-  requirement:  { width: 200, height: 56 },
+  requirement:  { width: 200, height: 80 },
 }
 
 export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
@@ -283,7 +283,7 @@ export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
   group:        220,
   adr:          52,
   'fitness-fn': 52,
-  requirement:  56,
+  requirement:  80,
 }
 
 export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
