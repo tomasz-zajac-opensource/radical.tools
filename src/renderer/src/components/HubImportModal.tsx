@@ -652,11 +652,6 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
                         ↳ {selectedNodeLabel}
                       </span>
                     )}
-                    {dropTarget === 'incompatible' && selectedNodeLabel && (
-                      <span style={S.warning} title={`Cannot place inside "${selectedNodeLabel}" — incompatible type`}>
-                        ✕ incompatible
-                      </span>
-                    )}
                   </div>
                   <button
                     type="button"
