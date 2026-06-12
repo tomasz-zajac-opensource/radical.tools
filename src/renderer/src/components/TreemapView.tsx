@@ -4,7 +4,18 @@ import { TYPE_ICON_PATHS } from '../types/c4'
 import type { C4ElementType, C4Node, C4Relation } from '../types/c4'
 
 // ─── Color palette per C4 type ──────────────────────────────────────────────
-const TYPE_COLORS: Record<string, readonly [string, string, string]> = {
+const TYPE_COLORS_LIGHT: Record<string, readonly [string, string, string]> = {
+  domain:    ['#b8d4f0', '#5a9ad8', '#1a3a5c'],
+  system:    ['#bedad8', '#5aa8e0', '#1a3d5c'],
+  container: ['#cae0f8', '#7ab4ec', '#1a4060'],
+  component: ['#d4eefa', '#8cc4f4', '#1a4560'],
+  database:  ['#ddd0f8', '#9c7cdc', '#2e1060'],
+  webapp:    ['#b8e8d0', '#54c490', '#0e3d22'],
+  queue:     ['#f8e4a8', '#e0b040', '#5a3c00'],
+  person:    ['#f8d0cc', '#e07868', '#5c1a14'],
+} as const
+
+const TYPE_COLORS_DARK: Record<string, readonly [string, string, string]> = {
   domain:    ['#0a1e38', '#1a4a7a', '#90bcdf'],
   system:    ['#0d3a6e', '#1168bd', '#b0d4f5'],
   container: ['#154f88', '#3880c4', '#c5e2f8'],
@@ -15,7 +26,22 @@ const TYPE_COLORS: Record<string, readonly [string, string, string]> = {
   person:    ['#4a0a10', '#b83020', '#f0a8a8'],
 } as const
 
-const FALLBACK_COLORS = ['#181830', '#36366a', '#9090b8'] as const
+const FALLBACK_COLORS_LIGHT = ['#d4d4ec', '#9090c0', '#1a1a3a'] as const
+const FALLBACK_COLORS_DARK  = ['#181830', '#36366a', '#9090b8'] as const
+
+function useIsDarkTheme(): boolean {
+  const [dark, setDark] = useState(
+    () => document.documentElement.getAttribute('data-theme') !== 'light'
+  )
+  useEffect(() => {
+    const obs = new MutationObserver(() => {
+      setDark(document.documentElement.getAttribute('data-theme') !== 'light')
+    })
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+  return dark
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -188,6 +214,9 @@ function flatten(nodes: TNode[], out: TNode[] = []): TNode[] {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function TreemapView(): React.ReactElement {
+  const isDark          = useIsDarkTheme()
+  const TYPE_COLORS     = isDark ? TYPE_COLORS_DARK : TYPE_COLORS_LIGHT
+  const FALLBACK_COLORS = isDark ? FALLBACK_COLORS_DARK : FALLBACK_COLORS_LIGHT
   const c4Nodes         = useDiagramStore(s => s.c4Nodes)
   const c4Relations     = useDiagramStore(s => s.c4Relations)
   const metamodel       = useDiagramStore(s => s.metamodel)

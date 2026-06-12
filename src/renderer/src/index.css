@@ -2000,7 +2000,7 @@ body {
   cursor: default;
 }
 
-.props-textarea { resize: vertical; min-height: 60px; }
+.props-textarea { resize: vertical; min-height: 60px; max-height: 80vh; overflow-y: auto; }
 
 .props-type-badge {
   display: inline-flex;

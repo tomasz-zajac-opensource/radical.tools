@@ -1,8 +1,33 @@
-import React, { ChangeEvent, useState, useMemo, useEffect } from 'react'
+import React, { ChangeEvent, useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { useDiagramStore, nodeEffectivelyCollapsedInView } from '../store/diagramStore'
 import { C4ElementType, NODE_COLORS, TYPE_LABELS, TYPE_ICON_PATHS, NODE_FG, isContainerType } from '../types/c4'
 import { resolveEarsSubject } from '../types/metamodel'
 import type { HubImportRecord } from '../store/hubStore'
+
+// ── AutoResizeTextarea ────────────────────────────────────────────────────────
+
+function AutoResizeTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  const resize = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.8)}px`
+  }, [])
+
+  useEffect(() => { resize() }, [props.value, resize])
+
+  return (
+    <textarea
+      {...props}
+      ref={ref}
+      className="props-textarea"
+      style={{ overflow: 'hidden', ...props.style }}
+      onInput={resize}
+    />
+  )
+}
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -1524,7 +1549,7 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
         return (
           <div className="props-field" key={key}>
             <label className="props-label">{label}</label>
-            <textarea className="props-textarea" value={String(value ?? '')} onChange={onChange}
+            <AutoResizeTextarea value={String(value ?? '')} onChange={onChange}
               readOnly={readOnly} />
           </div>
         )
@@ -1584,7 +1609,7 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
         return (
           <div className="props-field" key={p.key}>
             <label className="props-label">{p.label}</label>
-            <textarea className="props-textarea" value={String(value ?? '')}
+            <AutoResizeTextarea value={String(value ?? '')}
               onChange={onChange} readOnly={readOnly} />
           </div>
         )
