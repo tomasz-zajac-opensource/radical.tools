@@ -1,6 +1,6 @@
 import React, { memo, useCallback } from 'react'
 import { NodeProps, Handle, Position } from 'reactflow'
-import { C4NodeRFData, NODE_COLORS } from '../../types/c4'
+import { C4NodeRFData, NODE_COLORS, TYPE_ICON_PATHS } from '../../types/c4'
 import { useDiagramStore } from '../../store/diagramStore'
 import { composeEarsSentence, resolveEarsSubject } from '../../types/metamodel'
 
@@ -829,4 +829,76 @@ export const RequirementNode = memo(({ data, selected }: NodeProps<C4NodeRFData>
 })
 
 RequirementNode.displayName = 'RequirementNode'
+
+// ─── Blueprint Node ───────────────────────────────────────────────────────────
+//
+// Container-style node that groups related solution elements (requirements,
+// fitness functions, ADRs, systems, etc.) imported from the Hub.
+
+const BP_COLOR = '#1e3a5f'
+const BP_ACCENT = '#3b7cc9'
+
+export const BlueprintNode = memo(({ data, selected }: NodeProps<C4NodeRFData>) => {
+  const isExpanded = data.hasChildren && !data.collapsed
+
+  return (
+    <div
+      className={`c4-node${isExpanded ? ' c4-node-expanded' : ''}`}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: isExpanded ? 'transparent' : BP_COLOR,
+        border: `2px ${isExpanded ? 'dashed' : 'solid'} ${selected ? 'var(--accent)' : isExpanded ? BP_ACCENT : 'rgba(0,0,0,0.25)'}`,
+        borderRadius: 8,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AllHandles />
+      <DiffOverlay c4id={data.c4id} />
+
+      {/* Header strip */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '4px 10px',
+        background: isExpanded ? `${BP_COLOR}cc` : 'rgba(0,0,0,0.25)',
+        flexShrink: 0,
+      }}>
+        <svg viewBox="0 0 16 16" width="12" height="12" fill={isExpanded ? '#7ab8f0' : 'rgba(255,255,255,0.6)'} style={{ flexShrink: 0 }}>
+          <path d={TYPE_ICON_PATHS['blueprint']} />
+        </svg>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: isExpanded ? '#7ab8f0' : 'rgba(255,255,255,0.6)' }}>
+          Blueprint
+        </span>
+      </div>
+
+      {/* Label */}
+      {!isExpanded && (
+        <div style={{ flex: 1, padding: '6px 10px', overflow: 'hidden', display: 'flex', alignItems: 'center' }}>
+          <span style={{
+            fontSize: 13, fontWeight: 700, color: '#fff',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+            whiteSpace: 'normal', wordBreak: 'break-word',
+          }}>
+            {data.label}
+          </span>
+        </div>
+      )}
+      {isExpanded && (
+        <div style={{ padding: '2px 10px 0' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#7ab8f0' }}>
+            {data.label}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+})
+
+BlueprintNode.displayName = 'BlueprintNode'
 

@@ -60,6 +60,9 @@ export interface NodeTypeDef {
   properties?: PropertyDef[]
   /** Built-in types come from the C4 preset and cannot be deleted. */
   builtin?: boolean
+  /** Hub-only types are imported from the Hub and should not appear in the
+   *  canvas element palette (users cannot create them manually). */
+  hubOnly?: boolean
 }
 
 export interface RelationPair {
@@ -531,6 +534,38 @@ export function builtInGovernanceMetamodel(): Metamodel {
     builtin: true,
   }
 
+  // ── Blueprint ─────────────────────────────────────────────────────────────
+
+  const blueprintProps: PropertyDef[] = [
+    { key: 'description', label: 'Description', type: 'textarea' },
+    {
+      key: 'status',
+      label: 'Status',
+      type: 'enum',
+      options: ['draft', 'reviewed', 'approved', 'deprecated'],
+      default: 'draft',
+    },
+    { key: 'domain',   label: 'Domain / Context',  type: 'text' },
+    { key: 'rationale', label: 'Rationale', type: 'textarea' },
+  ]
+
+  const blueprint: NodeTypeDef = {
+    id: 'blueprint',
+    label: 'Blueprint',
+    color: '#1e3a5f',
+    fg: '#fff',
+    iconPath: TYPE_ICON_PATHS['blueprint'],
+    width: NODE_SIZES['blueprint'].width,
+    height: NODE_SIZES['blueprint'].height,
+    collapsedWidth: COLLAPSED_WIDTH['blueprint'],
+    collapsedHeight: COLLAPSED_HEIGHT['blueprint'],
+    allowedParents: ['domain', 'group'],
+    allowedAtRoot: true,
+    builtin: true,
+    hubOnly: true,
+    properties: blueprintProps,
+  }
+
   return {
     id: 'c4-ddd-governance-builtin',
     name: 'C4 + DDD + Governance',
@@ -539,6 +574,7 @@ export function builtInGovernanceMetamodel(): Metamodel {
       adr,
       'fitness-fn': fitnessFn,
       requirement,
+      blueprint,
     },
     relationTypes: {
       ...base.relationTypes,

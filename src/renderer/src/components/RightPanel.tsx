@@ -1414,17 +1414,27 @@ function reapplyTemplate(
 function HubTemplateSection({
   record,
   importId,
+  nodeId,
   readOnly,
   updateNode,
 }: {
   record: HubImportRecord
   importId: string
+  nodeId: string
   readOnly: boolean
   updateNode: (id: string, updates: Record<string, unknown>) => void
 }) {
   const upsertHubTemplate = useDiagramStore((s) => s.upsertHubTemplate)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, string>>(record.paramValues)
+
+  // If nodeParams map exists, use only this node's params (undefined = node has none).
+  // Fall back to record.templateParams only when no per-node map was built (legacy records).
+  const nodeSpecificParams = record.nodeParams
+    ? record.nodeParams[nodeId]
+    : record.templateParams
+  // If this node has no params, render nothing.
+  if (!nodeSpecificParams?.length) return null
 
   // Sync draft when record changes externally (e.g. after save/load)
   useEffect(() => { setDraft({ ...record.paramValues }) }, [importId, JSON.stringify(record.paramValues)]) // eslint-disable-line
@@ -1445,7 +1455,7 @@ function HubTemplateSection({
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {record.templateParams.map(p => (
+          {nodeSpecificParams.map(p => (
             <div key={p.key} className="props-field" style={{ marginBottom: 0 }}>
               <label className="props-label">{p.label}</label>
               <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '4px 0' }}>
@@ -1462,7 +1472,7 @@ function HubTemplateSection({
     <div style={{ marginTop: 12 }}>
       <div className="props-section-title">Hub Template</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {record.templateParams.map(p => (
+        {nodeSpecificParams.map(p => (
           <div key={p.key} className="props-field">
             <label className="props-label">{p.label}</label>
             {p.hint && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.hint}</span>}
@@ -1712,6 +1722,7 @@ function PropertiesContent({ readOnly = false }: { readOnly?: boolean }) {
             <HubTemplateSection
               record={record}
               importId={importId}
+              nodeId={node.id}
               readOnly={readOnly}
               updateNode={(id, patch) => updateNode(id, patch as Parameters<typeof updateNode>[1])}
             />

@@ -1983,5 +1983,179 @@
       { "id": "pat-hex-r2", "sourceId": "pat-hex-app", "targetId": "pat-hex-db", "label": "Uses repository port", "technology": "" },
       { "id": "pat-hex-r3", "sourceId": "pat-hex-app", "targetId": "pat-hex-ext", "label": "Uses external port", "technology": "" }
     ]
+  },
+  {
+    "id": "bp-analytical-data-platform",
+    "category": "blueprint",
+    "name": "Analytical Data Platform",
+    "description": "A complete blueprint for an analytical data platform (data warehouse / lakehouse). Includes core systems, EARS requirements, fitness functions, and architecture decisions. Import all or select individual elements.",
+    "tags": ["data", "analytics", "warehouse", "lakehouse", "reporting", "etl", "governance"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "bp-adp-sys-ingestion",
+        "type": "system",
+        "label": "Data Ingestion",
+        "description": "Collects raw data from operational systems, third-party APIs, and event streams. Handles batch and streaming loads.",
+        "technology": "Apache Kafka / Airbyte",
+        "x": 60, "y": 60, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-sys-storage",
+        "type": "system",
+        "label": "Data Lake / Warehouse",
+        "description": "Stores raw, curated, and aggregated data. Supports both schema-on-read (lake) and schema-on-write (warehouse) patterns.",
+        "technology": "Snowflake / Delta Lake / BigQuery",
+        "x": 500, "y": 60, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-sys-transform",
+        "type": "system",
+        "label": "Transformation Layer",
+        "description": "Applies business logic, cleansing, and aggregation rules to produce analytical datasets. Supports incremental and full-refresh models.",
+        "technology": "dbt / Spark",
+        "x": 60, "y": 340, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-sys-serving",
+        "type": "system",
+        "label": "Serving / BI Layer",
+        "description": "Exposes curated datasets to business users via dashboards, embedded analytics, and self-service query tools.",
+        "technology": "Power BI / Looker / Superset",
+        "x": 500, "y": 340, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-latency",
+        "type": "requirement",
+        "label": "Ingestion Latency",
+        "ears_type": "ubiquitous",
+        "action": "deliver all streaming events to the data lake within {{INGESTION_LATENCY_SECONDS}} seconds of generation",
+        "templateParams": [
+          { "key": "INGESTION_LATENCY_SECONDS", "label": "Ingestion latency (seconds)", "hint": "60", "type": "number", "defaultValue": "60" }
+        ],
+        "priority": "must",
+        "status": "draft",
+        "rationale": "Near-real-time data enables operational dashboards and timely alerting.",
+        "x": 940, "y": 60, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-quality",
+        "type": "requirement",
+        "label": "Data Quality Gate",
+        "ears_type": "ubiquitous",
+        "action": "reject or quarantine any record that fails schema validation or referential-integrity checks before loading into the curated zone",
+        "priority": "must",
+        "status": "draft",
+        "rationale": "Prevents propagation of bad data into analytical models and dashboards.",
+        "x": 940, "y": 180, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-access",
+        "type": "requirement",
+        "label": "Role-based Access",
+        "ears_type": "ubiquitous",
+        "action": "enforce column- and row-level security based on the viewer's organisational role, with no exceptions",
+        "priority": "must",
+        "status": "draft",
+        "rationale": "Sensitive financial and personal data must not be accessible to unauthorised roles.",
+        "x": 940, "y": 300, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-lineage",
+        "type": "requirement",
+        "label": "Data Lineage",
+        "ears_type": "ubiquitous",
+        "action": "record full column-level lineage for every transformation and expose it through the catalogue API",
+        "priority": "should",
+        "status": "draft",
+        "rationale": "Lineage is required for regulatory audits and enables trust in analytical outputs.",
+        "x": 940, "y": 420, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-ff-freshness",
+        "type": "fitness-fn",
+        "label": "Data Freshness Guard",
+        "description": "Verifies that each critical dataset in the warehouse is refreshed within its SLA window. Alerts on-call if a model has not run within the agreed interval.",
+        "category": "operational",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "All critical models refreshed within their SLA (default: {{FRESHNESS_SLA_HOURS}} h)",
+        "templateParams": [
+          { "key": "FRESHNESS_SLA_HOURS", "label": "Dataset freshness SLA (hours)", "hint": "4", "type": "number", "defaultValue": "4" }
+        ],
+        "status": "active",
+        "x": 1200, "y": 60, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-ff-quality",
+        "type": "fitness-fn",
+        "label": "Data Quality Score",
+        "description": "Runs dbt tests or Great Expectations suites after each transformation run. Fails the pipeline and alerts if the pass-rate drops below threshold.",
+        "category": "operational",
+        "automated": true,
+        "trigger": "on-deploy",
+        "threshold": "Test pass-rate ≥ {{QUALITY_PASS_PCT}}%",
+        "templateParams": [
+          { "key": "QUALITY_PASS_PCT", "label": "Data quality test pass-rate (%)", "hint": "99", "type": "number", "defaultValue": "99" }
+        ],
+        "status": "active",
+        "x": 1200, "y": 130, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-ff-cost",
+        "type": "fitness-fn",
+        "label": "Query Cost Guard",
+        "description": "Tracks cloud warehouse credit consumption per team/project. Blocks scheduling of ad-hoc queries that would exceed the daily budget.",
+        "category": "holistic",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "Daily spend ≤ {{DAILY_BUDGET_CAP}} per team",
+        "templateParams": [
+          { "key": "DAILY_BUDGET_CAP", "label": "Daily warehouse budget cap per team", "hint": "1000", "defaultValue": "1000" }
+        ],
+        "status": "proposed",
+        "x": 1200, "y": 200, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-adr-storage",
+        "type": "adr",
+        "label": "ADR-001: Lakehouse over pure DWH",
+        "status": "accepted",
+        "date": "2024-01-15",
+        "context": "The organisation needs to support both structured reporting (SQL/BI tools) and unstructured / ML workloads on the same data. A traditional relational DWH cannot cost-effectively store raw JSON, image metadata, or large model artefacts.",
+        "decision": "Adopt a lakehouse architecture (Delta Lake / Iceberg open table format on object storage) as the primary storage layer, with a semantic layer (Snowflake / BigQuery) for curated, high-performance analytical queries.",
+        "consequences": "Teams can run ML experiments directly on raw data without ETL. Storage costs decrease vs a full DWH copy. Governance requires careful management of open-format schemas and compaction jobs.",
+        "alternatives": "1. Pure cloud DWH (Snowflake only) — simpler but expensive at ML scale. 2. Hadoop-based data lake — mature but operationally heavy.",
+        "x": 1200, "y": 280, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-adr-transform",
+        "type": "adr",
+        "label": "ADR-002: dbt as transformation standard",
+        "status": "accepted",
+        "date": "2024-02-03",
+        "context": "Multiple teams write transformation logic in ad-hoc SQL scripts, Spark jobs, and stored procedures. Lack of version control, testing, and documentation creates data trust issues.",
+        "decision": "Standardise all curated-zone transformations on dbt (data build tool). All models must have at least one schema test and a description. Spark is permitted for raw ingestion and heavy ML feature engineering only.",
+        "consequences": "Improved lineage, automated testing, and documentation. Learning curve for teams unfamiliar with dbt. CI/CD pipeline required for model deployment.",
+        "alternatives": "1. Custom Spark jobs — more flexible but no built-in lineage or testing conventions. 2. Stored procedures — tightly coupled to warehouse vendor.",
+        "x": 1200, "y": 350, "width": 180, "height": 52, "collapsed": false
+      }
+    ],
+    "relations": [
+      { "id": "bp-adp-r1", "sourceId": "bp-adp-sys-ingestion", "targetId": "bp-adp-sys-storage", "label": "Loads raw data", "technology": "Kafka / S3 / GCS" },
+      { "id": "bp-adp-r2", "sourceId": "bp-adp-sys-storage", "targetId": "bp-adp-sys-transform", "label": "Reads raw zone", "technology": "SQL / Spark" },
+      { "id": "bp-adp-r3", "sourceId": "bp-adp-sys-transform", "targetId": "bp-adp-sys-storage", "label": "Writes curated zone", "technology": "dbt / SQL" },
+      { "id": "bp-adp-r4", "sourceId": "bp-adp-sys-storage", "targetId": "bp-adp-sys-serving", "label": "Serves analytical datasets", "technology": "SQL / JDBC" },
+      { "id": "bp-adp-r5", "sourceId": "bp-adp-sys-ingestion", "targetId": "bp-adp-req-latency", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r6", "sourceId": "bp-adp-sys-transform", "targetId": "bp-adp-req-quality", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r7", "sourceId": "bp-adp-sys-serving", "targetId": "bp-adp-req-access", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r8", "sourceId": "bp-adp-req-latency", "targetId": "bp-adp-ff-freshness", "relationType": "traces-to", "label": "" },
+      { "id": "bp-adp-r9", "sourceId": "bp-adp-req-quality", "targetId": "bp-adp-ff-quality", "relationType": "traces-to", "label": "" },
+      { "id": "bp-adp-r10", "sourceId": "bp-adp-adr-storage", "targetId": "bp-adp-sys-storage", "relationType": "constrains", "label": "" },
+      { "id": "bp-adp-r11", "sourceId": "bp-adp-adr-transform", "targetId": "bp-adp-sys-transform", "relationType": "constrains", "label": "" },
+      { "id": "bp-adp-r12", "sourceId": "bp-adp-sys-transform", "targetId": "bp-adp-req-lineage", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r13", "sourceId": "bp-adp-ff-cost", "targetId": "bp-adp-sys-storage", "relationType": "constrains", "label": "" },
+      { "id": "bp-adp-r14", "sourceId": "bp-adp-ff-cost", "targetId": "bp-adp-sys-serving", "relationType": "constrains", "label": "" }
+    ]
   }
 ]

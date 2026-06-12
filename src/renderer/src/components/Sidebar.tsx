@@ -161,7 +161,7 @@ export function Sidebar({ open, onToggle }: { open: boolean; onToggle: () => voi
   const paletteIds = [
     ...C4_ORDER.filter(t => allTypeIds.includes(t)),
     ...allTypeIds.filter(t => !C4_ORDER.includes(t)),
-  ]
+  ].filter(t => !metamodel?.nodeTypes[t]?.hubOnly)
 
   return (
     <div className={`sidebar ${open ? '' : 'sidebar--closed'}`}>

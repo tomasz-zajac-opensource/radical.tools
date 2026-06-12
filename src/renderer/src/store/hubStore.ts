@@ -29,11 +29,17 @@ export interface HubImportRecord {
    * Positions (x/y/width/height) are excluded — they are user-managed.
    */
   originalNodes: Record<string, Record<string, unknown>>
+  /**
+   * Per-node template params keyed by new node UUID.
+   * Derived from hub-data node-level templateParams at import time.
+   * Used by RightPanel to show only the params relevant to a given node.
+   */
+  nodeParams?: Record<string, TemplateParam[]>
 }
 
 export interface HubConcept {
   id: string
-  category: 'pattern' | 'fitness-function' | 'requirement' | 'adr'
+  category: 'pattern' | 'fitness-function' | 'requirement' | 'adr' | 'blueprint'
   name: string
   description: string
   tags: string[]
@@ -43,6 +49,12 @@ export interface HubConcept {
   templateParams?: TemplateParam[]
   nodes: Array<Record<string, unknown>>
   relations?: Array<Record<string, unknown>>
+  /**
+   * IDs of other hub concepts that this blueprint recommends importing alongside
+   * its own inline elements. Used by blueprints to reference existing standalone
+   * requirements, fitness functions, ADRs, or patterns from the hub catalogue.
+   */
+  hubRefs?: string[]
 }
 
 // ─── Store types ────────────────────────────────────────────────────────────
@@ -72,8 +84,8 @@ interface HubState {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const HUB_URL = 'https://hub.radical.tools/hub-data.json'
-const FALLBACK_URL = '/hub-data.json'
+const HUB_URL = import.meta.env.DEV ? '/hub-data.json' : 'https://hub.radical.tools/hub-data.json'
+const FALLBACK_URL = import.meta.env.DEV ? 'https://hub.radical.tools/hub-data.json' : '/hub-data.json'
 const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 // ─── Store ──────────────────────────────────────────────────────────────────

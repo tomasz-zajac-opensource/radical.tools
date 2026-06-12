@@ -20,6 +20,7 @@ const CATEGORY_ICON: Record<string, string> = {
   'fitness-function': '🎯',
   requirement: '📋',
   adr: '📄',
+  blueprint: '🔷',
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -27,9 +28,10 @@ const CATEGORY_LABEL: Record<string, string> = {
   'fitness-function': 'Fitness Fns',
   requirement: 'Requirements',
   adr: 'ADRs',
+  blueprint: 'Blueprints',
 }
 
-const CATEGORIES = ['pattern', 'fitness-function', 'requirement', 'adr'] as const
+const CATEGORIES = ['pattern', 'fitness-function', 'requirement', 'adr', 'blueprint'] as const
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
@@ -256,6 +258,7 @@ const CATEGORY_BADGE_COLORS: Record<string, string> = {
   'fitness-function': '#5b21b6',
   requirement: '#0e7490',
   adr: '#92400e',
+  blueprint: '#1e3a5f',
 }
 
 // ─── Template substitution ──────────────────────────────────────────────────
@@ -327,6 +330,14 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
   // concept that has templateParams.
   const [pendingConcept, setPendingConcept] = useState<HubConcept | null>(null)
   const [paramValues, setParamValues] = useState<Record<string, string>>({})
+
+  // Blueprint picker state: set when user clicks "Add to Model" on a blueprint.
+  const [blueprintConcept, setBlueprintConcept] = useState<HubConcept | null>(null)
+  const [blueprintSelected, setBlueprintSelected] = useState<Set<string>>(new Set())
+  const [blueprintSelectedRefs, setBlueprintSelectedRefs] = useState<Set<string>>(new Set())
+
+  // All concepts indexed by id — used to resolve hubRefs in the blueprint picker.
+  const allConcepts = useHubStore((s) => s.concepts)
 
   // Initialise default values whenever a new concept is pending.
   useEffect(() => {
@@ -427,6 +438,8 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
           description: (raw.description as string) ?? undefined,
           technology: (raw.technology as string) ?? undefined,
           collapsed: (raw.collapsed as boolean) ?? false,
+          // templateParams is hub metadata — strip it from the C4Node.
+          templateParams: undefined,
           // parentId is intentionally omitted here — handled below after ID remapping.
           parentId: undefined,
           // Children: keep hub-data relative coords as-is (they're relative to their concept-parent).
@@ -499,9 +512,14 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
       if (templateData && concept.templateParams?.length) {
         const importId = crypto.randomUUID()
         const originalNodesMap: Record<string, Record<string, unknown>> = {}
+        const nodeParamsMap: Record<string, TemplateParam[]> = {}
         for (const origNode of templateData.originalConcept.nodes) {
           const newId = idMap.get(origNode.id as string)
-          if (newId) originalNodesMap[newId] = origNode as Record<string, unknown>
+          if (newId) {
+            originalNodesMap[newId] = origNode as Record<string, unknown>
+            const perNodeParams = origNode.templateParams as TemplateParam[] | undefined
+            if (perNodeParams?.length) nodeParamsMap[newId] = perNodeParams
+          }
         }
         const record: HubImportRecord = {
           conceptId: concept.id,
@@ -510,6 +528,7 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
           paramValues: { ...templateData.paramValues },
           nodeIds: Object.keys(newNodes),
           originalNodes: originalNodesMap,
+          nodeParams: Object.keys(nodeParamsMap).length ? nodeParamsMap : undefined,
         }
         store.upsertHubTemplate(importId, record)
       }
@@ -525,11 +544,16 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
     [onClose],
   )
 
-  // Clicking "Add to Model": show template fill form if the concept has params,
-  // otherwise import immediately.
+  // Clicking "Add to Model": show blueprint picker for blueprints, template
+  // fill form for parameterised concepts, otherwise import immediately.
   const handleImportClick = useCallback(
     (concept: HubConcept) => {
-      if (concept.templateParams?.length) {
+      if (concept.category === 'blueprint') {
+        // Pre-select all non-blueprint-type nodes (the blueprint root is not imported as a node).
+        setBlueprintSelected(new Set(concept.nodes.filter((n) => n.type !== 'blueprint').map((n) => n.id as string)))
+        setBlueprintSelectedRefs(new Set(concept.hubRefs ?? []))
+        setBlueprintConcept(concept)
+      } else if (concept.templateParams?.length) {
         setPendingConcept(concept)
       } else {
         handleImport(concept)
@@ -707,6 +731,195 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
             )
           })}
         </div>
+
+        {/* ── Blueprint element picker overlay ────────────────────────── */}
+        {blueprintConcept && (
+          <div style={S.templateOverlay}>
+            <div style={S.templateHeader}>
+              <div>
+                <h3 style={S.title}>🔷 {blueprintConcept.name}</h3>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+                  Select which elements to import into your model.
+                </p>
+              </div>
+              <button type="button" style={S.closeBtn} onClick={() => setBlueprintConcept(null)} aria-label="Cancel">✕</button>
+            </div>
+
+            <div style={S.templateBody}>
+              {/* ── Inline elements section ── */}
+              {(() => {
+                const grouped: Record<string, Array<Record<string, unknown>>> = {}
+                for (const n of blueprintConcept.nodes) {
+                  const t = (n.type as string) ?? 'component'
+                  if (!grouped[t]) grouped[t] = []
+                  grouped[t].push(n)
+                }
+                const TYPE_LABELS_LOCAL: Record<string, string> = {
+                  blueprint: 'Blueprint root', system: 'Systems', container: 'Containers',
+                  component: 'Components', database: 'Databases', webapp: 'Web Apps',
+                  queue: 'Queues', domain: 'Domains', group: 'Groups',
+                  adr: 'ADRs', 'fitness-fn': 'Fitness Functions', requirement: 'Requirements',
+                }
+                return Object.entries(grouped).filter(([type]) => type !== 'blueprint').map(([type, nodes]) => (
+                  <div key={type} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 2 }}>
+                      {TYPE_LABELS_LOCAL[type] ?? type} ({nodes.length})
+                    </div>
+                    {nodes.map((n) => {
+                      const nodeId = n.id as string
+                      const checked = blueprintSelected.has(nodeId)
+                      return (
+                        <label key={nodeId} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', padding: '4px 6px', borderRadius: 4, background: checked ? 'rgba(59,124,201,0.12)' : 'transparent' }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+                            onChange={() => {
+                              setBlueprintSelected((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(nodeId)) next.delete(nodeId)
+                                else next.add(nodeId)
+                                return next
+                              })
+                            }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                              {(n.label as string) || nodeId}
+                            </div>
+                            {typeof n.description === 'string' && n.description && (
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                                {n.description}
+                              </div>
+                            )}
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                ))
+              })()}
+
+              {/* ── Referenced hub concepts section ── */}
+              {blueprintConcept.hubRefs && blueprintConcept.hubRefs.length > 0 && (() => {
+                const refs = blueprintConcept.hubRefs
+                  .map((id) => allConcepts.find((c) => c.id === id))
+                  .filter((c): c is HubConcept => !!c)
+                if (refs.length === 0) return null
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 8, borderTop: '1px solid var(--border-color)', marginTop: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em', color: 'var(--text-muted)', marginBottom: 2 }}>
+                      Referenced Hub Concepts ({refs.length})
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>
+                      Standalone hub items recommended by this blueprint. Each will be imported as a separate concept.
+                    </div>
+                    {refs.map((ref) => {
+                      const checked = blueprintSelectedRefs.has(ref.id)
+                      return (
+                        <label key={ref.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', padding: '4px 6px', borderRadius: 4, background: checked ? 'rgba(59,124,201,0.12)' : 'transparent' }}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+                            onChange={() => {
+                              setBlueprintSelectedRefs((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(ref.id)) next.delete(ref.id)
+                                else next.add(ref.id)
+                                return next
+                              })
+                            }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 12 }}>{CATEGORY_ICON[ref.category] ?? '📦'}</span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                                {ref.name}
+                              </span>
+                              <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8, background: CATEGORY_BADGE_COLORS[ref.category] ?? '#555', color: '#fff', flexShrink: 0 }}>
+                                {CATEGORY_LABEL[ref.category] ?? ref.category}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                              {ref.description}
+                            </div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+
+            <div style={S.templateFooter}>
+              <button
+                type="button"
+                style={{ ...S.importBtn, background: 'none', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                onClick={() => {
+                  const allNodeIds = new Set(blueprintConcept.nodes.map((n) => n.id as string))
+                  const allRefIds = new Set(blueprintConcept.hubRefs ?? [])
+                  const allSelected = blueprintSelected.size === allNodeIds.size && blueprintSelectedRefs.size === allRefIds.size
+                  if (allSelected) {
+                    setBlueprintSelected(new Set())
+                    setBlueprintSelectedRefs(new Set())
+                  } else {
+                    setBlueprintSelected(allNodeIds)
+                    setBlueprintSelectedRefs(allRefIds)
+                  }
+                }}
+              >
+                {blueprintSelected.size === blueprintConcept.nodes.length && blueprintSelectedRefs.size === (blueprintConcept.hubRefs?.length ?? 0)
+                  ? 'Deselect all' : 'Select all'}
+              </button>
+              <button type="button" style={{ ...S.importBtn, background: 'var(--input-bg)', color: 'var(--text-secondary)' }} onClick={() => setBlueprintConcept(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                style={{ ...S.importBtn, opacity: blueprintSelected.size === 0 && blueprintSelectedRefs.size === 0 ? 0.5 : 1 }}
+                disabled={blueprintSelected.size === 0 && blueprintSelectedRefs.size === 0}
+                onClick={() => {
+                  const concept = blueprintConcept
+                  const selectedRefs = blueprintSelectedRefs
+                  setBlueprintConcept(null)
+                  // Import inline elements (filtered by selection)
+                  if (blueprintSelected.size > 0) {
+                    const filteredNodes = concept.nodes.filter((n) => blueprintSelected.has(n.id as string))
+                    const filteredRelations = (concept.relations ?? []).filter(
+                      (r) => blueprintSelected.has(r.sourceId as string) && blueprintSelected.has(r.targetId as string)
+                    )
+                    // Collect templateParams from selected nodes (deduplicate by key).
+                    const seenKeys = new Set<string>()
+                    const collectedParams: TemplateParam[] = []
+                    for (const n of filteredNodes) {
+                      const nodePs = n.templateParams as TemplateParam[] | undefined
+                      if (nodePs) {
+                        for (const p of nodePs) {
+                          if (!seenKeys.has(p.key)) { seenKeys.add(p.key); collectedParams.push(p) }
+                        }
+                      }
+                    }
+                    const filteredConcept = { ...concept, nodes: filteredNodes, relations: filteredRelations, templateParams: collectedParams.length ? collectedParams : undefined }
+                    if (filteredConcept.templateParams?.length) {
+                      setPendingConcept(filteredConcept)
+                    } else {
+                      handleImport(filteredConcept)
+                    }
+                  }
+                  // Import each selected referenced hub concept individually
+                  for (const refId of selectedRefs) {
+                    const refConcept = allConcepts.find((c) => c.id === refId)
+                    if (refConcept) handleImport(refConcept)
+                  }
+                }}
+              >
+                Import ({blueprintSelected.size} inline{blueprintSelectedRefs.size > 0 ? ` + ${blueprintSelectedRefs.size} refs` : ''})
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Template parameter fill overlay ─────────────────────────── */}
         {pendingConcept && (

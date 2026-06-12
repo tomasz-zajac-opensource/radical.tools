@@ -23,3 +23,4 @@ infra/*.tfvars
 infra/override.tf
 infra/override.tf.json
 # Note: infra/.terraform.lock.hcl IS committed (pins provider versions)
+src/renderer/public/hub-data.json

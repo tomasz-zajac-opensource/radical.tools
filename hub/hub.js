@@ -7,14 +7,16 @@
     'pattern': '🏗️',
     'fitness-function': '🎯',
     'requirement': '📋',
-    'adr': '📄'
+    'adr': '📄',
+    'blueprint': '🔷'
   };
 
   const CATEGORY_LABELS = {
     'pattern': 'Pattern',
     'fitness-function': 'Fitness Function',
     'requirement': 'Requirement',
-    'adr': 'ADR Template'
+    'adr': 'ADR Template',
+    'blueprint': 'Blueprint'
   };
 
   let allConcepts = [];
@@ -89,7 +91,8 @@
       { key: 'pattern', label: 'Patterns', count: counts['pattern'] || 0 },
       { key: 'fitness-function', label: 'Fitness Functions', count: counts['fitness-function'] || 0 },
       { key: 'requirement', label: 'Requirements', count: counts['requirement'] || 0 },
-      { key: 'adr', label: 'ADR Templates', count: counts['adr'] || 0 }
+      { key: 'adr', label: 'ADR Templates', count: counts['adr'] || 0 },
+      { key: 'blueprint', label: 'Blueprints', count: counts['blueprint'] || 0 }
     ];
 
     nav.innerHTML = items.map(it =>
@@ -206,6 +209,13 @@
         badges.push(badge('Nodes', String(concept.nodes.length)));
         badges.push(badge('Relations', String((concept.relations || []).length)));
         break;
+
+      case 'blueprint':
+        badges.push(badge('Elements', String(concept.nodes.length)));
+        badges.push(badge('Relations', String((concept.relations || []).length)));
+        if (node.domain) badges.push(badge('Domain', node.domain));
+        if (node.status) badges.push(badge('Status', node.status, node.status === 'approved' ? 'badge-green' : ''));
+        break;
     }
 
     return badges.join('');
@@ -222,12 +232,14 @@
     component: '#85bbf0', database: '#0e6db5', webapp: '#2563eb',
     queue: '#7c3aed', domain: '#5b21b6', group: '#4b5563',
     'fitness-fn': '#0e7490', requirement: '#065f46', adr: '#92400e',
+    blueprint: '#1e3a5f',
   };
   const NODE_TYPE_LABELS = {
     person: 'Person', system: 'System', container: 'Container',
     component: 'Component', database: 'Database', webapp: 'Web App',
     queue: 'Queue', domain: 'Domain', group: 'Group',
     'fitness-fn': 'Fitness Fn', requirement: 'Requirement', adr: 'ADR',
+    blueprint: 'Blueprint',
   };
 
   function infoBadge(label, value, cls) {

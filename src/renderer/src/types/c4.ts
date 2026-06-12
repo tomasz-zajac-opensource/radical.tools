@@ -2,11 +2,11 @@
 
 import type { Metamodel } from './metamodel'
 
-export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain' | 'group' | 'adr' | 'fitness-fn' | 'requirement'
+export type C4ElementType = 'person' | 'system' | 'container' | 'component' | 'database' | 'webapp' | 'queue' | 'domain' | 'group' | 'adr' | 'fitness-fn' | 'requirement' | 'blueprint'
 
 /** Types that act as containers (can hold children, collapse, auto-resize). */
 export const CONTAINER_TYPES: ReadonlySet<string> = new Set([
-  'system', 'container', 'domain', 'group',
+  'system', 'container', 'domain', 'group', 'blueprint',
 ])
 
 /** True when the given node-type id behaves as a parent container. */
@@ -269,6 +269,7 @@ export const NODE_SIZES: Record<C4ElementType, { width: number; height: number }
   adr:          { width: 180, height: 52 },
   'fitness-fn': { width: 180, height: 52 },
   requirement:  { width: 200, height: 80 },
+  blueprint:    { width: 520, height: 360 },
 }
 
 export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
@@ -284,6 +285,7 @@ export const COLLAPSED_HEIGHT: Record<C4ElementType, number> = {
   adr:          52,
   'fitness-fn': 52,
   requirement:  80,
+  blueprint:    220,
 }
 
 export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
@@ -299,6 +301,7 @@ export const COLLAPSED_WIDTH: Record<C4ElementType, number> = {
   adr:          160,
   'fitness-fn': 160,
   requirement:  180,
+  blueprint:    360,
 }
 
 export const NODE_COLORS: Record<C4ElementType, string> = {
@@ -314,6 +317,7 @@ export const NODE_COLORS: Record<C4ElementType, string> = {
   adr:          '#92400e',
   'fitness-fn': '#5b21b6',
   requirement:  '#0e7490',
+  blueprint:    '#1e3a5f',
 }
 
 export const NODE_FG: Record<C4ElementType, string> = {
@@ -329,6 +333,7 @@ export const NODE_FG: Record<C4ElementType, string> = {
   adr:          '#fff',
   'fitness-fn': '#fff',
   requirement:  '#fff',
+  blueprint:    '#fff',
 }
 
 export const TYPE_LABELS: Record<C4ElementType, string> = {
@@ -344,6 +349,7 @@ export const TYPE_LABELS: Record<C4ElementType, string> = {
   adr:          'ADR',
   'fitness-fn': 'Fitness Function',
   requirement:  'Requirement',
+  blueprint:    'Blueprint',
 }
 
 // ─── SVG icon paths (16×16 viewBox) ──────────────────────────────────────────
@@ -366,4 +372,6 @@ export const TYPE_ICON_PATHS: Record<C4ElementType, string> = {
   'fitness-fn': 'M8 2a6 6 0 1 0 0 12A6 6 0 0 0 8 2Zm0 1.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9ZM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Zm0 1a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z',
   // Requirement: checklist / clipboard with checkmark
   requirement:  'M5 1a1 1 0 0 0-1 1H3a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1h-1a1 1 0 0 0-1-1H5Zm0 1h6v1H5V2ZM4 5.5h1.5v1.5H4V5.5Zm3 .25h5v1H7v-1ZM4 9h1.5v1.5H4V9Zm3 .25h5v1H7v-1Z',
+  // Blueprint: blueprint grid / technical drawing
+  blueprint:    'M2 2h12v12H2V2Zm1 1v2h2V3H3Zm3 0v2h2V3H6Zm3 0v2h2V3H9Zm3 0v2h1V3h-1ZM3 6v2h2V6H3Zm3 0v2h2V6H6Zm3 0v2h2V6H9Zm3 0v2h1V6h-1ZM3 9v2h2V9H3Zm3 0v2h2V9H6Zm3 0v2h2V9H9Zm3 0v2h1V9h-1ZM3 12v1h2v-1H3Zm3 0v1h2v-1H6Zm3 0v1h2v-1H9Zm3 0v1h1v-1h-1Z',
 }
