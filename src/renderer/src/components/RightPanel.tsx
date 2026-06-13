@@ -56,6 +56,15 @@ const PALETTE_SUBLABELS: Record<string, string> = {
 // Order: domain first (when present), then standard C4 order, then any custom types last.
 const PALETTE_ORDER = ['domain', 'group', 'person', 'system', 'container', 'component', 'database', 'webapp', 'queue']
 
+// Groups shown in the palette. Types not listed here fall into "Custom".
+const PALETTE_GROUPS: { label: string; types: string[] }[] = [
+  { label: 'C4',          types: ['person', 'system', 'container', 'component', 'database', 'webapp', 'queue'] },
+  { label: 'Domain',      types: ['domain'] },
+  { label: 'Governance',  types: ['adr', 'fitness-fn', 'blueprint'] },
+  { label: 'Requirements',types: ['requirement'] },
+  { label: 'Other',       types: ['group'] },
+]
+
 function PaletteItem({ typeId, label, sublabel, color, iconPath }: {
   typeId: string
   label: string
@@ -1056,24 +1065,34 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
 
   // Build palette dynamically from metamodel; fall back to static C4 records
   // for built-in types and to def.description / metadata for custom types.
-  const paletteItems = useMemo(() => {
+  const paletteGroups = useMemo(() => {
     const allTypeIds = metamodel ? Object.keys(metamodel.nodeTypes) : [...PALETTE_ORDER]
-    const ordered = [
-      ...PALETTE_ORDER.filter(t => allTypeIds.includes(t)),
-      ...allTypeIds.filter(t => !PALETTE_ORDER.includes(t)),
-    ]
-    return ordered.map((typeId) => {
+
+    const makeItem = (typeId: string) => {
       const def = metamodel?.nodeTypes[typeId]
       const t = typeId as C4ElementType
       const builtIn = (TYPE_LABELS as Record<string, string>)[typeId] !== undefined
       return {
         typeId,
         label: def?.label ?? (builtIn ? TYPE_LABELS[t] : typeId),
-        sublabel: PALETTE_SUBLABELS[typeId] ?? '',
+        sublabel: PALETTE_SUBLABELS[typeId] ?? (def?.description ?? ''),
         color: builtIn ? NODE_COLORS[t] : (def?.color ?? '#64748b'),
         iconPath: builtIn ? TYPE_ICON_PATHS[t] : (TYPE_ICON_PATHS.system),
       }
-    })
+    }
+
+    const assignedTypes = new Set(PALETTE_GROUPS.flatMap(g => g.types))
+    const customTypes = allTypeIds.filter(t => !assignedTypes.has(t) && !metamodel?.nodeTypes[t]?.hubOnly)
+
+    const groups = PALETTE_GROUPS
+      .map(g => ({ label: g.label, items: g.types.filter(t => allTypeIds.includes(t) && !metamodel?.nodeTypes[t]?.hubOnly).map(makeItem) }))
+      .filter(g => g.items.length > 0)
+
+    if (customTypes.length > 0) {
+      groups.push({ label: 'Custom', items: customTypes.map(makeItem) })
+    }
+
+    return groups
   }, [metamodel])
 
   const defaultSection = mode === 'designer' ? 'elements' : 'views'
@@ -1096,12 +1115,14 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
             {mode === 'designer' && (
               <AccordionSection title="Elements"
                 open={openSection === 'elements'} onToggle={() => setOpenSection('elements')}>
-                {paletteItems.map((item) => (
-                  <PaletteItem key={item.typeId} {...item} />
+                {paletteGroups.map((group) => (
+                  <React.Fragment key={group.label}>
+                    <div className="palette-group-label">{group.label}</div>
+                    {group.items.map((item) => (
+                      <PaletteItem key={item.typeId} {...item} />
+                    ))}
+                  </React.Fragment>
                 ))}
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4, padding: '0 4px' }}>
-                  Drag to canvas · Double-click canvas to add System
-                </div>
               </AccordionSection>
             )}
             <AccordionSection title="Views" count={viewsCount}
