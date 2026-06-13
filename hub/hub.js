@@ -19,6 +19,14 @@
     'blueprint': 'Blueprint'
   };
 
+  const CAT_COLORS = {
+    'pattern':          '#2563eb',
+    'fitness-function': '#059669',
+    'requirement':      '#d97706',
+    'adr':              '#7c3aed',
+    'blueprint':        '#0891b2'
+  };
+
   let allConcepts = [];
   let activeCategory = null;
   let activeTag = null;
@@ -37,8 +45,8 @@
     }
 
     parseHash();
+    renderStats();
     renderSidebar();
-    renderTagCloud();
     renderCards();
     bindEvents();
   });
@@ -68,7 +76,8 @@
       if (activeTag && !(c.tags || []).includes(activeTag)) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const haystack = [c.name, c.description, ...(c.tags || [])].join(' ').toLowerCase();
+        const catLabel = (CATEGORY_LABELS[c.category] || c.category).toLowerCase();
+        const haystack = [c.name, c.description, c.category, catLabel, ...(c.tags || [])].join(' ').toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
@@ -87,20 +96,46 @@
     if (!nav) return;
 
     const items = [
-      { key: null, label: 'All', count: counts.all },
-      { key: 'pattern', label: 'Patterns', count: counts['pattern'] || 0 },
-      { key: 'fitness-function', label: 'Fitness Functions', count: counts['fitness-function'] || 0 },
-      { key: 'requirement', label: 'Requirements', count: counts['requirement'] || 0 },
-      { key: 'adr', label: 'ADR Templates', count: counts['adr'] || 0 },
-      { key: 'blueprint', label: 'Blueprints', count: counts['blueprint'] || 0 }
+      { key: null,               label: 'All',              count: counts.all,                           color: '#5e6a90' },
+      { key: 'pattern',          label: 'Patterns',         count: counts['pattern'] || 0,               color: CAT_COLORS['pattern'] },
+      { key: 'fitness-function', label: 'Fitness Functions',count: counts['fitness-function'] || 0,      color: CAT_COLORS['fitness-function'] },
+      { key: 'requirement',      label: 'Requirements',     count: counts['requirement'] || 0,           color: CAT_COLORS['requirement'] },
+      { key: 'adr',              label: 'ADR Templates',    count: counts['adr'] || 0,                   color: CAT_COLORS['adr'] },
+      { key: 'blueprint',        label: 'Blueprints',       count: counts['blueprint'] || 0,             color: CAT_COLORS['blueprint'] }
     ];
 
     nav.innerHTML = items.map(it =>
       `<li><a href="#" data-category="${it.key}" class="${activeCategory === it.key ? 'active' : ''}">
-        ${it.label}
+        <span class="hub-cat-dot" style="background:${it.color}"></span>
+        <span class="hub-cat-name">${it.label}</span>
         <span class="hub-cat-count">${it.count}</span>
       </a></li>`
     ).join('');
+  }
+
+  /* ── Stats ──────────────────────────────────────────────────────────── */
+
+  function renderStats() {
+    const el = document.getElementById('hub-stats');
+    if (!el) return;
+    const items = [
+      { key: 'pattern',          label: 'Patterns',     color: CAT_COLORS['pattern'] },
+      { key: 'fitness-function', label: 'Fitness Fns',  color: CAT_COLORS['fitness-function'] },
+      { key: 'requirement',      label: 'Requirements', color: CAT_COLORS['requirement'] },
+      { key: 'adr',              label: 'ADRs',         color: CAT_COLORS['adr'] },
+      { key: 'blueprint',        label: 'Blueprints',   color: CAT_COLORS['blueprint'] },
+    ];
+    el.innerHTML = items
+      .map(item => {
+        const count = allConcepts.filter(c => c.category === item.key).length;
+        if (count === 0) return '';
+        return `<div class="hub-stat">
+          <span class="hub-stat-number" style="color:${item.color}">${count}</span>
+          <span class="hub-stat-label">${item.label}</span>
+        </div>`;
+      })
+      .filter(Boolean)
+      .join('');
   }
 
   /* ── Tag Cloud ──────────────────────────────────────────────────────── */
@@ -146,25 +181,34 @@
   function cardHTML(concept) {
     const icon = CATEGORY_ICONS[concept.category] || '📦';
     const catLabel = CATEGORY_LABELS[concept.category] || concept.category;
+    const catColor = CAT_COLORS[concept.category] || '#6b7280';
 
     const meta = buildMetaBadges(concept);
     const tags = (concept.tags || []).map(t =>
       `<span class="hub-card-tag" data-tag="${t}">${t}</span>`
     ).join('');
 
+    const ICON_COPY = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>`;
+    const ICON_DOWNLOAD = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.779a.75.75 0 1 1 1.06-1.06l1.97 1.97Z"/></svg>`;
+    const ICON_EYE = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z"/></svg>`;
+
     return `
-    <article class="hub-card" data-id="${concept.id}">
-      <div class="hub-card-header">
-        <span class="hub-card-icon">${icon}</span>
-        <span class="hub-card-title">${escapeHtml(concept.name)}</span>
-        <span class="hub-card-category"><span class="hub-badge badge-accent">${catLabel}</span></span>
+    <article class="hub-card" style="--cat-color:${catColor}" data-id="${concept.id}">
+      <div class="hub-card-body">
+        <div class="hub-card-header">
+          <span class="hub-card-icon">${icon}</span>
+          <span class="hub-card-title">${escapeHtml(concept.name)}</span>
+          <span class="hub-card-category"><span class="hub-badge badge-accent">${catLabel}</span></span>
+        </div>
+        <p class="hub-card-desc">${escapeHtml(concept.description)}</p>
+        ${meta ? `<div class="hub-meta-row">${meta}</div>` : ''}
+        ${templateParamsHTML(concept)}
+        ${tags ? `<div class="hub-card-tags">${tags}</div>` : ''}
       </div>
-      <p class="hub-card-desc">${escapeHtml(concept.description)}</p>
-      ${meta ? `<div class="hub-meta-row">${meta}</div>` : ''}
-      ${templateParamsHTML(concept)}
-      ${tags ? `<div class="hub-card-tags">${tags}</div>` : ''}
       <div class="hub-actions">
-        <button class="hub-json-toggle" data-toggle="${concept.id}">👁 Preview</button>
+        <button class="hub-btn" data-copy="${concept.id}">${ICON_COPY} Copy JSON</button>
+        <button class="hub-btn" data-download="${concept.id}">${ICON_DOWNLOAD} Download</button>
+        <button class="hub-json-toggle" data-toggle="${concept.id}">${ICON_EYE} Preview</button>
       </div>
       <div class="hub-json-preview" id="json-${concept.id}">
         ${previewHTML(concept)}
@@ -423,6 +467,7 @@
       if (toggleBtn) {
         const preview = document.getElementById('json-' + toggleBtn.dataset.toggle);
         if (preview) preview.classList.toggle('open');
+        toggleBtn.classList.toggle('open');
         return;
       }
     });
@@ -433,7 +478,6 @@
       activeTag = null;
       parseHash();
       highlightCategoryNav();
-      renderTagCloud();
       renderCards();
     });
   }
@@ -441,7 +485,6 @@
   function toggleTag(tag) {
     activeTag = activeTag === tag ? null : tag;
     updateHash();
-    renderTagCloud();
     renderCards();
   }
 

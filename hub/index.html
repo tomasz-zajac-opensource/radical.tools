@@ -27,38 +27,43 @@
     </div>
   </header>
 
+  <!-- ── Hero (full-width) ── -->
+  <div class="hub-hero-wrap">
+    <div class="hub-hero">
+      <div class="hub-hero-bg" aria-hidden="true"></div>
+      <div class="hub-hero-eyebrow">
+        <span class="hub-eyebrow-dot"></span>
+        Single source of truth &middot; curated architectural concepts
+      </div>
+      <h1>Architecture Concept Hub</h1>
+      <p>Vetted patterns, fitness functions, requirements and ADR templates — ready to import into your architecture model. Built to be the definitive reference for architectural best practices.</p>
+      <div class="hub-stats" id="hub-stats"></div>
+    </div>
+  </div>
+
   <!-- ── Layout ── -->
   <div class="hub-layout">
 
     <!-- Sidebar -->
     <aside class="hub-sidebar">
       <div class="hub-sidebar-section">
+        <div class="hub-search-wrap">
+          <svg class="hub-search-icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>
+          <input type="text" class="hub-search" id="hub-search" placeholder="Search concepts…" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="hub-sidebar-section">
         <h3>Categories</h3>
         <ul class="hub-cat-nav" id="cat-nav">
           <!-- populated by JS -->
         </ul>
       </div>
-
-      <div class="hub-sidebar-section">
-        <h3>Search</h3>
-        <input type="text" class="hub-search" id="hub-search" placeholder="Search concepts…" autocomplete="off" />
-      </div>
-
-      <div class="hub-sidebar-section">
-        <h3>Tags</h3>
-        <div class="hub-tag-cloud" id="tag-cloud">
-          <!-- populated by JS -->
-        </div>
-      </div>
     </aside>
 
     <!-- Main -->
     <main class="hub-main" id="hub-main">
-      <div class="hub-hero">
-        <h1>Architecture Concept Hub</h1>
-        <p>Browse ready-made patterns, fitness functions, requirements and ADR templates. Copy or download any concept as a DiagramData JSON file and import it into your architecture model.</p>
-        <div class="hub-result-count" id="hub-result-count"></div>
-      </div>
+      <div class="hub-result-count" id="hub-result-count"></div>
 
       <div class="hub-cards" id="hub-cards">
         <!-- cards rendered by JS -->
@@ -66,6 +71,13 @@
     </main>
 
   </div>
+
+  <footer class="hub-footer">
+    <div class="hub-footer-inner">
+      <span>Architecture Concept Hub &mdash; by <a href="https://radical.tools" target="_blank" rel="noopener">Radical.Tools</a></span>
+      <span class="hub-footer-badge">Curated &amp; regularly updated</span>
+    </div>
+  </footer>
 
   <script src="hub.js"></script>
 </body>
