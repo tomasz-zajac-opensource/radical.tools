@@ -39,14 +39,13 @@
       const res = await fetch('hub-data.json');
       allConcepts = await res.json();
     } catch (e) {
-      document.getElementById('hub-main').innerHTML =
+      document.getElementById('hub-cards').innerHTML =
         '<div class="hub-empty"><div class="hub-empty-icon">⚠️</div><h3>Failed to load concepts</h3><p>Could not fetch hub-data.json</p></div>';
       return;
     }
 
     parseHash();
-    renderStats();
-    renderSidebar();
+    renderFilterBar();
     renderCards();
     bindEvents();
   });
@@ -84,90 +83,41 @@
     });
   }
 
-  /* ── Sidebar ────────────────────────────────────────────────────────── */
+  /* ── Filter Bar ────────────────────────────────────────────────────── */
 
-  function renderSidebar() {
-    const counts = { all: allConcepts.length };
-    for (const c of allConcepts) {
-      counts[c.category] = (counts[c.category] || 0) + 1;
-    }
-
-    const nav = document.getElementById('cat-nav');
-    if (!nav) return;
-
-    const items = [
-      { key: null,               label: 'All',              count: counts.all,                           color: '#5e6a90' },
-      { key: 'pattern',          label: 'Patterns',         count: counts['pattern'] || 0,               color: CAT_COLORS['pattern'] },
-      { key: 'fitness-function', label: 'Fitness Functions',count: counts['fitness-function'] || 0,      color: CAT_COLORS['fitness-function'] },
-      { key: 'requirement',      label: 'Requirements',     count: counts['requirement'] || 0,           color: CAT_COLORS['requirement'] },
-      { key: 'adr',              label: 'ADR Templates',    count: counts['adr'] || 0,                   color: CAT_COLORS['adr'] },
-      { key: 'blueprint',        label: 'Blueprints',       count: counts['blueprint'] || 0,             color: CAT_COLORS['blueprint'] }
-    ];
-
-    nav.innerHTML = items.map(it =>
-      `<li><a href="#" data-category="${it.key}" class="${activeCategory === it.key ? 'active' : ''}">
-        <span class="hub-cat-dot" style="background:${it.color}"></span>
-        <span class="hub-cat-name">${it.label}</span>
-        <span class="hub-cat-count">${it.count}</span>
-      </a></li>`
-    ).join('');
-  }
-
-  /* ── Stats ──────────────────────────────────────────────────────────── */
-
-  function renderStats() {
-    const el = document.getElementById('hub-stats');
+  function renderFilterBar() {
+    const el = document.getElementById('hub-filter-bar');
     if (!el) return;
     const items = [
-      { key: 'pattern',          label: 'Patterns',     color: CAT_COLORS['pattern'] },
-      { key: 'fitness-function', label: 'Fitness Fns',  color: CAT_COLORS['fitness-function'] },
-      { key: 'requirement',      label: 'Requirements', color: CAT_COLORS['requirement'] },
-      { key: 'adr',              label: 'ADRs',         color: CAT_COLORS['adr'] },
-      { key: 'blueprint',        label: 'Blueprints',   color: CAT_COLORS['blueprint'] },
+      { key: null,               label: 'All',           color: '#64748b' },
+      { key: 'pattern',          label: 'Patterns',      color: CAT_COLORS['pattern'] },
+      { key: 'fitness-function', label: 'Fitness Fns',   color: CAT_COLORS['fitness-function'] },
+      { key: 'requirement',      label: 'Requirements',  color: CAT_COLORS['requirement'] },
+      { key: 'adr',              label: 'ADRs',          color: CAT_COLORS['adr'] },
+      { key: 'blueprint',        label: 'Blueprints',    color: CAT_COLORS['blueprint'] },
     ];
-    el.innerHTML = items
-      .map(item => {
-        const count = allConcepts.filter(c => c.category === item.key).length;
-        if (count === 0) return '';
-        return `<div class="hub-stat">
-          <span class="hub-stat-number" style="color:${item.color}">${count}</span>
-          <span class="hub-stat-label">${item.label}</span>
-        </div>`;
-      })
-      .filter(Boolean)
-      .join('');
-  }
-
-  /* ── Tag Cloud ──────────────────────────────────────────────────────── */
-
-  function renderTagCloud() {
-    const freq = {};
-    for (const c of allConcepts) {
-      for (const t of (c.tags || [])) {
-        freq[t] = (freq[t] || 0) + 1;
-      }
-    }
-    const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-    const el = document.getElementById('tag-cloud');
-    if (!el) return;
-
-    el.innerHTML = sorted.map(([tag, count]) =>
-      `<span class="hub-tag-pill${activeTag === tag ? ' active' : ''}" data-tag="${tag}">${tag}<span class="tag-count">${count}</span></span>`
-    ).join('');
+    el.innerHTML = items.map(item => {
+      const count = item.key === null
+        ? allConcepts.length
+        : allConcepts.filter(c => c.category === item.key).length;
+      if (count === 0) return '';
+      const active = activeCategory === item.key;
+      return `<button class="hub-filter-chip${active ? ' active' : ''}" data-category="${item.key}" style="--chip-color:${item.color}">
+        ${item.label}
+        <span class="hub-filter-count">${count}</span>
+      </button>`;
+    }).filter(Boolean).join('');
   }
 
   /* ── Cards ──────────────────────────────────────────────────────────── */
 
   function renderCards() {
-    const list = filtered();
-    const main = document.getElementById('hub-main');
-    if (!main) return;
-
     const countEl = document.getElementById('hub-result-count');
-    if (countEl) countEl.textContent = `${list.length} concept${list.length !== 1 ? 's' : ''}`;
-
     const container = document.getElementById('hub-cards');
     if (!container) return;
+
+    const list = filtered();
+    if (countEl) countEl.textContent = `${list.length} concept${list.length !== 1 ? 's' : ''}`;
 
     if (list.length === 0) {
       container.innerHTML =
@@ -177,7 +127,6 @@
 
     container.innerHTML = list.map(c => cardHTML(c)).join('');
   }
-
   function cardHTML(concept) {
     const icon = CATEGORY_ICONS[concept.category] || '📦';
     const catLabel = CATEGORY_LABELS[concept.category] || concept.category;
@@ -412,15 +361,14 @@
   /* ── Events ─────────────────────────────────────────────────────────── */
 
   function bindEvents() {
-    // Category nav
-    document.getElementById('cat-nav')?.addEventListener('click', e => {
-      const link = e.target.closest('[data-category]');
-      if (!link) return;
-      e.preventDefault();
-      const cat = link.dataset.category;
+    // Filter bar (category chips)
+    document.getElementById('hub-filter-bar')?.addEventListener('click', e => {
+      const chip = e.target.closest('[data-category]');
+      if (!chip) return;
+      const cat = chip.dataset.category;
       activeCategory = cat === 'null' ? null : cat;
       updateHash();
-      highlightCategoryNav();
+      highlightFilterBar();
       renderCards();
     });
 
@@ -428,13 +376,6 @@
     document.getElementById('hub-search')?.addEventListener('input', e => {
       searchQuery = e.target.value.trim();
       renderCards();
-    });
-
-    // Tag cloud
-    document.getElementById('tag-cloud')?.addEventListener('click', e => {
-      const pill = e.target.closest('[data-tag]');
-      if (!pill) return;
-      toggleTag(pill.dataset.tag);
     });
 
     // Card interactions (delegated)
@@ -477,7 +418,7 @@
       activeCategory = null;
       activeTag = null;
       parseHash();
-      highlightCategoryNav();
+      highlightFilterBar();
       renderCards();
     });
   }
@@ -488,12 +429,12 @@
     renderCards();
   }
 
-  function highlightCategoryNav() {
-    const nav = document.getElementById('cat-nav');
-    if (!nav) return;
-    nav.querySelectorAll('[data-category]').forEach(a => {
-      const cat = a.dataset.category;
-      a.classList.toggle('active', (cat === 'null' ? null : cat) === activeCategory);
+  function highlightFilterBar() {
+    const bar = document.getElementById('hub-filter-bar');
+    if (!bar) return;
+    bar.querySelectorAll('[data-category]').forEach(btn => {
+      const cat = btn.dataset.category;
+      btn.classList.toggle('active', (cat === 'null' ? null : cat) === activeCategory);
     });
   }
 
