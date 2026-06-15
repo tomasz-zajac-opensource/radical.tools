@@ -333,6 +333,14 @@ export function HubImportModal({ open, onClose, preselectedIds }: Props): React.
   const [pendingConcept, setPendingConcept] = useState<HubConcept | null>(null)
   const [paramValues, setParamValues] = useState<Record<string, string>>({})
 
+  // Track which concepts have already been imported in this session.
+  const [importedIds, setImportedIds] = useState<Set<string>>(new Set())
+
+  // Reset importedIds when the modal is opened fresh.
+  useEffect(() => {
+    if (open) setImportedIds(new Set())
+  }, [open])
+
   // Blueprint picker state: set when user clicks "Add to Model" on a blueprint.
   const [blueprintConcept, setBlueprintConcept] = useState<HubConcept | null>(null)
   const [blueprintSelected, setBlueprintSelected] = useState<Set<string>>(new Set())
@@ -541,9 +549,18 @@ export function HubImportModal({ open, onClose, preselectedIds }: Props): React.
           : `Imported "${concept.name}"`,
         'info',
       )
-      onClose()
+      // In preselected (hub import) mode: mark as done and close only when all imported.
+      if (preselectedIds && preselectedIds.length > 0) {
+        setImportedIds((prev) => {
+          const next = new Set(prev)
+          next.add(concept.id)
+          return next
+        })
+      } else {
+        onClose()
+      }
     },
-    [onClose],
+    [onClose, preselectedIds],
   )
 
   // Clicking "Add to Model": show blueprint picker for blueprints, template
@@ -601,23 +618,37 @@ export function HubImportModal({ open, onClose, preselectedIds }: Props): React.
         </div>
 
         {/* ── Pre-selection banner ───────────────────────────────────── */}
-        {preselectedIds && preselectedIds.length > 0 && (
-          <div style={{
-            padding: '8px 20px',
-            background: 'var(--accent-dim)',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: 13,
-            color: 'var(--accent)',
-          }}>
-            <span>🔗</span>
-            <span>
-              Showing <strong>{concepts.length}</strong> concept{concepts.length !== 1 ? 's' : ''} selected from Hub.
-            </span>
-          </div>
-        )}
+        {preselectedIds && preselectedIds.length > 0 && (() => {
+          const allDone = concepts.length > 0 && concepts.every((c) => importedIds.has(c.id))
+          return (
+            <div style={{
+              padding: '8px 20px',
+              background: allDone ? 'rgba(5,150,105,.08)' : 'var(--accent-dim)',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 13,
+              color: allDone ? '#059669' : 'var(--accent)',
+            }}>
+              <span>{allDone ? '✅' : '🔗'}</span>
+              <span style={{ flex: 1 }}>
+                {allDone
+                  ? <><strong>All {concepts.length} concept{concepts.length !== 1 ? 's' : ''} imported!</strong></>
+                  : <>Showing <strong>{concepts.length}</strong> concept{concepts.length !== 1 ? 's' : ''} selected from Hub — <strong>{importedIds.size}/{concepts.length}</strong> imported.</>}
+              </span>
+              {allDone && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  style={{ ...S.importBtn, padding: '4px 14px', fontSize: 12 }}
+                >
+                  Close
+                </button>
+              )}
+            </div>
+          )
+        })()}
 
         {/* ── Filter bar ─────────────────────────────────────────────── */}
         <div style={S.filterBar}>
@@ -676,8 +707,9 @@ export function HubImportModal({ open, onClose, preselectedIds }: Props): React.
               c.requiredMetamodel && activeMetamodelId && c.requiredMetamodel !== activeMetamodelId
             const dropTarget = getDropTarget(c)
             const selectedNodeLabel = selectedNodeId ? c4Nodes[selectedNodeId]?.label : null
+            const alreadyImported = importedIds.has(c.id)
             return (
-              <div key={c.id} style={S.card}>
+              <div key={c.id} style={{ ...S.card, opacity: alreadyImported ? 0.55 : 1 }}>
                 <div style={S.cardHeader}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                     <h4 style={S.cardName}>
@@ -698,13 +730,16 @@ export function HubImportModal({ open, onClose, preselectedIds }: Props): React.
                       </span>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    style={S.importBtn}
-                    onClick={() => handleImportClick(c)}
-                  >
-                    Add to Model
-                  </button>
+                  {alreadyImported
+                    ? <span style={{ ...S.importBtn, background: '#059669', borderColor: '#059669', cursor: 'default', opacity: 0.85 }}>✓ Imported</span>
+                    : <button
+                        type="button"
+                        style={S.importBtn}
+                        onClick={() => handleImportClick(c)}
+                      >
+                        Add to Model
+                      </button>
+                  }
                 </div>
                 <p style={S.cardDesc}>{c.description}</p>
                 {c.templateParams && c.templateParams.length > 0 && (
