@@ -1075,7 +1075,7 @@ export function LeftPanel({ mode = 'designer', readOnly = false, collapsed = fal
       return {
         typeId,
         label: def?.label ?? (builtIn ? TYPE_LABELS[t] : typeId),
-        sublabel: PALETTE_SUBLABELS[typeId] ?? (def?.description ?? ''),
+        sublabel: PALETTE_SUBLABELS[typeId] ?? '',
         color: builtIn ? NODE_COLORS[t] : (def?.color ?? '#64748b'),
         iconPath: builtIn ? TYPE_ICON_PATHS[t] : (TYPE_ICON_PATHS.system),
       }
