@@ -145,12 +145,11 @@
     const ICON_DOWNLOAD = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.779a.75.75 0 1 1 1.06-1.06l1.97 1.97Z"/></svg>`;
     const ICON_EYE = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z"/></svg>`;
     const isSelected = selectedIds.has(concept.id);
+    const ICON_CHECK = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>`;
+    const ICON_PLUS = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>`;
 
     return `
     <article class="hub-card${isSelected ? ' selected' : ''}" style="--cat-color:${catColor}" data-id="${concept.id}">
-      <div class="hub-card-select" data-select="${concept.id}" title="${isSelected ? 'Deselect' : 'Select for import'}">
-        <span class="hub-card-checkbox${isSelected ? ' checked' : ''}"></span>
-      </div>
       <div class="hub-card-body">
         <div class="hub-card-header">
           <span class="hub-card-icon">${icon}</span>
@@ -163,6 +162,9 @@
         ${tags ? `<div class="hub-card-tags">${tags}</div>` : ''}
       </div>
       <div class="hub-actions">
+        <button class="hub-btn hub-btn-select${isSelected ? ' active' : ''}" data-select="${concept.id}">
+          ${isSelected ? ICON_CHECK + ' Selected' : ICON_PLUS + ' Select'}
+        </button>
         <button class="hub-btn" data-copy="${concept.id}">${ICON_COPY} Copy JSON</button>
         <button class="hub-btn" data-download="${concept.id}">${ICON_DOWNLOAD} Download</button>
         <button class="hub-json-toggle" data-toggle="${concept.id}">${ICON_EYE} Preview</button>
@@ -455,9 +457,15 @@
     // Update card appearance without full re-render
     const card = document.querySelector(`.hub-card[data-id="${id}"]`);
     if (card) {
-      card.classList.toggle('selected', selectedIds.has(id));
-      const cb = card.querySelector('.hub-card-checkbox');
-      if (cb) cb.classList.toggle('checked', selectedIds.has(id));
+      const sel = selectedIds.has(id);
+      card.classList.toggle('selected', sel);
+      const btn = card.querySelector('.hub-btn-select');
+      if (btn) {
+        btn.classList.toggle('active', sel);
+        const ICON_CHECK = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/></svg>`;
+        const ICON_PLUS = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>`;
+        btn.innerHTML = sel ? ICON_CHECK + ' Selected' : ICON_PLUS + ' Select';
+      }
     }
     renderSelectionBar();
   }
@@ -493,7 +501,11 @@
     bar.querySelector('.hub-selbar-clear')?.addEventListener('click', () => {
       selectedIds.clear();
       document.querySelectorAll('.hub-card.selected').forEach(c => c.classList.remove('selected'));
-      document.querySelectorAll('.hub-card-checkbox.checked').forEach(c => c.classList.remove('checked'));
+      document.querySelectorAll('.hub-btn-select.active').forEach(btn => {
+        btn.classList.remove('active');
+        const ICON_PLUS = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>`;
+        btn.innerHTML = ICON_PLUS + ' Select';
+      });
       renderSelectionBar();
     });
   }
