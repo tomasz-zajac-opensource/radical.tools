@@ -31,6 +31,9 @@
   let activeCategory = null;
   let activeTag = null;
   let searchQuery = '';
+  let selectedIds = new Set();
+
+  const STUDIO_URL = 'https://studio.radical.tools';
 
   /* ── Bootstrap ──────────────────────────────────────────────────────── */
 
@@ -47,6 +50,7 @@
     parseHash();
     renderFilterBar();
     renderCards();
+    renderSelectionBar();
     bindEvents();
   });
 
@@ -140,9 +144,13 @@
     const ICON_COPY = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>`;
     const ICON_DOWNLOAD = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.779a.75.75 0 1 1 1.06-1.06l1.97 1.97Z"/></svg>`;
     const ICON_EYE = `<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z"/></svg>`;
+    const isSelected = selectedIds.has(concept.id);
 
     return `
-    <article class="hub-card" style="--cat-color:${catColor}" data-id="${concept.id}">
+    <article class="hub-card${isSelected ? ' selected' : ''}" style="--cat-color:${catColor}" data-id="${concept.id}">
+      <div class="hub-card-select" data-select="${concept.id}" title="${isSelected ? 'Deselect' : 'Select for import'}">
+        <span class="hub-card-checkbox${isSelected ? ' checked' : ''}"></span>
+      </div>
       <div class="hub-card-body">
         <div class="hub-card-header">
           <span class="hub-card-icon">${icon}</span>
@@ -380,6 +388,13 @@
 
     // Card interactions (delegated)
     document.getElementById('hub-cards')?.addEventListener('click', e => {
+      // Select/deselect card
+      const selectBtn = e.target.closest('[data-select]');
+      if (selectBtn) {
+        toggleSelection(selectBtn.dataset.select);
+        return;
+      }
+
       // Tag click on card
       const cardTag = e.target.closest('.hub-card-tag[data-tag]');
       if (cardTag) {
@@ -427,6 +442,65 @@
     activeTag = activeTag === tag ? null : tag;
     updateHash();
     renderCards();
+  }
+
+  /* ── Selection ──────────────────────────────────────────────────── */
+
+  function toggleSelection(id) {
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
+    } else {
+      selectedIds.add(id);
+    }
+    // Update card appearance without full re-render
+    const card = document.querySelector(`.hub-card[data-id="${id}"]`);
+    if (card) {
+      card.classList.toggle('selected', selectedIds.has(id));
+      const cb = card.querySelector('.hub-card-checkbox');
+      if (cb) cb.classList.toggle('checked', selectedIds.has(id));
+    }
+    renderSelectionBar();
+  }
+
+  function renderSelectionBar() {
+    let bar = document.getElementById('hub-selection-bar');
+    if (selectedIds.size === 0) {
+      if (bar) bar.remove();
+      return;
+    }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'hub-selection-bar';
+      document.body.appendChild(bar);
+    }
+    const names = [...selectedIds]
+      .map(id => allConcepts.find(c => c.id === id)?.name ?? id)
+      .slice(0, 3)
+      .join(', ');
+    const overflow = selectedIds.size > 3 ? ` +${selectedIds.size - 3} more` : '';
+    bar.innerHTML = `
+      <div class="hub-selbar-info">
+        <span class="hub-selbar-count">${selectedIds.size}</span>
+        <span class="hub-selbar-names">${escapeHtml(names)}${escapeHtml(overflow)}</span>
+      </div>
+      <div class="hub-selbar-actions">
+        <button class="hub-selbar-clear">Clear</button>
+        <a class="hub-selbar-import" href="${buildStudioUrl()}" target="_blank" rel="noopener">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.779a.75.75 0 1 1 1.06-1.06l1.97 1.97Z"/></svg>
+          Import to Studio
+        </a>
+      </div>`;
+    bar.querySelector('.hub-selbar-clear')?.addEventListener('click', () => {
+      selectedIds.clear();
+      document.querySelectorAll('.hub-card.selected').forEach(c => c.classList.remove('selected'));
+      document.querySelectorAll('.hub-card-checkbox.checked').forEach(c => c.classList.remove('checked'));
+      renderSelectionBar();
+    });
+  }
+
+  function buildStudioUrl() {
+    const ids = [...selectedIds].join(',');
+    return `${STUDIO_URL}?hub=${encodeURIComponent(ids)}`;
   }
 
   function highlightFilterBar() {

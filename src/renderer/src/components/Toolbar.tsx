@@ -531,8 +531,31 @@ export function Toolbar(): React.ReactElement {
   const handleCloseAISettings = useCallback(() => { setAISettingsOpen(false) }, [])
 
   const [hubOpen, setHubOpen] = useState(false)
-  const handleOpenHub = useCallback(() => { setHubOpen(true) }, [])
-  const handleCloseHub = useCallback(() => { setHubOpen(false) }, [])
+  const [hubPreselectedIds, setHubPreselectedIds] = useState<string[] | undefined>(undefined)
+  const handleOpenHub = useCallback(() => {
+    setHubPreselectedIds(undefined)
+    setHubOpen(true)
+  }, [])
+  const handleCloseHub = useCallback(() => {
+    setHubOpen(false)
+    setHubPreselectedIds(undefined)
+  }, [])
+
+  // Detect ?hub=id1,id2 query param and open modal pre-filtered.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const hubParam = params.get('hub')
+    if (hubParam) {
+      const ids = hubParam.split(',').map((s) => s.trim()).filter(Boolean)
+      if (ids.length > 0) {
+        setHubPreselectedIds(ids)
+        setHubOpen(true)
+        // Clean the URL without triggering a reload.
+        const clean = window.location.pathname + window.location.hash
+        window.history.replaceState(null, '', clean)
+      }
+    }
+  }, [])
 
   const { exportBusy, exportAs, copyToClipboard } = useExport()
   const handleExportPNG = useCallback(() => exportAs('png'), [exportAs])
@@ -548,7 +571,7 @@ export function Toolbar(): React.ReactElement {
   return (
     <div className="toolbar">
       <AISettingsModal open={aiSettingsOpen} onClose={handleCloseAISettings} />
-      <HubImportModal open={hubOpen} onClose={handleCloseHub} />
+      <HubImportModal open={hubOpen} onClose={handleCloseHub} preselectedIds={hubPreselectedIds} />
       <AppMenu
         onManage={handleManage}
         activeDocLabel={activeDoc?.name ?? null}

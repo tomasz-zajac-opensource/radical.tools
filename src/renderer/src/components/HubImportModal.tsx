@@ -11,6 +11,8 @@ import { isParentAllowed } from '../types/metamodel'
 interface Props {
   open: boolean
   onClose: () => void
+  /** When provided, the modal shows only these hub concept IDs (from ?hub= URL param). */
+  preselectedIds?: string[]
 }
 
 // ─── Category helpers ───────────────────────────────────────────────────────
@@ -283,7 +285,7 @@ function applyTemplate(concept: HubConcept, values: Record<string, string>): Hub
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
-export function HubImportModal({ open, onClose }: Props): React.ReactElement | null {
+export function HubImportModal({ open, onClose, preselectedIds }: Props): React.ReactElement | null {
   const {
     loading,
     error,
@@ -318,13 +320,13 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
     if (open) resetFilters()
   }, [open, resetFilters])
 
-  const concepts = useMemo(() => (open ? filteredConcepts() : []), [
-    open,
-    filteredConcepts,
-    activeCategory,
-    searchQuery,
-    activeTag,
-  ])
+  const concepts = useMemo(() => {
+    if (!open) return []
+    const all = filteredConcepts()
+    if (!preselectedIds || preselectedIds.length === 0) return all
+    const idSet = new Set(preselectedIds)
+    return all.filter((c) => idSet.has(c.id))
+  }, [open, loading, filteredConcepts, activeCategory, searchQuery, activeTag, preselectedIds])
 
   // Template parameter fill state: set when user clicks "Add to Model" on a
   // concept that has templateParams.
@@ -597,6 +599,25 @@ export function HubImportModal({ open, onClose }: Props): React.ReactElement | n
             ✕
           </button>
         </div>
+
+        {/* ── Pre-selection banner ───────────────────────────────────── */}
+        {preselectedIds && preselectedIds.length > 0 && (
+          <div style={{
+            padding: '8px 20px',
+            background: 'var(--accent-dim)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 13,
+            color: 'var(--accent)',
+          }}>
+            <span>🔗</span>
+            <span>
+              Showing <strong>{concepts.length}</strong> concept{concepts.length !== 1 ? 's' : ''} selected from Hub.
+            </span>
+          </div>
+        )}
 
         {/* ── Filter bar ─────────────────────────────────────────────── */}
         <div style={S.filterBar}>
