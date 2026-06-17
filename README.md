@@ -88,15 +88,6 @@ npm test
 npm run test:watch
 ```
 
-## Deployment
-
-The app is deployed automatically via GitHub Actions on push to `main`:
-- **Studio** → S3 + CloudFront at `studio.radical.tools`
-- **Hub** → S3 + CloudFront at `hub.radical.tools`
-- **Website** → S3 + CloudFront at `radical.tools`
-
-AWS credentials use GitHub OIDC (no long-lived keys). See `.github/workflows/deploy.yml` and `infra/` for details.
-
 ## License
 
 MIT
