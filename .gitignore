@@ -20,6 +20,7 @@ infra/terraform.tfstate
 infra/terraform.tfstate.backup
 infra/terraform.tfstate.*.backup
 infra/*.tfvars
+infra/tfplan
 infra/override.tf
 infra/override.tf.json
 # Note: infra/.terraform.lock.hcl IS committed (pins provider versions)
