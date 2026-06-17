@@ -2,7 +2,7 @@
 
 > **Live app:** [studio.radical.tools](https://studio.radical.tools) &nbsp;|&nbsp; **Architecture Hub:** [hub.radical.tools](https://hub.radical.tools)
 
-An open-source C4 architecture diagramming tool — Electron + React desktop app (also runs in the browser) for creating, editing, and presenting software architecture using the [C4 model](https://c4model.com/).
+An open-source software architecture design studio — diagram, document, and evolve architecture using C4, domain models, governance concepts, and AI assistance. Electron + React desktop app (also runs in the browser).
 
 ## Features
 
