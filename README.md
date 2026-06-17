@@ -1,6 +1,6 @@
 # radical.tools
 
-> **Live app:** [studio.radical.tools](https://studio.radical.tools) &nbsp;|&nbsp; **Architecture Hub:** [hub.radical.tools](https://hub.radical.tools)
+> **Live app:** [studio.radical.tools](https://studio.radical.tools) &nbsp;|&nbsp; **Architecture Hub:** [hub.radical.tools](https://hub.radical.tools) &nbsp;|&nbsp; **Manual:** [radical.tools/manual.html](https://radical.tools/manual.html)
 
 An open-source software architecture design studio — diagram, document, and evolve architecture using C4, domain models, governance concepts, and AI assistance. Electron + React desktop app (also runs in the browser).
 
