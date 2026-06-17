@@ -1,17 +1,23 @@
 # radical.tools
 
-C4 Architecture Diagram Tool — an Electron + React desktop application for creating, editing, and presenting software architecture diagrams using the [C4 model](https://c4model.com/).
+> **Live app:** [studio.radical.tools](https://studio.radical.tools) &nbsp;|&nbsp; **Architecture Hub:** [hub.radical.tools](https://hub.radical.tools)
+
+An open-source C4 architecture diagramming tool — Electron + React desktop app (also runs in the browser) for creating, editing, and presenting software architecture using the [C4 model](https://c4model.com/).
 
 ## Features
 
-- **C4 model support** — Person, Software System, Container, Component, Relation
+- **C4 model** — Person, Software System, Container, Component, Database, Web App, Queue, Relation
+- **Domain & Governance elements** — Domain, ADR, Fitness Function, Requirement, Blueprint
 - **Smart Layout** — SA-based auto-layout with crossing minimisation, edge-length optimisation, aspect-ratio penalty, and compound parent fitting
-- **Multiple layout engines** — ELK (hierarchical/layered/force), webcola (live physics), and the custom Smart Layout pipeline
-- **Time travel** — milestone-based undo/redo with named snapshots
-- **Document manager** — multiple diagrams, local-storage + file-system backed
-- **Presentation mode** — fullscreen view with navigation bar
-- **Metamodel editor** — customise node types and relation types
-- **Export** — save/load JSON diagrams; file-system import/export via Electron dialogs
+- **Multiple layout engines** — ELK (hierarchical/layered/force), webcola (live physics), custom Smart Layout pipeline
+- **AI assistant** — chat with OpenAI / Anthropic / Gemini / Ollama to generate and modify diagrams
+- **Architecture Hub** — browse and import 70+ curated architecture concepts (patterns, fitness functions, ADRs, requirements) from [hub.radical.tools](https://hub.radical.tools)
+- **Multiple views** — Canvas, Matrix, Sequence, Treemap, Table, Wiki per diagram
+- **Presentation mode** — fullscreen slides with navigation bar
+- **Metamodel editor** — customise node types, relation types, and constraints
+- **Time travel** — milestone-based snapshots with named undo/redo
+- **Document manager** — multiple diagrams, localStorage + file-system backed
+- **Export** — PNG/SVG export, JSON save/load, Electron file dialogs
 
 ## Tech stack
 
@@ -26,52 +32,72 @@ C4 Architecture Diagram Tool — an Electron + React desktop application for cre
 
 ## Getting started
 
-**Prerequisites:** Node.js ≥ 18, npm ≥ 9
+**Prerequisites:** Node.js ≥ 20, npm ≥ 9
 
 ```bash
 # Install dependencies
 npm install
 
-# Start in development mode (hot-reload)
+# Start in development mode (Electron, hot-reload)
 npm run dev
 
 # Type-check
 npm run typecheck
 
+# Run tests
+npm test
+
 # Production build (outputs to out/)
 npm run build
 
-# Run built app
+# Run built Electron app
 npm start
+
+# Build web-only renderer (for deployment to studio.radical.tools)
+npm run build:web
 ```
 
 ## Project structure
 
 ```
 src/
-  main/         Electron main process (IPC handlers, file dialogs)
-  preload/      contextBridge API surface exposed to renderer
-  renderer/
-    src/
-      components/   React UI components (Canvas, Toolbar, Panels, …)
-      layout/       Layout algorithms (smartLayout, elkLayout, liveColaLayout, …)
-      store/        Zustand stores (diagramStore, documentStore)
-      types/        C4 + metamodel TypeScript types
-tests/
-  visual/       Headless layout harness (SVG output for visual regression)
-  *.test.ts     Unit / integration tests (run with tsx)
-docs/
-  IMPROVEMENTS.md  Architecture notes and improvement log
+  main/           Electron main process (IPC handlers, file dialogs)
+  preload/        contextBridge API surface exposed to renderer
+  renderer/src/
+    components/   React UI (Canvas, Toolbar, Panels, Modals, …)
+    layout/       Layout algorithms (smartLayout, elkLayout, colaLayout, …)
+    store/        Zustand stores (diagramStore, documentStore, hubStore)
+    ai/           AI integration (providers: OpenAI, Anthropic, Gemini, Ollama)
+    types/        C4 + metamodel TypeScript types
+hub/              Architecture Concept Hub static site (hub.radical.tools)
+website/          Marketing site (radical.tools)
+infra/            Terraform — AWS S3 + CloudFront + Route53 + IAM (OIDC)
+tools/
+  vscode-radical/ VS Code extension for .radical file syntax highlighting
+tests/            Vitest unit/integration tests + layout benchmarks
+docs/             Architecture notes and improvement log
 ```
 
 ## Running tests
 
 ```bash
-# Smart layout scoring regression
-node --import tsx tests/smartLayoutScoring.test.mjs
+# All tests (vitest)
+npm test
 
-# Visual layout harness (generates tests/visual/out-*.svg)
-node --import tsx tests/visual/layoutHarness.mjs
-# Convert SVG → PNG (requires librsvg: brew install librsvg)
-for f in tests/visual/out-*.svg; do rsvg-convert -w 1400 "$f" -o "${f%.svg}.png"; done
+# Watch mode
+npm run test:watch
 ```
+
+## Deployment
+
+The app is deployed automatically via GitHub Actions on push to `main`:
+- **Studio** → S3 + CloudFront at `studio.radical.tools`
+- **Hub** → S3 + CloudFront at `hub.radical.tools`
+- **Website** → S3 + CloudFront at `radical.tools`
+
+AWS credentials use GitHub OIDC (no long-lived keys). See `.github/workflows/deploy.yml` and `infra/` for details.
+
+## License
+
+MIT
+
