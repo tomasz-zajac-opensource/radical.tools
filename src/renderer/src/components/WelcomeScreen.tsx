@@ -87,6 +87,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
                 Open last — {lastDoc.name}
               </button>
             )}
+            <div className="welcome-btn-group">
             <button
               className={lastDoc ? 'welcome-btn welcome-btn-ghost' : 'welcome-btn welcome-btn-primary'}
               onClick={handleNew}
@@ -105,6 +106,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
             >
               <svg width="11" height="11" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M5 7L1 3h8z"/></svg>
             </button>
+            </div>
             {pickerOpen && (
               <div className="welcome-mm-picker">
                 <div className="welcome-mm-picker-title">Metamodel for new model</div>

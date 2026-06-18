@@ -5283,14 +5283,24 @@ body {
 }
 
 /* "New model" + dropdown arrow split */
+.welcome-btn-group {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+.welcome-btn-group .welcome-btn {
+  flex: 1;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
 .welcome-btn-mm {
-  padding: 0 9px !important;
+  padding: 0 12px !important;
   min-width: unset !important;
   flex-shrink: 0;
-  margin-left: -6px !important;
-  border-left: 1px solid rgba(127,127,127,.2) !important;
   border-top-left-radius: 0 !important;
   border-bottom-left-radius: 0 !important;
+  border-left: 1px solid rgba(127,127,127,.2) !important;
+  margin-left: -1px;
 }
 
 .welcome-sample-link {
