@@ -32,7 +32,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   const [creatingNew, setCreatingNew] = useState(false)
   const [newName, setNewName] = useState('')
   const presets = useMemo(() => availableMetamodels(), [])
-  const [newPresetId, setNewPresetId] = useState<string>(presets[0]?.id ?? 'c4-builtin')
+  const [newPresetId, setNewPresetId] = useState<string>('c4-ddd-governance-builtin')
   const saveDiagram = useDiagramStore((s) => s.saveDiagram)
 
   // Default the visible tab to the source of the active document so users
@@ -70,7 +70,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   const handleNewLSStart = (): void => {
     setCreatingNew(true)
     setNewName('Untitled')
-    setNewPresetId(presets[0]?.id ?? 'c4-builtin')
+    setNewPresetId('c4-ddd-governance-builtin')
     setTab('ls')
   }
 
