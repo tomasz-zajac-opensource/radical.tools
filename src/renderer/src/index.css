@@ -5251,16 +5251,38 @@ body {
   background: rgba(59, 111, 230, 0.08);
   border-color: rgba(59, 111, 230, 0.3);
 }
+.welcome-mm-option.selected {
+  background: rgba(59, 111, 230, 0.07);
+  border-color: rgba(59, 111, 230, 0.35);
+}
 .welcome-mm-option-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
   margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.welcome-mm-option-check {
+  font-size: 12px;
+  color: var(--accent);
 }
 .welcome-mm-option-desc {
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+/* "New model" + dropdown arrow split */
+.welcome-btn-mm {
+  padding: 0 9px !important;
+  min-width: unset !important;
+  flex-shrink: 0;
+  margin-left: -6px !important;
+  border-left: 1px solid rgba(127,127,127,.2) !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
 }
 
 .welcome-sample-link {

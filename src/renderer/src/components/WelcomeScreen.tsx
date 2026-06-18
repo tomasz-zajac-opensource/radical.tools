@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { documents } from '../store/documentStore'
 import { buildFintechSampleRaw } from '../store/fintechSample'
 import { availableMetamodels } from '../types/metamodel'
@@ -12,14 +12,17 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
   const hasExisting  = existingDocs.length > 0
   const lastDoc      = hasExisting ? existingDocs[0] : null
   const presets = availableMetamodels()
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [selectedPresetId, setSelectedPresetId] = useState('c4-ddd-governance-builtin')
 
   function handleNew(): void {
-    const preset = presets.find(p => p.id === 'c4-ddd-governance-builtin') ?? presets[0]
+    const preset = presets.find(p => p.id === selectedPresetId) ?? presets[0]
     documents.createLSDocument('Untitled model', {
       nodes: [],
       relations: [],
       metamodel: preset.build(),
     })
+    setPickerOpen(false)
     onDismiss()
   }
 
@@ -94,6 +97,33 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
               </svg>
               New model
             </button>
+            <button
+              type="button"
+              className="welcome-btn welcome-btn-ghost welcome-btn-mm"
+              onClick={() => setPickerOpen(o => !o)}
+              title="Change metamodel"
+            >
+              <svg width="11" height="11" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M5 7L1 3h8z"/></svg>
+            </button>
+            {pickerOpen && (
+              <div className="welcome-mm-picker">
+                <div className="welcome-mm-picker-title">Metamodel for new model</div>
+                {presets.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`welcome-mm-option${selectedPresetId === p.id ? ' selected' : ''}`}
+                    onClick={() => { setSelectedPresetId(p.id); setPickerOpen(false) }}
+                  >
+                    <div className="welcome-mm-option-name">
+                      {p.name}
+                      {selectedPresetId === p.id && <span className="welcome-mm-option-check">✓</span>}
+                    </div>
+                    <div className="welcome-mm-option-desc">{p.description}</div>
+                  </button>
+                ))}
+              </div>
+            )}
             <button className="welcome-btn welcome-btn-ghost" onClick={handleImport}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="1.5" y="1.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
