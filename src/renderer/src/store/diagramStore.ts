@@ -1513,17 +1513,14 @@ export const useDiagramStore = create<DiagramStore>()(
           node.collapsed = !prevCollapsed
         })
 
-        // ── Expand origin: ensure children "spawn from the parent" ─────
-        // When opening a parent, its children may still hold stale x/y
-        // from a previous layout (or from before any layout ran). On the
-        // very next frame ReactFlow would render them at those stale
-        // positions and cola would then animate them into the new spot
-        // — visible as a "teleport, then drift" jump.
-        // Fix: reset all direct children to a tight cluster anchored at
-        // the parent's top-left header area (parent-relative coords with
-        // small jittered offsets, so cola has a non-degenerate starting
-        // configuration). Cola then unfolds them outward — the user sees
-        // a clean expansion animation originating from the parent.
+        // ── Expand origin: ensure children appear at their saved positions ─
+        // When opening a parent, children hold their last known parent-relative
+        // x/y. We want to PRESERVE those so the layout looks the same as before
+        // the collapse. Only children that were never laid out (x≈0, y≈0) get
+        // a tight cluster seed so cola has a non-degenerate starting point.
+        // Seeding live cola with the correct absolute position prevents the
+        // "teleport, then drift" jump that would occur if cola treated the
+        // node as brand-new and spawned it at neighbours' average.
         if (prevCollapsed) {
           const allNodes = get().c4Nodes
           const parent = allNodes[id]
@@ -1532,46 +1529,43 @@ export const useDiagramStore = create<DiagramStore>()(
             const PAD = 24
             const children = Object.values(allNodes).filter((c) => c.parentId === id)
             if (children.length > 0) {
-              // 1) Reset model positions (parent-relative) so a future render
-              //    without live cola also shows children clustered inside the
-              //    parent's header area instead of at stale coordinates.
-              set((state) => {
-                children.forEach((child, i) => {
-                  const c = state.c4Nodes[child.id]
-                  if (!c) return
-                  // Tiny deterministic jitter so cola has distinct starting
-                  // positions to push apart (otherwise overlapping nodes
-                  // produce zero gradient and stay stuck).
-                  const jx = ((i * 17) % 11) - 5
-                  const jy = ((i * 23) % 9) - 4
-                  c.x = PAD + jx
-                  c.y = HEADER_OFFSET + jy
+              // Compute parent's absolute top-left by walking the ancestor chain.
+              let absX = parent.x
+              let absY = parent.y
+              let cur: C4Node | undefined = parent
+              while (cur?.parentId) {
+                const p: C4Node | undefined = allNodes[cur.parentId]
+                if (!p) break
+                absX += p.x
+                absY += p.y
+                cur = p
+              }
+
+              // For children that have never been positioned (x≈0 and y≈0),
+              // assign a default cluster so cola has somewhere to start.
+              const unpositioned = children.filter((c) => Math.abs(c.x) < 1 && Math.abs(c.y) < 1)
+              if (unpositioned.length > 0) {
+                set((state) => {
+                  unpositioned.forEach((child, i) => {
+                    const c = state.c4Nodes[child.id]
+                    if (!c) return
+                    const jx = ((i * 17) % 11) - 5
+                    const jy = ((i * 23) % 9) - 4
+                    c.x = PAD + jx
+                    c.y = HEADER_OFFSET + jy
+                  })
                 })
-              })
-              // 2) Seed live cola directly. Cola tracks absolute centre
-              //    coordinates, so compute parent's absolute top-left by
-              //    walking the ancestor chain. Without this, cola treats
-              //    re-appearing children as "new" and spawns them at the
-              //    average of their connected neighbours' positions —
-              //    making them visibly appear next to the neighbour, not
-              //    inside the parent.
+              }
+
+              // Seed live cola with each child's absolute centre derived from
+              // its (possibly just-assigned) parent-relative position.
               if (_liveLayout) {
-                let absX = parent.x
-                let absY = parent.y
-                let cur: C4Node | undefined = parent
-                while (cur?.parentId) {
-                  const p: C4Node | undefined = allNodes[cur.parentId]
-                  if (!p) break
-                  absX += p.x
-                  absY += p.y
-                  cur = p
-                }
-                const parentCx = absX + (parent.width ?? 0) / 2
-                const parentCy = absY + (parent.height ?? 0) / 2
-                children.forEach((child, i) => {
-                  const jx = ((i * 17) % 21) - 10
-                  const jy = ((i * 23) % 17) - 8
-                  _liveLayout!.seedPosition(child.id, parentCx + jx, parentCy + jy)
+                children.forEach((child) => {
+                  // Re-read from store in case unpositioned branch updated it
+                  const c = get().c4Nodes[child.id] ?? child
+                  const cx = absX + c.x + (c.width ?? 0) / 2
+                  const cy = absY + c.y + (c.height ?? 0) / 2
+                  _liveLayout!.seedPosition(child.id, cx, cy)
                 })
               }
             }
