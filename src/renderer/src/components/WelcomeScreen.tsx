@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { documents } from '../store/documentStore'
 import { buildFintechSampleRaw } from '../store/fintechSample'
 import { availableMetamodels } from '../types/metamodel'
@@ -11,18 +11,15 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
   const existingDocs = documents.listDocuments()
   const hasExisting  = existingDocs.length > 0
   const lastDoc      = hasExisting ? existingDocs[0] : null
-  const [pickerOpen, setPickerOpen] = useState(false)
   const presets = availableMetamodels()
 
-  function handleNewWith(presetId: string): void {
-    const preset = presets.find(p => p.id === presetId)
-    if (!preset) return
+  function handleNew(): void {
+    const preset = presets.find(p => p.id === 'c4-ddd-governance-builtin') ?? presets[0]
     documents.createLSDocument('Untitled model', {
       nodes: [],
       relations: [],
       metamodel: preset.build(),
     })
-    setPickerOpen(false)
     onDismiss()
   }
 
@@ -89,7 +86,7 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
             )}
             <button
               className={lastDoc ? 'welcome-btn welcome-btn-ghost' : 'welcome-btn welcome-btn-primary'}
-              onClick={() => setPickerOpen(o => !o)}
+              onClick={handleNew}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
@@ -97,22 +94,6 @@ export function WelcomeScreen({ onDismiss }: Props): React.ReactElement {
               </svg>
               New model
             </button>
-            {pickerOpen && (
-              <div className="welcome-mm-picker">
-                <div className="welcome-mm-picker-title">Choose a metamodel</div>
-                {presets.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className="welcome-mm-option"
-                    onClick={() => handleNewWith(p.id)}
-                  >
-                    <div className="welcome-mm-option-name">{p.name}</div>
-                    <div className="welcome-mm-option-desc">{p.description}</div>
-                  </button>
-                ))}
-              </div>
-            )}
             <button className="welcome-btn welcome-btn-ghost" onClick={handleImport}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <rect x="1.5" y="1.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
