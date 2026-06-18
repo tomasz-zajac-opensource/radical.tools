@@ -31,6 +31,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   // input row instead of relying on the browser dialog.
   const [creatingNew, setCreatingNew] = useState(false)
   const [newName, setNewName] = useState('')
+  const [mmPickerOpen, setMmPickerOpen] = useState(false)
   const presets = useMemo(() => availableMetamodels(), [])
   const [newPresetId, setNewPresetId] = useState<string>('c4-ddd-governance-builtin')
   const saveDiagram = useDiagramStore((s) => s.saveDiagram)
@@ -71,6 +72,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
     setCreatingNew(true)
     setNewName('Untitled')
     setNewPresetId('c4-ddd-governance-builtin')
+    setMmPickerOpen(false)
     setTab('ls')
   }
 
@@ -88,6 +90,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   const handleNewLSCancel = (): void => {
     setCreatingNew(false)
     setNewName('')
+    setMmPickerOpen(false)
   }
 
   const handleImportFile = async (): Promise<void> => {
@@ -129,6 +132,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
   const renderToolbar = (): React.ReactElement => {
     if (tab === 'ls') {
       if (creatingNew) {
+        const selectedPreset = presets.find(p => p.id === newPresetId)
         return (
           <div className="docmgr-toolbar docmgr-toolbar-create">
             <div className="docmgr-create-row">
@@ -144,26 +148,39 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
                 }}
               />
               <button className="docmgr-btn primary" onClick={handleNewLSCommit}>Create</button>
+              <button
+                type="button"
+                className="docmgr-btn docmgr-btn-mm"
+                onClick={() => setMmPickerOpen(o => !o)}
+                title={`Metamodel: ${selectedPreset?.name ?? newPresetId}`}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M5 7L1 3h8z"/></svg>
+              </button>
               <button className="docmgr-btn" onClick={handleNewLSCancel}>Cancel</button>
             </div>
-            <div className="docmgr-mm-picker">
-              <div className="docmgr-mm-picker-title">Choose a metamodel</div>
-              {presets.map((p) => {
-                const active = p.id === newPresetId
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`docmgr-mm-option${active ? ' active' : ''}`}
-                    onClick={() => setNewPresetId(p.id)}
-                    aria-pressed={active}
-                  >
-                    <div className="docmgr-mm-option-name">{p.name}</div>
-                    <div className="docmgr-mm-option-desc">{p.description}</div>
-                  </button>
-                )
-              })}
-            </div>
+            {mmPickerOpen && (
+              <div className="docmgr-mm-picker">
+                <div className="docmgr-mm-picker-title">Metamodel</div>
+                {presets.map((p) => {
+                  const active = p.id === newPresetId
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      className={`docmgr-mm-option${active ? ' active' : ''}`}
+                      onClick={() => { setNewPresetId(p.id); setMmPickerOpen(false) }}
+                      aria-pressed={active}
+                    >
+                      <div className="docmgr-mm-option-name">
+                        {p.name}
+                        {active && <span style={{ marginLeft: 6, color: 'var(--accent)' }}>✓</span>}
+                      </div>
+                      <div className="docmgr-mm-option-desc">{p.description}</div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )
       }
