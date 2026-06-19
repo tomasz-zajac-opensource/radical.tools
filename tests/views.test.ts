@@ -64,6 +64,50 @@ describe('addView / addNodeToView / removeNodeFromView', () => {
     useDiagramStore.getState().removeNodeFromView(vid, nid)
     expect(useDiagramStore.getState().views[vid].nodeIds).not.toContain(nid)
   })
+
+  it('removeNodeFromView cascades to all descendants', () => {
+    // sys1 → ctn1 (and more children) — use a known parent from the sample
+    const store = useDiagramStore.getState()
+    const parentId = 'sys1'
+    // Confirm sys1 has children in the sample
+    const allNodes = store.c4Nodes
+    const children = Object.values(allNodes).filter(n => n.parentId === parentId).map(n => n.id)
+    expect(children.length).toBeGreaterThan(0)
+
+    const vid = store.addView('CascadeTest')
+    // Add parent and all children explicitly
+    useDiagramStore.getState().addNodeToView(vid, parentId)
+    for (const cid of children) useDiagramStore.getState().addNodeToView(vid, cid)
+
+    // Remove the parent — children should disappear too
+    useDiagramStore.getState().removeNodeFromView(vid, parentId)
+    const nodeIds = useDiagramStore.getState().views[vid].nodeIds
+    expect(nodeIds).not.toContain(parentId)
+    for (const cid of children) {
+      expect(nodeIds).not.toContain(cid)
+    }
+  })
+
+  it('removeNodeFromView from "show all" view excludes node and descendants', () => {
+    const store = useDiagramStore.getState()
+    const parentId = 'sys1'
+    const allNodes = store.c4Nodes
+    const children = Object.values(allNodes).filter(n => n.parentId === parentId).map(n => n.id)
+
+    const vid = store.addView('ShowAllCascade')
+    // nodeIds is empty → "show all" mode
+    expect(useDiagramStore.getState().views[vid].nodeIds).toHaveLength(0)
+
+    // Remove parent from "show all" view → should materialise explicit list excluding parent+children
+    useDiagramStore.getState().removeNodeFromView(vid, parentId)
+    const nodeIds = useDiagramStore.getState().views[vid].nodeIds
+    expect(nodeIds).not.toContain(parentId)
+    for (const cid of children) {
+      expect(nodeIds).not.toContain(cid)
+    }
+    // Other nodes should still be present
+    expect(nodeIds.length).toBeGreaterThan(0)
+  })
 })
 
 describe('setActiveView in designer mode', () => {

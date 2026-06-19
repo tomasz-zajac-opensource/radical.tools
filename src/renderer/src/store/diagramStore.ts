@@ -2249,18 +2249,23 @@ export const useDiagramStore = create<DiagramStore>()(
         set((state) => {
           const view = state.views[viewId]
           if (!view) return
+          // Remove the node AND all its descendants as one unit.
+          // Without cascading, children remaining in nodeIds cause
+          // computeViewNodeSet to re-include the parent (ancestor walk),
+          // so the parent would keep appearing even after its eye was toggled off.
+          const toRemove = new Set([nodeId, ...getDescendants(nodeId, state.c4Nodes)])
           if (view.nodeIds.length === 0) {
             // Empty nodeIds means "show all". First removal transitions to
-            // "show all except this node" by explicitly listing every other node.
-            view.nodeIds = Object.keys(state.c4Nodes).filter(id => id !== nodeId)
+            // "show all except this subtree" by explicitly listing every other node.
+            view.nodeIds = Object.keys(state.c4Nodes).filter(id => !toRemove.has(id))
           } else {
-            view.nodeIds = view.nodeIds.filter((id) => id !== nodeId)
+            view.nodeIds = view.nodeIds.filter((id) => !toRemove.has(id))
           }
-          // Also clean up per-view collapse state for the removed node
+          // Also clean up per-view collapse state for all removed nodes
           if (view.collapsedNodeIds?.length)
-            view.collapsedNodeIds = view.collapsedNodeIds.filter((nid) => nid !== nodeId)
+            view.collapsedNodeIds = view.collapsedNodeIds.filter((nid) => !toRemove.has(nid))
           if (view.expandedNodeIds?.length)
-            view.expandedNodeIds = view.expandedNodeIds.filter((nid) => nid !== nodeId)
+            view.expandedNodeIds = view.expandedNodeIds.filter((nid) => !toRemove.has(nid))
         })
         get()._sync()
       },
