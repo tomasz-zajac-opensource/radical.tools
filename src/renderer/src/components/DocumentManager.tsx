@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { documents, useDocumentsStore, type DocumentMeta, type DocumentSource } from '../store/documentStore'
 import { useDiagramStore } from '../store/diagramStore'
 import { availableMetamodels } from '../types/metamodel'
+import { parseStructurizrDsl } from '../import/structurizrDsl'
 
 interface Props {
   open: boolean
@@ -98,6 +99,35 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
     if (meta) setTab('fs')
   }
 
+  const handleImportDsl = (): void => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.dsl,.txt'
+    input.style.display = 'none'
+    document.body.appendChild(input)
+    input.onchange = (): void => {
+      const file = input.files?.[0]
+      document.body.removeChild(input)
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = (e): void => {
+        const content = e.target?.result as string
+        if (!content) return
+        try {
+          const result = parseStructurizrDsl(content)
+          const displayName = result.name || file.name.replace(/\.(dsl|txt)$/i, '') || 'Imported DSL'
+          documents.createLSDocument(displayName, { nodes: result.nodes, relations: result.relations } as any)
+          setTab('ls')
+        } catch (err) {
+          console.warn('[DSL import] failed:', err)
+          window.alert('Could not parse the DSL file. See the browser console for details.')
+        }
+      }
+      reader.readAsText(file)
+    }
+    input.click()
+  }
+
   const handleSwitch = (id: string): void => {
     if (id === activeId) return
     documents.setActiveId(id)
@@ -187,6 +217,7 @@ export function DocumentManagerModal({ open, onClose }: Props): React.ReactEleme
       return (
         <div className="docmgr-toolbar">
           <button className="docmgr-btn primary" onClick={handleNewLSStart}>+ New local model</button>
+          <button className="docmgr-btn" onClick={handleImportDsl}>Import Structurizr DSL…</button>
           <span className="docmgr-toolbar-hint">Stored in your browser only — no file on disk.</span>
         </div>
       )
