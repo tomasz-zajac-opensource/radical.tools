@@ -18,7 +18,7 @@ import type {
 } from '../types/c4'
 import { COLLAPSED_HEIGHT, COLLAPSED_WIDTH } from '../types/c4'
 import { builtInGovernanceMetamodel } from '../types/metamodel'
-import { runSmartLayout } from '../layout/smartLayout'
+import { runSmartLayout } from '../layout/smartLayoutRunner'
 import savedSampleData from './fintechSampleData.json'
 
 // ── helpers ──────────────────────────────────────────────────────────────────

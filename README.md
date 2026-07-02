@@ -39,7 +39,7 @@ An open-source software architecture design studio — diagram, document, and ev
 npm install
 
 # Start in development mode (Electron, hot-reload)
-npm run dev
+npm run dev 
 
 # Type-check
 npm run typecheck

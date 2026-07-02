@@ -43,7 +43,6 @@ import type { LayoutOptions } from 'elkjs'
 import { Position } from 'reactflow'
 import type { C4Node, C4Relation, PositionMap } from '../types/c4'
 import type { Metamodel } from '../types/metamodel'
-import { applyElkLayout } from './elkLayout'
 import { applyRadicalLayout } from './radicalLayout'
 import { minimizeCrossings, computeLayoutMetrics, type LayoutMetrics } from './crossingOpt'
 import { pickSides } from './portAllocator'
@@ -1080,14 +1079,30 @@ function proxyEnergyCtx(ctx: EnergyContext): number {
        + aspectPenalty  * W_ASPECT * aestheticBoost
 }
 
-function refineWithSimulatedAnnealing(
+/**
+ * Yields control back to the browser event loop so the UI can paint the
+ * layout spinner and process input events between SA restarts.
+ *
+ * Uses `scheduler.yield()` (Chrome 129+ / Electron 32+) when available —
+ * it re-queues as a high-priority task with near-zero overhead. Falls back
+ * to `setTimeout(0)` (~1 ms in non-throttled Electron) on older runtimes.
+ */
+function yieldToUI(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof scheduler !== 'undefined' && typeof (scheduler as any).yield === 'function') {
+    return (scheduler as any).yield() as Promise<void>
+  }
+  return new Promise<void>((resolve) => setTimeout(resolve, 0))
+}
+
+async function refineWithSimulatedAnnealing(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
   positions: PositionMap,
   rootIds: string[],
   budgetMs = 250,
   options: { energyFn?: (n: Record<string, C4Node>, r: Record<string, C4Relation>) => number; initialTempFactor?: number } = {},
-): SARefinement {
+): Promise<SARefinement> {
   if (rootIds.length < 2) {
     const m = computeCompositeScore(nodes, relations)
     return { positions, before: m.composite, after: m.composite, iterations: 0 }
@@ -1254,6 +1269,9 @@ function refineWithSimulatedAnnealing(
       }
       T *= cooling
     }
+    // Yield between SA restarts so the event loop can paint the spinner
+    // and handle input. Each restart is ~perRun ms of sync CPU work.
+    await yieldToUI()
   }
 
   // Restore best positions and emit them.
@@ -1307,12 +1325,12 @@ function gaussian(): number {
  * Budget is split evenly across compound groups so a diagram with many
  * containers doesn't blow the wall-clock target.
  */
-function refinePerCompound(
+async function refinePerCompound(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
   positions: PositionMap,
   budgetMs: number,
-): SARefinement {
+): Promise<SARefinement> {
   const byParent: Record<string, string[]> = {}
   for (const n of Object.values(nodes)) {
     if (n.parentId) (byParent[n.parentId] ??= []).push(n.id)
@@ -1328,7 +1346,7 @@ function refinePerCompound(
   let iterations = 0
   for (let i = 0; i < groups.length; i++) {
     const childIds = groups[i]
-    const result = refineWithSimulatedAnnealing(nodes, relations, pos, childIds, perGroup)
+    const result = await refineWithSimulatedAnnealing(nodes, relations, pos, childIds, perGroup)
     if (i === 0) before = result.before
     after = result.after
     iterations += result.iterations
@@ -1479,16 +1497,40 @@ async function runCandidate(
   }
 }
 
-export async function runSmartLayout(
+/**
+ * Result of the ELK candidate-generation phase.
+ *
+ * `done: true`  — all candidates failed; `result` is a baseline fallback and
+ *                 the SA phase should be skipped.
+ * `done: false` — ranked candidates are ready; pass `valid / rootIds / baseline`
+ *                 to `runSmartLayoutSAPhase` (or the SA Web Worker).
+ */
+export type ELKPhaseResult =
+  | { done: true; result: SmartLayoutResult }
+  | { done: false; valid: SmartLayoutCandidate[]; rootIds: string[]; baseline: LayoutMetrics }
+
+/**
+ * ELK candidate-generation phase — always runs on the main thread.
+ *
+ * elk-worker.min.js is a standalone Web Worker script and cannot be imported
+ * inside another worker, so this phase must never be called from inside the
+ * SA worker. The result is either an early-exit baseline (`done: true`) or
+ * the ranked candidate set ready for `runSmartLayoutSAPhase` (`done: false`).
+ */
+export async function runSmartLayoutELKPhase(
   nodes: Record<string, C4Node>,
   relations: Record<string, C4Relation>,
   metamodel?: Metamodel,
-): Promise<SmartLayoutResult> {
+): Promise<ELKPhaseResult> {
+  // Dynamic import so ELK (with its elk-worker.min.js CJS dependency) is NOT
+  // bundled into the Web Worker chunk — it's code-split and fetched only when
+  // this function is called from the main thread.
+  const { applyElkLayout } = await import('./elkLayout')
   const baseline = computeLayoutMetrics(nodes, relations)
   const depth = maxContainmentDepth(metamodel)
   const mmDirection: 'DOWN' | 'RIGHT' = depth >= 2 ? 'RIGHT' : 'DOWN'
 
-  // Eight structurally different candidates run in parallel.
+  // Ten structurally different candidates run in parallel.
   // stress / force / mrtree may degrade on compound graphs — runCandidate
   // swallows failures so the remaining set still wins.
   const candidates = await Promise.all([
@@ -1575,11 +1617,14 @@ export async function runSmartLayout(
   if (valid.length === 0) {
     const baselineScore = computeCompositeScore(nodes, relations)
     return {
-      baseline,
-      winner: { name: 'baseline', metrics: baseline, score: baselineScore, positions: {} },
-      candidates: [],
-      planarity: computePlanarityScore(nodes, relations),
-      refinement: { before: baselineScore.composite, after: baselineScore.composite, iterations: 0 },
+      done: true,
+      result: {
+        baseline,
+        winner: { name: 'baseline', metrics: baseline, score: baselineScore, positions: {} },
+        candidates: [],
+        planarity: computePlanarityScore(nodes, relations),
+        refinement: { before: baselineScore.composite, after: baselineScore.composite, iterations: 0 },
+      },
     }
   }
 
@@ -1589,33 +1634,45 @@ export async function runSmartLayout(
   // raw crossing count alone.
   valid.sort((a, b) => a.score.composite - b.score.composite)
 
-  // ── Three-phase refinement ──────────────────────────────────────────────
-  // Phase A: root SA with cheap proxy energy — many iterations to escape
-  //          local minima (10× faster per iteration than render-aware).
-  // Phase B: per-compound SA — rearrange children inside containers that
-  //          ELK packed sub-optimally. Root-only SA cannot do this.
-  // Phase C: final root polish using full render-aware composite at low T —
-  //          fine-tunes positions to respect the actual Bézier curvature
-  //          users see (the proxy uses straight-line crossings, which can
-  //          disagree on a few edges).
   const rootIds = Object.values(nodes).filter((n) => !n.parentId).map((n) => n.id)
+  return { done: false, valid, rootIds, baseline }
+}
 
-  // Phase budgets — conservative; earlier experiments with larger budgets
-  // hurt quality (SA spent extra time at low T making tiny moves and the
-  // slow Phase C composite eval started overfitting away from Phase B's
-  // local optimum).
+export async function runSmartLayoutCore(
+  nodes: Record<string, C4Node>,
+  relations: Record<string, C4Relation>,
+  metamodel?: Metamodel,
+): Promise<SmartLayoutResult> {
+  const elkResult = await runSmartLayoutELKPhase(nodes, relations, metamodel)
+  if (elkResult.done) return elkResult.result
+  return runSmartLayoutSAPhase(nodes, relations, elkResult.valid, elkResult.rootIds, elkResult.baseline)
+}
+
+/**
+ * SA-only refinement phase — runs phases A / B / C of the smart layout
+ * pipeline on pre-computed ELK candidates.
+ *
+ * Separated from runSmartLayoutCore so that it can be executed in a Web
+ * Worker that does NOT include ELK (elk-worker.min.js is a standalone worker
+ * script that cannot be imported inside another worker). The ELK candidate
+ * generation always runs on the main thread; this function handles the
+ * CPU-intensive SA refinement off-thread.
+ */
+export async function runSmartLayoutSAPhase(
+  nodes: Record<string, C4Node>,
+  relations: Record<string, C4Relation>,
+  valid: SmartLayoutCandidate[],  // sorted ascending by composite score
+  rootIds: string[],
+  baseline: LayoutMetrics,
+): Promise<SmartLayoutResult> {
   // Phase A multi-start: refine the top-K ELK candidates independently and
-  // pick whichever Phase A leaves in the best basin. ELK's ranking is based
-  // on metrics computed on the *initial* layout; SA can completely change
-  // the relative ordering, so the rank-1 seed isn't always the best basin.
-  // K=2 doubles Phase A cost but Phase A terminates early in practice
-  // (proxy energy stagnates fast on small graphs), so wall impact is modest.
+  // pick whichever Phase A leaves in the best basin.
   const PHASEA_K = Math.min(2, valid.length)
   const phaseABudget = 400
-  let phaseA = refineWithSimulatedAnnealing(nodes, relations, valid[0].positions, rootIds, phaseABudget)
+  let phaseA = await refineWithSimulatedAnnealing(nodes, relations, valid[0].positions, rootIds, phaseABudget)
   let winner = valid[0]
   for (let k = 1; k < PHASEA_K; k++) {
-    const alt = refineWithSimulatedAnnealing(nodes, relations, valid[k].positions, rootIds, phaseABudget)
+    const alt = await refineWithSimulatedAnnealing(nodes, relations, valid[k].positions, rootIds, phaseABudget)
     if (alt.after < phaseA.after) {
       phaseA = alt
       winner = valid[k]
@@ -1623,12 +1680,12 @@ export async function runSmartLayout(
   }
   // Refit parents in case root SA loosened sibling spacing.
   const fittedA = fitParentsToChildren(nodes, phaseA.positions)
-  const phaseB = refinePerCompound(nodes, relations, fittedA, 200)
+  const phaseB = await refinePerCompound(nodes, relations, fittedA, 200)
   // Critical: per-compound SA mutates child positions in parent-relative
   // space WITHOUT enforcing they stay inside the parent. Refit so containers
   // hug their (possibly drifted) children before the final polish.
   const fittedB = fitParentsToChildren(nodes, phaseB.positions)
-  const phaseC = refineWithSimulatedAnnealing(
+  const phaseC = await refineWithSimulatedAnnealing(
     nodes, relations, fittedB, rootIds, 200,
     {
       energyFn: (n, r) => computeCompositeScore(n, r).composite,
@@ -1662,3 +1719,5 @@ export async function runSmartLayout(
     refinement: { before: sa.before, after: sa.after, iterations: sa.iterations },
   }
 }
+
+

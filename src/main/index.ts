@@ -53,7 +53,7 @@ function createWindow(): void {
       callback({
         responseHeaders: {
           'Content-Security-Policy': [
-            "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src blob:; font-src 'self' data:"
+            "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; worker-src 'self' blob:; font-src 'self' data:"
           ]
         }
       })
