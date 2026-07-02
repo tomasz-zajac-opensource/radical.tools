@@ -13,9 +13,9 @@
  *              | { type: 'error',  message: string }
  */
 
-import { runSmartLayoutSAPhase, type SmartLayoutResult } from './smartLayout'
+import { runSmartLayoutSAPhase, type SmartLayoutResult, type SmartLayoutCandidate } from './smartLayout'
 import type { C4Node, C4Relation } from '../types/c4'
-import type { LayoutMetrics, SmartLayoutCandidate } from './smartLayout'
+import type { LayoutMetrics } from './crossingOpt'
 
 self.onmessage = async (e: MessageEvent) => {
   const { nodes, relations, valid, rootIds, baseline } = e.data as {

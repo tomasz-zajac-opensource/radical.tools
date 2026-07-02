@@ -1089,8 +1089,9 @@ function proxyEnergyCtx(ctx: EnergyContext): number {
  */
 function yieldToUI(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (typeof scheduler !== 'undefined' && typeof (scheduler as any).yield === 'function') {
-    return (scheduler as any).yield() as Promise<void>
+  const _sched = (globalThis as any).scheduler
+  if (_sched != null && typeof _sched.yield === 'function') {
+    return _sched.yield() as Promise<void>
   }
   return new Promise<void>((resolve) => setTimeout(resolve, 0))
 }
