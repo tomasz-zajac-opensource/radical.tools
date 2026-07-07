@@ -386,7 +386,7 @@ function buildWebviewHtml(
     style-src  ${webview.cspSource} 'unsafe-inline';
     img-src    ${webview.cspSource} data: blob:;
     font-src   ${webview.cspSource} data:;
-    worker-src blob:;">
+    worker-src ${webview.cspSource} blob:;">
 <script>(function () {
   var _vscode = acquireVsCodeApi();
   var _listeners = [];
