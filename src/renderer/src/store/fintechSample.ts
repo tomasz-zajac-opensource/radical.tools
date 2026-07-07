@@ -496,6 +496,7 @@ export function buildFintechSampleRaw(): DiagramData {
     { id: 'view-treemap',  name: 'Platform Hierarchy',  kind: 'treemap', nodeIds: TREEMAP_IDS,  positions: mainPositions, viewport: { x: 80,  y: 80, zoom: 0.6  } },
     { id: 'view-matrix',   name: 'Dependency Matrix',   kind: 'matrix',  nodeIds: MATRIX_IDS,   positions: mainPositions, viewport: { x: 0,   y: 0,  zoom: 1    } },
     { id: 'view-governance', name: 'Governance',        kind: 'table',   nodeIds: GOVERNANCE_IDS, positions: mainPositions, viewport: { x: 0, y: 0, zoom: 1 } },
+    { id: 'view-wiki',     name: 'Architecture Wiki',   kind: 'wiki',    nodeIds: CORE_IDS,     positions: mainPositions, viewport: { x: 0,   y: 0,  zoom: 1    } },
   ]
 
   return {
@@ -588,6 +589,7 @@ export async function buildFintechSample(): Promise<DiagramData> {
     { id: 'view-treemap',  name: 'Platform Hierarchy', kind: 'treemap', nodeIds: TREEMAP_IDS,  positions: mainPositions,    viewport: { x: 80,  y: 80, zoom: 0.6  } },
     { id: 'view-matrix',   name: 'Dependency Matrix',  kind: 'matrix',  nodeIds: MATRIX_IDS,   positions: mainPositions,    viewport: { x: 0,   y: 0,  zoom: 1    } },
     { id: 'view-governance', name: 'Governance',       kind: 'table',   nodeIds: GOVERNANCE_IDS, positions: mainPositions,  viewport: { x: 0, y: 0, zoom: 1 } },
+    { id: 'view-wiki',     name: 'Architecture Wiki',  kind: 'wiki',    nodeIds: CORE_IDS,     positions: mainPositions,    viewport: { x: 0,   y: 0,  zoom: 1    } },
   ]
 
   return {

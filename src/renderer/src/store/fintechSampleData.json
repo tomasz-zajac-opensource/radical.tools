@@ -2027,6 +2027,19 @@
         "y": 0,
         "zoom": 1
       }
+    },
+    {
+      "id": "view-wiki",
+      "name": "Architecture Wiki",
+      "kind": "wiki",
+      "nodeIds": [
+        "sys-core",
+        "dom-access", "ctn-apigw", "ctn-auth",
+        "dom-banking", "ctn-payments", "comp-validator", "comp-fx", "ctn-accounts", "ctn-evtbus",
+        "dom-risk", "ctn-fraud", "ctn-db-acc", "ctn-db-tx"
+      ],
+      "positions": {},
+      "viewport": { "x": 0, "y": 0, "zoom": 1 }
     }
   ],
   "snapshots": [
