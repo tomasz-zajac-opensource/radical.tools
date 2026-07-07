@@ -1,0 +1,88 @@
+name: Publish VS Code Extension
+
+# Triggers:
+#   • Push a tag matching "vscode-v*"  (e.g. git tag vscode-v0.2.0 && git push --tags)
+#   • Manual run from the GitHub UI   (Actions → Publish VS Code Extension → Run workflow)
+on:
+  push:
+    tags:
+      - 'vscode-v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — package only, do not publish'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node.js ─────────────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # ── Quality gate ────────────────────────────────────────────────────────
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      # ── Build web renderer ───────────────────────────────────────────────────
+      - name: Build web renderer
+        run: npm run build:web
+        # Produces: out/renderer/index.html  +  out/renderer/assets/**
+
+      # ── Generate icon (idempotent) ───────────────────────────────────────────
+      - name: Generate extension icon
+        run: node tools/generate-icon.js
+
+      # ── Extension ────────────────────────────────────────────────────────────
+      - name: Install extension dependencies
+        working-directory: tools/vscode-radical
+        run: npm ci
+
+      - name: Bundle web renderer into extension
+        working-directory: tools/vscode-radical
+        run: npm run bundle-webview
+        # Copies out/renderer → tools/vscode-radical/webview/
+
+      - name: Compile extension
+        working-directory: tools/vscode-radical
+        run: npm run compile
+
+      # ── Package (always) ─────────────────────────────────────────────────────
+      - name: Package VSIX
+        working-directory: tools/vscode-radical
+        run: npx @vscode/vsce package --no-dependencies
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-radical-vsix
+          path: tools/vscode-radical/*.vsix
+          retention-days: 30
+
+      # ── Publish (skipped on dry-run) ─────────────────────────────────────────
+      - name: Publish to VS Code Marketplace
+        if: ${{ !inputs.dry_run }}
+        working-directory: tools/vscode-radical
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: npx @vscode/vsce publish --no-dependencies --packagePath *.vsix

@@ -16,10 +16,12 @@ interface PanelEntry {
 
 const panels = new Map<string, PanelEntry>()
 let panelSeq = 0
+let extensionPath = ''
 
 // ── Activation ────────────────────────────────────────────────────────────────
 
 export function activate(context: vscode.ExtensionContext): void {
+  extensionPath = context.extensionPath
   outputChannel = vscode.window.createOutputChannel('Radical.Tools')
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100)
@@ -161,6 +163,12 @@ function getNpmPath(): string {
 }
 
 function getOutDir(projectRoot: string): string {
+  // Bundled webview (marketplace install) takes priority
+  if (extensionPath) {
+    const bundled = path.join(extensionPath, 'webview')
+    if (fs.existsSync(path.join(bundled, 'index.html'))) return bundled
+  }
+  // Fall back to local source build (developer install)
   return path.join(projectRoot, 'out', 'renderer')
 }
 

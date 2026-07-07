@@ -1,9 +1,27 @@
 {
   "name": "vscode-radical",
-  "displayName": "Radical.Tools",
-  "description": "C4 architecture diagram support — open .c4.json files in Radical.Tools with live two-way sync, JSON Schema validation and autocomplete.",
-  "version": "0.1.0",
+  "displayName": "Radical.Tools — C4 Architecture Diagrams",
+  "description": "Visual C4 architecture diagram editor with multi-metamodel support (C4, DDD, Governance), multiple views, AI assistant, and live VS Code theme sync.",
+  "version": "0.2.0",
   "publisher": "radical-tools",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#0d1321",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/tomasz-zajac-opensource/radical.tools#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tomasz-zajac-opensource/radical.tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tomasz-zajac-opensource/radical.tools/issues"
+  },
+  "keywords": [
+    "c4", "architecture", "diagram", "c4model", "ddd",
+    "software architecture", "modeling", "visualization"
+  ],
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Visualization", "Other"],
   "activationEvents": [
@@ -92,7 +110,10 @@
   "scripts": {
     "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --format=cjs --sourcemap",
     "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --format=cjs --sourcemap --watch",
-    "package": "npm run compile && npx @vscode/vsce package --no-dependencies --allow-missing-repository"
+    "bundle-webview": "node -e \"const fs=require('fs');fs.cpSync('../../out/renderer','webview',{recursive:true,force:true})\"",
+    "vscode:prepublish": "npm run compile",
+    "package": "npm run compile && npx @vscode/vsce package --no-dependencies --allow-missing-repository",
+    "publish": "npm run compile && npx @vscode/vsce publish --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

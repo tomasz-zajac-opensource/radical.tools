@@ -1,0 +1,2161 @@
+[
+  {
+    "id": "ff-latency-slo",
+    "category": "fitness-function",
+    "name": "Latency SLO Guard",
+    "description": "Monitors service response time against a defined SLO target. Triggers an alert or blocks deployment when the p99 latency exceeds the threshold. Ideal for user-facing APIs where response time directly impacts experience.",
+    "tags": ["performance", "slo", "operational", "latency"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "LATENCY_PERCENTILE", "label": "Measured percentile", "hint": "p99", "defaultValue": "p99" },
+      { "key": "LATENCY_THRESHOLD_MS", "label": "Latency threshold (ms)", "hint": "200", "type": "number", "defaultValue": "200" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-latency-slo-1",
+        "type": "fitness-fn",
+        "label": "Latency SLO Guard",
+        "description": "Ensures p99 response time stays within the defined SLO target. Measures end-to-end latency from client request to response.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "operational",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "{{LATENCY_PERCENTILE}} latency < {{LATENCY_THRESHOLD_MS}}ms",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-coupling-guard",
+    "category": "fitness-function",
+    "name": "Coupling Guard",
+    "description": "Measures component fan-out (number of outgoing dependencies) and flags modules that exceed the threshold. High fan-out indicates tight coupling and fragile change propagation.",
+    "tags": ["architecture", "coupling", "structural", "modularity"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MAX_FAN_OUT", "label": "Max outgoing dependencies per component", "hint": "5", "type": "number", "defaultValue": "5" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-coupling-guard-1",
+        "type": "fitness-fn",
+        "label": "Coupling Guard",
+        "description": "Checks that no component has more than N outgoing dependencies. Prevents tightly-coupled designs that resist change.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "structural",
+        "automated": true,
+        "trigger": "on-deploy",
+        "threshold": "Component fan-out ≤ {{MAX_FAN_OUT}}",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-deploy-frequency",
+    "category": "fitness-function",
+    "name": "Deployment Frequency",
+    "description": "Tracks how often the team deploys to production. One of the four DORA metrics. Low deployment frequency often correlates with large, risky batch releases.",
+    "tags": ["dora", "process", "devops", "deployment"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_DEPLOYS_PER_WEEK", "label": "Minimum deployments per week", "hint": "1", "type": "number", "defaultValue": "1" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-deploy-freq-1",
+        "type": "fitness-fn",
+        "label": "Deployment Frequency",
+        "description": "Measures deployments per week/month. Target: on-demand or at least weekly for high-performing teams.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "process",
+        "automated": true,
+        "trigger": "periodic",
+        "threshold": "≥ {{MIN_DEPLOYS_PER_WEEK}} deploy(s) per week",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-security-scan",
+    "category": "fitness-function",
+    "name": "Security Dependency Scan",
+    "description": "Scans all runtime and build dependencies for known CVEs before deployment. Blocks releases containing critical or high-severity vulnerabilities. Essential for supply-chain security.",
+    "tags": ["security", "dependencies", "cve", "operational"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "ff-sec-scan-1",
+        "type": "fitness-fn",
+        "label": "Security Dependency Scan",
+        "description": "Scans dependencies for CVEs. Fails pipeline on critical/high severity findings. Uses tools like Snyk, Trivy or npm audit.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "operational",
+        "automated": true,
+        "trigger": "on-deploy",
+        "threshold": "0 critical/high CVEs",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-api-contract",
+    "category": "fitness-function",
+    "name": "API Contract Compliance",
+    "description": "Validates that API implementations conform to their OpenAPI/AsyncAPI specifications. Catches breaking changes before they reach consumers. Critical for microservice architectures.",
+    "tags": ["api", "contract", "structural", "compatibility"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "ff-api-contract-1",
+        "type": "fitness-fn",
+        "label": "API Contract Compliance",
+        "description": "Validates implementation against OpenAPI/AsyncAPI spec. Detects breaking changes (removed fields, changed types, dropped endpoints).",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "structural",
+        "automated": true,
+        "trigger": "on-deploy",
+        "threshold": "0 breaking changes vs published spec",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-data-residency",
+    "category": "fitness-function",
+    "name": "Data Residency Check",
+    "description": "Continuously verifies that personal data is stored and processed only in approved geographic regions. Required for GDPR, data sovereignty laws, and contractual obligations.",
+    "tags": ["compliance", "gdpr", "data", "holistic", "privacy"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "APPROVED_REGIONS", "label": "Approved data residency regions", "hint": "EU only / EU + US-East", "defaultValue": "approved regions" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-data-res-1",
+        "type": "fitness-fn",
+        "label": "Data Residency Check",
+        "description": "Verifies that PII is stored only in approved regions (e.g. EU-only for GDPR). Checks cloud resource tags, database locations, and CDN configs.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "holistic",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "All PII stored in {{APPROVED_REGIONS}} only",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-error-budget",
+    "category": "fitness-function",
+    "name": "Error Budget Burn Rate",
+    "description": "Tracks the consumption rate of the error budget (derived from SLO). When the burn rate exceeds thresholds, it triggers alerts or freezes feature releases until reliability improves. Key SRE practice.",
+    "tags": ["sre", "reliability", "slo", "operational"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "BURN_RATE_MULTIPLIER", "label": "Max burn rate multiplier (vs baseline)", "hint": "2", "type": "number", "defaultValue": "2" },
+      { "key": "WINDOW_DAYS", "label": "Measurement window (days)", "hint": "14", "type": "number", "defaultValue": "14" },
+      { "key": "ALERT_THRESHOLD_PCT", "label": "Alert at budget consumed (%)", "hint": "50", "type": "number", "defaultValue": "50" },
+      { "key": "FREEZE_THRESHOLD_PCT", "label": "Feature-freeze at budget consumed (%)", "hint": "80", "type": "number", "defaultValue": "80" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-error-budget-1",
+        "type": "fitness-fn",
+        "label": "Error Budget Burn Rate",
+        "description": "Monitors error budget consumption. Alert at {{ALERT_THRESHOLD_PCT}}% consumed in first quarter of window. Feature freeze at {{FREEZE_THRESHOLD_PCT}}% consumed.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "operational",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "Burn rate < {{BURN_RATE_MULTIPLIER}}x normal ({{WINDOW_DAYS}}-day window)",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-test-coverage",
+    "category": "fitness-function",
+    "name": "Test Coverage Gate",
+    "description": "Enforces a minimum code coverage percentage on every PR/deployment. Prevents untested code from reaching production. Best combined with mutation testing for quality, not just quantity.",
+    "tags": ["testing", "quality", "process", "coverage"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_COVERAGE_PCT", "label": "Minimum line coverage (%)", "hint": "80", "type": "number", "defaultValue": "80" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-test-cov-1",
+        "type": "fitness-fn",
+        "label": "Test Coverage Gate",
+        "description": "Blocks deployment when line/branch coverage falls below the threshold. Ratchets up: new code must meet or exceed current coverage.",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "process",
+        "automated": true,
+        "trigger": "on-deploy",
+        "threshold": "≥ {{MIN_COVERAGE_PCT}}% line coverage, no decrease on diff",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-lead-time",
+    "category": "fitness-function",
+    "name": "Lead Time for Changes",
+    "description": "Measures the time from code commit to running in production. One of the four DORA metrics. Shorter lead times indicate a healthier CI/CD pipeline and faster feedback loops.",
+    "tags": ["dora", "process", "devops", "lead-time"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MAX_LEAD_TIME_DAYS", "label": "Max median lead time (days)", "hint": "1", "type": "number", "defaultValue": "1" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-lead-time-1",
+        "type": "fitness-fn",
+        "label": "Lead Time for Changes",
+        "description": "Tracks time from commit to production deploy. Target: less than one day for elite performers (DORA).",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "process",
+        "automated": true,
+        "trigger": "periodic",
+        "threshold": "Median lead time < {{MAX_LEAD_TIME_DAYS}} day(s)",
+        "status": "active"
+      }
+    ]
+  },
+  {
+    "id": "ff-mttr",
+    "category": "fitness-function",
+    "name": "Mean Time to Recovery",
+    "description": "Measures how long it takes to restore service after a production incident. One of the four DORA metrics. Shorter MTTR indicates better incident response and system resilience.",
+    "tags": ["dora", "reliability", "operational", "incident"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MAX_MTTR_HOURS", "label": "Max MTTR (hours)", "hint": "1", "type": "number", "defaultValue": "1" }
+    ],
+    "nodes": [
+      {
+        "id": "ff-mttr-1",
+        "type": "fitness-fn",
+        "label": "Mean Time to Recovery",
+        "description": "Tracks time from incident detection to service restoration. Target: less than one hour for elite performers (DORA).",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "category": "operational",
+        "automated": false,
+        "trigger": "periodic",
+        "threshold": "MTTR < {{MAX_MTTR_HOURS}} hour(s)",
+        "status": "active"
+      }
+    ]
+  },
+
+  {
+    "id": "req-availability",
+    "category": "requirement",
+    "name": "System Availability",
+    "description": "Ensures the system meets its availability target. Ubiquitous requirement — applies at all times without preconditions.",
+    "tags": ["availability", "reliability", "nfr", "sla"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "AVAILABILITY_TARGET", "label": "Availability target", "hint": "99.9%", "defaultValue": "99.9%" }
+    ],
+    "nodes": [
+      {
+        "id": "req-availability-1",
+        "type": "requirement",
+        "label": "System Availability",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "be available {{AVAILABILITY_TARGET}} of the time, measured monthly",
+        "rationale": "Business SLA requires three-nines availability to meet customer contracts and avoid penalty clauses."
+      }
+    ]
+  },
+  {
+    "id": "req-autoscaling",
+    "category": "requirement",
+    "name": "Auto-Scaling Under Load",
+    "description": "Event-driven requirement that triggers horizontal scaling when load exceeds a threshold.",
+    "tags": ["scalability", "performance", "cloud", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "SCALE_TRIGGER_RPS", "label": "Scale-out trigger (requests/s)", "hint": "1000", "type": "number", "defaultValue": "1000" },
+      { "key": "SCALE_OUT_SECONDS", "label": "Scale-out time (seconds)", "hint": "60", "type": "number", "defaultValue": "60" }
+    ],
+    "nodes": [
+      {
+        "id": "req-autoscaling-1",
+        "type": "requirement",
+        "label": "Auto-Scaling Under Load",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "incoming request rate exceeds {{SCALE_TRIGGER_RPS}} requests per second",
+        "action": "automatically scale out compute instances within {{SCALE_OUT_SECONDS}} seconds to maintain response time below 500ms",
+        "rationale": "Traffic spikes during promotions and seasonal events must be handled without manual intervention."
+      }
+    ]
+  },
+  {
+    "id": "req-auth",
+    "category": "requirement",
+    "name": "API Authentication",
+    "description": "All API requests must be authenticated. Ubiquitous security requirement with no preconditions.",
+    "tags": ["security", "authentication", "api", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "AUTH_PROTOCOL", "label": "Authentication protocol", "hint": "OAuth 2.0", "defaultValue": "OAuth 2.0" }
+    ],
+    "nodes": [
+      {
+        "id": "req-auth-1",
+        "type": "requirement",
+        "label": "API Authentication",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "authenticate all API requests using {{AUTH_PROTOCOL}} before processing",
+        "rationale": "Unauthenticated access exposes sensitive data and operations to unauthorized parties."
+      }
+    ]
+  },
+  {
+    "id": "req-response-time",
+    "category": "requirement",
+    "name": "Response Time Under Load",
+    "description": "State-driven requirement: while the system is under normal operating conditions, API responses must complete within a target time.",
+    "tags": ["performance", "latency", "nfr", "response-time"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "RESPONSE_TIME_MS", "label": "Maximum response time (ms)", "hint": "500", "type": "number", "defaultValue": "500" },
+      { "key": "PERCENTILE", "label": "Percentile", "hint": "95th", "defaultValue": "95th" }
+    ],
+    "nodes": [
+      {
+        "id": "req-response-time-1",
+        "type": "requirement",
+        "label": "Response Time Under Load",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is operating under normal load (< 80% CPU, < 70% memory)",
+        "action": "respond to any API request within {{RESPONSE_TIME_MS}}ms at the {{PERCENTILE}} percentile",
+        "rationale": "Perceived responsiveness directly impacts user satisfaction and conversion rates."
+      }
+    ]
+  },
+  {
+    "id": "req-data-retention",
+    "category": "requirement",
+    "name": "Data Retention Policy",
+    "description": "Unwanted-behaviour requirement: prevents unbounded data growth by archiving old data.",
+    "tags": ["data", "retention", "compliance", "nfr", "storage"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "RETENTION_DAYS", "label": "Retention period (days)", "hint": "90", "type": "number", "defaultValue": "90" }
+    ],
+    "nodes": [
+      {
+        "id": "req-data-retention-1",
+        "type": "requirement",
+        "label": "Data Retention Policy",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "unwanted-behaviour",
+        "status": "approved",
+        "priority": "should",
+        "unwanted_condition": "transactional data is older than {{RETENTION_DAYS}} days",
+        "action": "archive the data to cold storage and remove it from the primary database",
+        "rationale": "Unbounded data growth degrades query performance and increases storage costs."
+      }
+    ]
+  },
+  {
+    "id": "req-gdpr-encryption",
+    "category": "requirement",
+    "name": "GDPR Data Encryption",
+    "description": "Optional feature requirement: when handling EU user data, encryption at rest is mandatory.",
+    "tags": ["gdpr", "privacy", "encryption", "compliance", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "ENCRYPTION_ALGORITHM", "label": "Encryption algorithm (at rest)", "hint": "AES-256", "defaultValue": "AES-256" },
+      { "key": "MIN_TLS_VERSION", "label": "Minimum TLS version (in transit)", "hint": "TLS 1.2", "defaultValue": "TLS 1.2" }
+    ],
+    "nodes": [
+      {
+        "id": "req-gdpr-enc-1",
+        "type": "requirement",
+        "label": "GDPR Data Encryption",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "optional",
+        "status": "approved",
+        "priority": "must",
+        "feature": "EU user personal data is stored or processed",
+        "action": "encrypt all personal data at rest using {{ENCRYPTION_ALGORITHM}} and in transit using {{MIN_TLS_VERSION}}+",
+        "rationale": "GDPR Article 32 requires appropriate technical measures to protect personal data."
+      }
+    ]
+  },
+  {
+    "id": "req-disaster-recovery",
+    "category": "requirement",
+    "name": "Disaster Recovery Failover",
+    "description": "Event-driven requirement: when the primary region fails, the system must failover to a secondary region within a defined time window.",
+    "tags": ["disaster-recovery", "failover", "reliability", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "OUTAGE_THRESHOLD_SECONDS", "label": "Primary outage threshold before failover (seconds)", "hint": "30", "type": "number", "defaultValue": "30" },
+      { "key": "RTO_MINUTES", "label": "Recovery Time Objective (minutes)", "hint": "5", "type": "number", "defaultValue": "5" },
+      { "key": "RPO_MINUTES", "label": "Recovery Point Objective (minutes)", "hint": "1", "type": "number", "defaultValue": "1" }
+    ],
+    "nodes": [
+      {
+        "id": "req-dr-failover-1",
+        "type": "requirement",
+        "label": "Disaster Recovery Failover",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "the primary region becomes unavailable for more than {{OUTAGE_THRESHOLD_SECONDS}} seconds",
+        "action": "automatically failover to the secondary region with an RTO of {{RTO_MINUTES}} minutes and RPO of {{RPO_MINUTES}} minute",
+        "rationale": "Business continuity requires rapid recovery from regional outages to minimize revenue loss."
+      }
+    ]
+  },
+  {
+    "id": "req-audit-logging",
+    "category": "requirement",
+    "name": "Audit Logging",
+    "description": "Ubiquitous requirement: all state-changing operations must be logged for audit and compliance purposes.",
+    "tags": ["audit", "logging", "compliance", "security", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-audit-log-1",
+        "type": "requirement",
+        "label": "Audit Logging",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "log all state-changing operations with timestamp, actor identity, action type, affected resource, and before/after values",
+        "rationale": "Regulatory compliance (SOX, PCI-DSS) and security forensics require a complete, immutable audit trail."
+      }
+    ]
+  },
+  {
+    "id": "req-rate-limiting",
+    "category": "requirement",
+    "name": "API Rate Limiting",
+    "description": "Complex requirement combining state and event conditions to protect the system from abuse.",
+    "tags": ["security", "api", "rate-limiting", "nfr", "protection"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "RATE_LIMIT_RPM", "label": "Rate limit (requests/minute per client)", "hint": "100", "type": "number", "defaultValue": "100" }
+    ],
+    "nodes": [
+      {
+        "id": "req-rate-limit-1",
+        "type": "requirement",
+        "label": "API Rate Limiting",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "complex",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the API gateway is operating normally",
+        "trigger": "a single client exceeds {{RATE_LIMIT_RPM}} requests per minute",
+        "action": "reject excess requests with HTTP 429 and include a Retry-After header",
+        "rationale": "Prevents individual clients from monopolizing resources and degrading service for others."
+      }
+    ]
+  },
+  {
+    "id": "req-accessibility",
+    "category": "requirement",
+    "name": "WCAG Accessibility",
+    "description": "Ubiquitous requirement ensuring the UI meets accessibility standards for all users.",
+    "tags": ["accessibility", "wcag", "ui", "nfr", "inclusivity"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "WCAG_VERSION", "label": "WCAG version", "hint": "2.1", "defaultValue": "2.1" },
+      { "key": "WCAG_LEVEL", "label": "Conformance level (A / AA / AAA)", "hint": "AA", "defaultValue": "AA" }
+    ],
+    "nodes": [
+      {
+        "id": "req-wcag-1",
+        "type": "requirement",
+        "label": "WCAG Accessibility",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "conform to WCAG {{WCAG_VERSION}} Level {{WCAG_LEVEL}} for all user-facing pages and interactive components",
+        "rationale": "Inclusive design ensures the product is usable by people with disabilities and meets legal requirements in many jurisdictions."
+      }
+    ]
+  },
+
+  {
+    "id": "req-page-load-time",
+    "category": "requirement",
+    "name": "Page Load Time",
+    "description": "Performance: state-driven requirement ensuring web pages load within acceptable time under normal operating conditions.",
+    "tags": ["performance", "latency", "web", "nfr", "core-web-vitals"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "TTI_SECONDS", "label": "Time-to-interactive (seconds)", "hint": "3", "type": "number", "defaultValue": "3" }
+    ],
+    "nodes": [
+      {
+        "id": "req-page-load-1",
+        "type": "requirement",
+        "label": "Page Load Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the user is on a standard broadband connection and the system is under normal load",
+        "action": "render the initial page and make it interactive (TTI) within {{TTI_SECONDS}} seconds for 95% of users",
+        "rationale": "Studies show that pages taking longer than 3 seconds lose ~53% of mobile visitors. Core Web Vitals impact SEO ranking."
+      }
+    ]
+  },
+
+  {
+    "id": "req-throughput",
+    "category": "requirement",
+    "name": "System Throughput",
+    "description": "Performance: ubiquitous requirement defining the minimum transaction processing rate the system must sustain.",
+    "tags": ["performance", "throughput", "capacity", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_TPS", "label": "Minimum throughput (TPS)", "hint": "1000", "type": "number", "defaultValue": "1000" }
+    ],
+    "nodes": [
+      {
+        "id": "req-throughput-1",
+        "type": "requirement",
+        "label": "System Throughput",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "sustain a minimum of {{MIN_TPS}} transactions per second under peak load without degrading response times beyond defined SLOs",
+        "rationale": "Peak traffic during promotional events requires sufficient throughput headroom to avoid revenue-impacting degradation."
+      }
+    ]
+  },
+
+  {
+    "id": "req-cpu-utilisation",
+    "category": "requirement",
+    "name": "CPU Utilisation Ceiling",
+    "description": "Performance: state-driven requirement preventing runaway resource usage under normal operating conditions.",
+    "tags": ["performance", "resource", "cpu", "nfr", "infrastructure"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "CPU_CEILING_PCT", "label": "CPU utilisation ceiling (%)", "hint": "75", "type": "number", "defaultValue": "75" }
+    ],
+    "nodes": [
+      {
+        "id": "req-cpu-1",
+        "type": "requirement",
+        "label": "CPU Utilisation Ceiling",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "should",
+        "precondition": "the system is handling normal production traffic",
+        "action": "keep average CPU utilisation below {{CPU_CEILING_PCT}}% on all compute nodes, triggering auto-scaling before the ceiling is reached",
+        "rationale": "Sustained CPU above 80% leaves no headroom for traffic spikes and can cascade into latency degradation."
+      }
+    ]
+  },
+
+  {
+    "id": "req-onboarding-time",
+    "category": "requirement",
+    "name": "User Onboarding Time",
+    "description": "Usability: ubiquitous requirement ensuring first-time users can reach core value quickly without external help.",
+    "tags": ["usability", "onboarding", "ux", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "ONBOARDING_MINUTES", "label": "Max onboarding time (minutes)", "hint": "5", "type": "number", "defaultValue": "5" }
+    ],
+    "nodes": [
+      {
+        "id": "req-onboarding-1",
+        "type": "requirement",
+        "label": "User Onboarding Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "enable a first-time user to complete the primary onboarding flow and reach the core value moment within {{ONBOARDING_MINUTES}} minutes without external assistance",
+        "rationale": "Time-to-value is a key driver of trial-to-paid conversion. Friction in onboarding directly impacts revenue."
+      }
+    ]
+  },
+
+  {
+    "id": "req-error-recovery",
+    "category": "requirement",
+    "name": "Error Recovery Guidance",
+    "description": "Usability: ubiquitous requirement ensuring every system error provides actionable recovery guidance.",
+    "tags": ["usability", "error-handling", "ux", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-error-recovery-1",
+        "type": "requirement",
+        "label": "Error Recovery Guidance",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "must",
+        "action": "display a human-readable error message with a specific corrective action or next step for every user-facing error state",
+        "rationale": "Dead-end error states cause abandonment. Users who understand what went wrong and how to fix it have significantly higher task completion rates."
+      }
+    ]
+  },
+
+  {
+    "id": "req-test-coverage",
+    "category": "requirement",
+    "name": "Automated Test Coverage",
+    "description": "Maintainability: ubiquitous requirement ensuring sufficient automated test coverage of business logic.",
+    "tags": ["maintainability", "testing", "quality", "nfr", "ci-cd"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_COVERAGE_PCT", "label": "Minimum test coverage (%)", "hint": "80", "type": "number", "defaultValue": "80" }
+    ],
+    "nodes": [
+      {
+        "id": "req-test-cov-1",
+        "type": "requirement",
+        "label": "Automated Test Coverage",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "maintain automated unit and integration test coverage of at least {{MIN_COVERAGE_PCT}}% for all business-logic modules, enforced via CI pipeline gates",
+        "rationale": "Test coverage acts as a safety net for refactoring. Below 80% coverage, defect escape rates increase significantly."
+      }
+    ]
+  },
+
+  {
+    "id": "req-cyclomatic-complexity",
+    "category": "requirement",
+    "name": "Code Complexity Limit",
+    "description": "Maintainability: ubiquitous requirement capping cyclomatic complexity per function to keep code understandable and testable.",
+    "tags": ["maintainability", "code-quality", "complexity", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MAX_COMPLEXITY", "label": "Max cyclomatic complexity per function", "hint": "10", "type": "number", "defaultValue": "10" }
+    ],
+    "nodes": [
+      {
+        "id": "req-complexity-1",
+        "type": "requirement",
+        "label": "Code Complexity Limit",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "should",
+        "action": "keep cyclomatic complexity per function below {{MAX_COMPLEXITY}}, enforced by static analysis in the CI pipeline with build failure on violation",
+        "rationale": "Functions with complexity above 10 require exponentially more test cases and are significantly harder to debug and refactor."
+      }
+    ]
+  },
+
+  {
+    "id": "req-ci-pipeline-time",
+    "category": "requirement",
+    "name": "CI Pipeline Duration",
+    "description": "Maintainability: state-driven requirement keeping the CI/CD feedback loop short enough to maintain developer flow.",
+    "tags": ["maintainability", "ci-cd", "developer-experience", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MAX_PIPELINE_MINUTES", "label": "Max pipeline duration (minutes)", "hint": "10", "type": "number", "defaultValue": "10" }
+    ],
+    "nodes": [
+      {
+        "id": "req-ci-time-1",
+        "type": "requirement",
+        "label": "CI Pipeline Duration",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "draft",
+        "priority": "should",
+        "precondition": "a developer pushes a commit to a feature branch",
+        "action": "complete the full build, lint, test, and security scan pipeline within {{MAX_PIPELINE_MINUTES}} minutes",
+        "rationale": "Pipelines longer than 10 minutes break developer flow, discourage frequent commits, and slow down feedback on regressions."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-standard",
+    "category": "requirement",
+    "name": "REST API Standard",
+    "description": "Interoperability: ubiquitous requirement mandating OpenAPI documentation for all public service endpoints.",
+    "tags": ["interoperability", "api", "openapi", "standards", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-api-std-1",
+        "type": "requirement",
+        "label": "REST API Standard",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "expose all public service interfaces as RESTful APIs documented with OpenAPI 3.0 specifications, version-controlled alongside the service code",
+        "rationale": "OpenAPI documentation enables automated client generation, contract testing, and accelerates third-party integrations."
+      }
+    ]
+  },
+
+  {
+    "id": "req-backward-compatibility",
+    "category": "requirement",
+    "name": "API Backward Compatibility",
+    "description": "Interoperability: unwanted-behaviour requirement preventing breaking changes from being silently introduced into published APIs.",
+    "tags": ["interoperability", "api", "versioning", "nfr", "compatibility"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "DEPRECATION_MONTHS", "label": "Deprecation period (months)", "hint": "6", "type": "number", "defaultValue": "6" }
+    ],
+    "nodes": [
+      {
+        "id": "req-compat-1",
+        "type": "requirement",
+        "label": "API Backward Compatibility",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "unwanted-behaviour",
+        "status": "approved",
+        "priority": "must",
+        "unwanted_condition": "a breaking change is introduced to a published API (field removal, type change, or status code change)",
+        "action": "increment the major version and maintain the previous version for a minimum of {{DEPRECATION_MONTHS}} months with a deprecation notice",
+        "rationale": "Unannounced breaking changes break partner integrations. Stable contracts are a prerequisite for ecosystem adoption."
+      }
+    ]
+  },
+
+  {
+    "id": "req-mfa",
+    "category": "requirement",
+    "name": "Multi-Factor Authentication",
+    "description": "Security: optional requirement mandating MFA for privileged access and sensitive operations.",
+    "tags": ["security", "authentication", "mfa", "nfr", "access-control"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-mfa-1",
+        "type": "requirement",
+        "label": "Multi-Factor Authentication",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "optional",
+        "status": "approved",
+        "priority": "must",
+        "feature": "a user accesses administrative functions or performs a high-risk operation",
+        "action": "require multi-factor authentication using TOTP or a hardware key before granting access",
+        "rationale": "Stolen credentials alone are insufficient to compromise admin accounts. MFA prevents the majority of account-takeover attacks."
+      }
+    ]
+  },
+
+  {
+    "id": "req-tls-in-transit",
+    "category": "requirement",
+    "name": "Encryption in Transit",
+    "description": "Security: ubiquitous requirement mandating TLS for all network communication carrying sensitive data.",
+    "tags": ["security", "encryption", "tls", "nfr", "privacy"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_TLS_VERSION", "label": "Minimum TLS version", "hint": "TLS 1.2", "defaultValue": "TLS 1.2" }
+    ],
+    "nodes": [
+      {
+        "id": "req-tls-1",
+        "type": "requirement",
+        "label": "Encryption in Transit",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "encrypt all network communication carrying personal data or credentials using {{MIN_TLS_VERSION}} or higher, rejecting plaintext connections",
+        "rationale": "Plaintext transport exposes data to interception. TLS is the baseline for protecting data in motion per GDPR, PCI-DSS, and HIPAA."
+      }
+    ]
+  },
+
+  {
+    "id": "req-vulnerability-scanning",
+    "category": "requirement",
+    "name": "Dependency Vulnerability Scanning",
+    "description": "Security: event-driven requirement blocking deployments that include known critical vulnerabilities in dependencies.",
+    "tags": ["security", "dependencies", "cve", "nfr", "supply-chain"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "CRITICAL_CVSS", "label": "Critical severity CVSS threshold", "hint": "9.0", "defaultValue": "9.0" },
+      { "key": "HIGH_CVSS", "label": "High severity CVSS threshold", "hint": "7.0", "defaultValue": "7.0" }
+    ],
+    "nodes": [
+      {
+        "id": "req-vuln-scan-1",
+        "type": "requirement",
+        "label": "Dependency Vulnerability Scanning",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "a new build is triggered or a critical CVE is published for a dependency in use",
+        "action": "scan all runtime dependencies for known CVEs and block the pipeline on any critical (CVSS ≥ {{CRITICAL_CVSS}}) or high (CVSS ≥ {{HIGH_CVSS}}) severity finding",
+        "rationale": "Supply-chain attacks via compromised dependencies are a leading attack vector. Log4Shell showed that a single library flaw can expose millions of systems."
+      }
+    ]
+  },
+
+  {
+    "id": "req-health-checks",
+    "category": "requirement",
+    "name": "Service Health Checks",
+    "description": "Manageability: ubiquitous requirement ensuring every service exposes a standardised health endpoint for monitoring and orchestration.",
+    "tags": ["manageability", "monitoring", "observability", "nfr", "operations"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "HEALTH_RESPONSE_MS", "label": "Max /health response time (ms)", "hint": "200", "type": "number", "defaultValue": "200" }
+    ],
+    "nodes": [
+      {
+        "id": "req-health-1",
+        "type": "requirement",
+        "label": "Service Health Checks",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "expose a /health endpoint returning HTTP 200 with liveness and readiness status, including dependency health, within {{HEALTH_RESPONSE_MS}}ms",
+        "rationale": "Orchestrators and load balancers require health endpoints to route traffic away from unhealthy instances. Missing checks mean zombie processes receive live traffic."
+      }
+    ]
+  },
+
+  {
+    "id": "req-centralised-logging",
+    "category": "requirement",
+    "name": "Centralised Structured Logging",
+    "description": "Manageability: ubiquitous requirement mandating structured, centralised log collection across all services.",
+    "tags": ["manageability", "logging", "observability", "nfr", "operations"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "LOG_RETENTION_DAYS", "label": "Log retention period (days)", "hint": "30", "type": "number", "defaultValue": "30" }
+    ],
+    "nodes": [
+      {
+        "id": "req-logging-1",
+        "type": "requirement",
+        "label": "Centralised Structured Logging",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "emit all logs in structured JSON format with correlation IDs, severity, timestamp, and service name, aggregated into a centralised log store with a minimum {{LOG_RETENTION_DAYS}}-day retention",
+        "rationale": "Unstructured logs scattered across hosts are unqueryable in production incidents. Structured, centralised logs reduce mean time to diagnosis."
+      }
+    ]
+  },
+
+  {
+    "id": "req-alerting-slo",
+    "category": "requirement",
+    "name": "SLO Breach Alerting",
+    "description": "Manageability: event-driven requirement triggering on-call alerting before an SLO breach occurs.",
+    "tags": ["manageability", "monitoring", "alerting", "nfr", "sre"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "BUDGET_ALERT_PCT", "label": "Error budget alert threshold (%)", "hint": "80", "type": "number", "defaultValue": "80" }
+    ],
+    "nodes": [
+      {
+        "id": "req-alert-slo-1",
+        "type": "requirement",
+        "label": "SLO Breach Alerting",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "any service metric (error rate, latency, availability) approaches {{BUDGET_ALERT_PCT}}% of its SLO error budget",
+        "action": "fire a P2 alert to the on-call engineer via PagerDuty with the affected metric, current value, and a link to the relevant dashboard",
+        "rationale": "Reacting to SLO breaches after the fact is too late. Burn-rate alerting allows intervention before users are impacted."
+      }
+    ]
+  },
+
+  {
+    "id": "req-idempotency",
+    "category": "requirement",
+    "name": "Idempotent Operations",
+    "description": "Dependability: ubiquitous requirement ensuring that retried or duplicated requests do not cause unintended side effects.",
+    "tags": ["dependability", "reliability", "idempotency", "nfr", "data-integrity"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "IDEMPOTENCY_WINDOW_HOURS", "label": "Idempotency key window (hours)", "hint": "24", "type": "number", "defaultValue": "24" }
+    ],
+    "nodes": [
+      {
+        "id": "req-idempotency-1",
+        "type": "requirement",
+        "label": "Idempotent Operations",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "implement idempotency keys for all state-changing API operations, ensuring that duplicate requests within a {{IDEMPOTENCY_WINDOW_HOURS}}-hour window produce the same result without creating duplicate records",
+        "rationale": "Network retries are unavoidable. Without idempotency, transient failures cause double-charges, duplicate orders, or data corruption."
+      }
+    ]
+  },
+
+  {
+    "id": "req-data-integrity",
+    "category": "requirement",
+    "name": "Referential Data Integrity",
+    "description": "Dependability: ubiquitous requirement preventing orphaned or inconsistent data across service boundaries.",
+    "tags": ["dependability", "data-integrity", "correctness", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-integrity-1",
+        "type": "requirement",
+        "label": "Referential Data Integrity",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "enforce referential integrity for all cross-entity relationships at the database or application layer, rejecting any operation that would leave orphaned records",
+        "rationale": "Orphaned records cause silent calculation errors, billing anomalies, and compliance violations that are expensive to detect and remediate."
+      }
+    ]
+  },
+
+  {
+    "id": "req-graceful-degradation",
+    "category": "requirement",
+    "name": "Graceful Degradation",
+    "description": "Availability: event-driven requirement ensuring the system remains partially functional when a non-critical dependency is unavailable.",
+    "tags": ["availability", "resilience", "nfr", "reliability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-degrade-1",
+        "type": "requirement",
+        "label": "Graceful Degradation",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "draft",
+        "priority": "should",
+        "trigger": "a non-critical downstream service or third-party dependency becomes unavailable",
+        "action": "continue serving core functionality using cached data or a reduced feature set, displaying a clear status notice to affected users rather than returning an error",
+        "rationale": "Total failures caused by partial outages erode user trust far more than reduced functionality. Circuit breakers and fallbacks are the standard mitigation."
+      }
+    ]
+  },
+
+  {
+    "id": "req-iac",
+    "category": "requirement",
+    "name": "Infrastructure as Code",
+    "description": "Automatability: ubiquitous requirement mandating all infrastructure be defined and provisioned via code.",
+    "tags": ["automatability", "infrastructure", "devops", "nfr", "iac"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-iac-1",
+        "type": "requirement",
+        "label": "Infrastructure as Code",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "define and provision all cloud infrastructure using IaC tooling (Terraform, Pulumi, or CloudFormation), with all changes applied exclusively via version-controlled pipelines",
+        "rationale": "Manual infrastructure changes are untracked, unrepeatable, and create snowflake environments. IaC enables reproducible environments and disaster recovery."
+      }
+    ]
+  },
+
+  {
+    "id": "req-zero-downtime-deploy",
+    "category": "requirement",
+    "name": "Zero-Downtime Deployment",
+    "description": "Automatability: ubiquitous requirement ensuring deployments do not interrupt active users.",
+    "tags": ["automatability", "deployment", "ci-cd", "nfr", "availability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-zdd-1",
+        "type": "requirement",
+        "label": "Zero-Downtime Deployment",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "deploy all service updates using blue/green or rolling deployment strategies with automated smoke tests, completing without dropping any in-flight requests",
+        "rationale": "Maintenance windows are incompatible with global 24/7 services. Zero-downtime deploys allow continuous delivery without SLA violations."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-response-time",
+    "category": "requirement",
+    "name": "API Response Time",
+    "description": "Performance: REST API endpoints must respond within 200ms for the majority of requests under normal load.",
+    "tags": ["performance", "latency", "api", "nfr", "response-time"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "P90_RESPONSE_MS", "label": "P90 response time target (ms)", "hint": "200", "type": "number", "defaultValue": "200" },
+      { "key": "P99_CEILING_MS", "label": "P99 hard ceiling (ms)", "hint": "1000", "type": "number", "defaultValue": "1000" }
+    ],
+    "nodes": [
+      {
+        "id": "req-api-rt-1",
+        "type": "requirement",
+        "label": "API Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is handling normal production traffic",
+        "action": "respond to REST API requests within {{P90_RESPONSE_MS}}ms at the 90th percentile, with a hard ceiling of {{P99_CEILING_MS}}ms at the 99th percentile",
+        "rationale": "API latency directly impacts downstream integration performance. Amazon found every 100ms of latency cost 1% in sales. Sub-200ms responses are required for a seamless UX."
+      }
+    ]
+  },
+
+  {
+    "id": "req-auth-response-time",
+    "category": "requirement",
+    "name": "Authentication Response Time",
+    "description": "Performance: user login and token verification must complete within 2 seconds to avoid abandonment.",
+    "tags": ["performance", "authentication", "latency", "nfr", "ux"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MAX_CONCURRENT_LOGINS", "label": "Max concurrent login attempts", "hint": "1000", "type": "number", "defaultValue": "1000" },
+      { "key": "AUTH_RESPONSE_SECONDS", "label": "Max auth response time (seconds)", "hint": "2", "type": "number", "defaultValue": "2" },
+      { "key": "AUTH_PERCENTILE", "label": "Percentile target", "hint": "95th", "defaultValue": "95th" }
+    ],
+    "nodes": [
+      {
+        "id": "req-auth-rt-1",
+        "type": "requirement",
+        "label": "Authentication Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is under normal load with up to {{MAX_CONCURRENT_LOGINS}} concurrent login attempts",
+        "action": "complete user authentication (credential validation, token issuance) within {{AUTH_RESPONSE_SECONDS}} seconds for {{AUTH_PERCENTILE}} of requests",
+        "rationale": "Login delays over 2 seconds erode user trust and increase abandonment. The authentication step is the first impression of system reliability."
+      }
+    ]
+  },
+
+  {
+    "id": "req-db-query-response",
+    "category": "requirement",
+    "name": "Database Query Response Time",
+    "description": "Performance: OLTP database queries must execute within 100ms to prevent query latency from dominating API response times.",
+    "tags": ["performance", "database", "latency", "nfr", "oltp"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "DB_P90_MS", "label": "DB query P90 target (ms)", "hint": "100", "type": "number", "defaultValue": "100" }
+    ],
+    "nodes": [
+      {
+        "id": "req-db-rt-1",
+        "type": "requirement",
+        "label": "Database Query Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "the system is running standard OLTP operations on a production-size dataset",
+        "action": "execute standard transactional queries within {{DB_P90_MS}}ms at the 90th percentile, monitored via continuous database performance telemetry",
+        "rationale": "Database query time is typically the largest single contributor to API latency. Queries exceeding 100ms expose APIs to SLO breaches under concurrent load."
+      }
+    ]
+  },
+
+  {
+    "id": "req-search-response-time",
+    "category": "requirement",
+    "name": "Search Functionality Response Time",
+    "description": "Performance: search queries must return results within 500ms to maintain a usable search experience.",
+    "tags": ["performance", "search", "latency", "nfr", "ux"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "SEARCH_P90_MS", "label": "Search P90 response time (ms)", "hint": "500", "type": "number", "defaultValue": "500" }
+    ],
+    "nodes": [
+      {
+        "id": "req-search-rt-1",
+        "type": "requirement",
+        "label": "Search Functionality Response Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "should",
+        "precondition": "a user submits a search query against a production-size dataset",
+        "action": "return search results within {{SEARCH_P90_MS}}ms for 90% of queries, using appropriate indexing strategies validated by performance testing with representative data",
+        "rationale": "Users expect near-instant search results. Results taking over 1 second cause a sharp drop in search engagement and perceived product quality."
+      }
+    ]
+  },
+
+  {
+    "id": "req-report-generation",
+    "category": "requirement",
+    "name": "Report Generation Time",
+    "description": "Performance: standard business reports must complete within 30 seconds to avoid user abandonment of reporting workflows.",
+    "tags": ["performance", "reporting", "latency", "nfr", "analytics"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "REPORT_MAX_SECONDS", "label": "Max report generation time (seconds)", "hint": "30", "type": "number", "defaultValue": "30" }
+    ],
+    "nodes": [
+      {
+        "id": "req-report-1",
+        "type": "requirement",
+        "label": "Report Generation Time",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "draft",
+        "priority": "should",
+        "precondition": "a user requests a standard report against a production-size dataset",
+        "action": "complete standard report generation and delivery within {{REPORT_MAX_SECONDS}} seconds, validated by volume testing with production-scale data",
+        "rationale": "Reports taking over 30 seconds are frequently abandoned. If generation is longer, an async model with notification should be used instead of a blocking request."
+      }
+    ]
+  },
+
+  {
+    "id": "req-task-success-rate",
+    "category": "requirement",
+    "name": "Primary Workflow Task Success Rate",
+    "description": "Usability: users must be able to complete the primary workflow without external help, measured by task success rate in usability testing.",
+    "tags": ["usability", "ux", "task-completion", "nfr", "quality"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_TASK_SUCCESS_PCT", "label": "Minimum task success rate (%)", "hint": "95", "type": "number", "defaultValue": "95" }
+    ],
+    "nodes": [
+      {
+        "id": "req-task-success-1",
+        "type": "requirement",
+        "label": "Primary Workflow Task Success Rate",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "achieve a task success rate of at least {{MIN_TASK_SUCCESS_PCT}}% for the primary user workflow in moderated usability testing with representative users, without external assistance",
+        "rationale": "Task success rate is the most direct measure of usability. Airbnb doubled revenue by focusing on removing friction from primary workflows."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-documentation",
+    "category": "requirement",
+    "name": "API Documentation Coverage",
+    "description": "Maintainability: all public interfaces must be fully documented to enable safe integration and reduce support burden.",
+    "tags": ["maintainability", "documentation", "api", "nfr", "developer-experience"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-api-docs-1",
+        "type": "requirement",
+        "label": "API Documentation Coverage",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "maintain 100% documentation coverage for all public API endpoints, including request/response schemas, error codes, and usage examples, kept current via peer-reviewed documentation standards",
+        "rationale": "Undocumented APIs force integrators to reverse-engineer behaviour, increasing support tickets and integration errors. Complete docs reduce integration time and defect rates."
+      }
+    ]
+  },
+
+  {
+    "id": "req-mission-critical-sla",
+    "category": "requirement",
+    "name": "Mission-Critical Service SLA",
+    "description": "Availability: mission-critical services require four-nines uptime (99.99%), achieved through multi-region active-active architecture.",
+    "tags": ["availability", "sla", "uptime", "nfr", "reliability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "SLA_TARGET", "label": "Availability target (%)", "hint": "99.99", "defaultValue": "99.99" }
+    ],
+    "nodes": [
+      {
+        "id": "req-mc-sla-1",
+        "type": "requirement",
+        "label": "Mission-Critical Service SLA",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "maintain {{SLA_TARGET}}% availability for mission-critical services, implemented via multi-region active-active architecture with automated failover",
+        "rationale": "Four-nines uptime is the industry standard for revenue-generating and safety-critical systems. Each additional nine costs exponentially more but protects against high-impact outages."
+      }
+    ]
+  },
+
+  {
+    "id": "req-internal-tools-sla",
+    "category": "requirement",
+    "name": "Internal Tools SLA",
+    "description": "Availability: internal and back-office tools have a lower but still contractual uptime target of 99.0%, backed by standard backup and restore.",
+    "tags": ["availability", "sla", "uptime", "nfr", "internal"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "SLA_TARGET", "label": "Availability target (%)", "hint": "99.0", "defaultValue": "99.0" }
+    ],
+    "nodes": [
+      {
+        "id": "req-internal-sla-1",
+        "type": "requirement",
+        "label": "Internal Tools SLA",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "should",
+        "action": "maintain {{SLA_TARGET}}% availability for internal tooling and back-office systems, backed by standard backup-and-restore recovery procedures",
+        "rationale": "Internal tools don't require the same investment as customer-facing systems, but unplanned downtime still disrupts employee productivity. A 99.0% target balances cost and impact."
+      }
+    ]
+  },
+
+  {
+    "id": "req-batch-processing-sla",
+    "category": "requirement",
+    "name": "Batch Processing SLA",
+    "description": "Availability: batch and scheduled processing workloads require 95% availability with queue-based retry logic to handle transient failures.",
+    "tags": ["availability", "sla", "batch", "nfr", "reliability"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_BATCH_SUCCESS_PCT", "label": "Minimum batch completion rate (%)", "hint": "95", "type": "number", "defaultValue": "95" }
+    ],
+    "nodes": [
+      {
+        "id": "req-batch-sla-1",
+        "type": "requirement",
+        "label": "Batch Processing SLA",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "achieve {{MIN_BATCH_SUCCESS_PCT}}% successful completion rate for scheduled batch jobs, using queue-based retry logic to tolerate transient failures without manual intervention",
+        "rationale": "Batch jobs are more tolerant of brief delays than interactive systems. Queue-based retries absorb transient failures without operator intervention, making 95% a realistic and cost-effective target."
+      }
+    ]
+  },
+
+  {
+    "id": "req-messaging-standard",
+    "category": "requirement",
+    "name": "Async Messaging Standard",
+    "description": "Interoperability: asynchronous event processing must use standardised messaging protocols to ensure reliable, decoupled integration across services.",
+    "tags": ["interoperability", "messaging", "async", "nfr", "events"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MESSAGE_BROKER", "label": "Message broker", "hint": "RabbitMQ / Azure Service Bus", "defaultValue": "RabbitMQ" }
+    ],
+    "nodes": [
+      {
+        "id": "req-messaging-1",
+        "type": "requirement",
+        "label": "Async Messaging Standard",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "implement all asynchronous inter-service communication using AMQP via {{MESSAGE_BROKER}} (or MQTT for IoT workloads), with end-to-end message tracing enabled",
+        "rationale": "Standardised messaging protocols decouple producers from consumers, enable broker-level durability, and allow services to evolve independently without tight-coupling."
+      }
+    ]
+  },
+
+  {
+    "id": "req-data-format-standard",
+    "category": "requirement",
+    "name": "Data Format Standard",
+    "description": "Interoperability: all service payloads must conform to a shared enterprise data schema to preserve semantic integrity across system boundaries.",
+    "tags": ["interoperability", "data-format", "schema", "nfr", "standards"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-data-fmt-1",
+        "type": "requirement",
+        "label": "Data Format Standard",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "define a canonical enterprise data schema (JSON-LD for semantic web contexts, Protobuf for high-throughput services) and validate all service payloads against it via semantic unit tests",
+        "rationale": "Without a shared schema, a 'Customer ID' in one system has a different meaning in another. Semantic drift across services causes silent data corruption and expensive migration projects."
+      }
+    ]
+  },
+
+  {
+    "id": "req-least-privilege",
+    "category": "requirement",
+    "name": "Principle of Least Privilege",
+    "description": "Security: users and services must be granted only the minimum permissions required for their role, reducing blast radius from compromised accounts.",
+    "tags": ["security", "access-control", "authorisation", "nfr", "iam"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "ACCESS_REVIEW_FREQUENCY", "label": "Access review frequency", "hint": "quarterly", "defaultValue": "quarterly" }
+    ],
+    "nodes": [
+      {
+        "id": "req-least-priv-1",
+        "type": "requirement",
+        "label": "Principle of Least Privilege",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "grant every user account and service identity the minimum set of permissions necessary to perform its function, with access reviewed {{ACCESS_REVIEW_FREQUENCY}} and excess permissions revoked",
+        "rationale": "Least privilege limits blast radius when credentials are compromised. Google's BeyondCorp and Zero Trust models prove that eliminating implicit trust is the most effective defence against lateral movement."
+      }
+    ]
+  },
+
+  {
+    "id": "req-config-propagation",
+    "category": "requirement",
+    "name": "Configuration Propagation Speed",
+    "description": "Manageability: global configuration changes must propagate to all nodes within 5 minutes to enable timely operational control.",
+    "tags": ["manageability", "configuration", "operations", "nfr"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "CONFIG_PROPAGATION_SECONDS", "label": "Max config propagation time (seconds)", "hint": "300", "type": "number", "defaultValue": "300" }
+    ],
+    "nodes": [
+      {
+        "id": "req-config-prop-1",
+        "type": "requirement",
+        "label": "Configuration Propagation Speed",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "state-driven",
+        "status": "approved",
+        "priority": "must",
+        "precondition": "an operator applies a configuration change via the control plane",
+        "action": "propagate configuration changes to all running nodes within {{CONFIG_PROPAGATION_SECONDS}} seconds, with propagation lag monitored and alerted if the threshold is exceeded",
+        "rationale": "Slow config propagation delays operational responses to incidents. Feature flag changes, rate limit updates, and circuit breaker thresholds must take effect before an incident escalates."
+      }
+    ]
+  },
+
+  {
+    "id": "req-alert-delivery",
+    "category": "requirement",
+    "name": "Alert Delivery Reliability",
+    "description": "Manageability: critical operational alerts must be reliably delivered to the paging system to ensure on-call engineers are notified without delay.",
+    "tags": ["manageability", "alerting", "reliability", "nfr", "operations"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "PAGING_SYSTEM", "label": "Paging / on-call system", "hint": "PagerDuty", "defaultValue": "PagerDuty" },
+      { "key": "ALERT_DELIVERY_SECONDS", "label": "Max alert delivery time (seconds)", "hint": "60", "type": "number", "defaultValue": "60" },
+      { "key": "ALERT_RELIABILITY_PCT", "label": "Alert delivery reliability (%)", "hint": "99.9", "defaultValue": "99.9" }
+    ],
+    "nodes": [
+      {
+        "id": "req-alert-del-1",
+        "type": "requirement",
+        "label": "Alert Delivery Reliability",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "event-driven",
+        "status": "approved",
+        "priority": "must",
+        "trigger": "a critical alert condition is detected by the monitoring system",
+        "action": "deliver critical alerts to {{PAGING_SYSTEM}} within {{ALERT_DELIVERY_SECONDS}} seconds of detection with {{ALERT_RELIABILITY_PCT}}% delivery reliability, verified by periodic end-to-end alert drills",
+        "rationale": "An alert that doesn't arrive is worse than no alert system at all. The Target breach worsened because alerts were ignored due to noise. High delivery reliability ensures the team actually gets notified."
+      }
+    ]
+  },
+
+  {
+    "id": "req-api-scriptability",
+    "category": "requirement",
+    "name": "API Scripting Coverage",
+    "description": "Automatability: all core system functions must be accessible via API to enable deterministic automation without UI interaction.",
+    "tags": ["automatability", "api", "scripting", "nfr", "rpa"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-scripta-1",
+        "type": "requirement",
+        "label": "API Scripting Coverage",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "expose 100% of core data-entry and state-changing operations via headless REST API, enabling complete UI-less interaction for scripting, RPA, and programmatic integration",
+        "rationale": "Systems without complete API coverage force automation tools to use brittle UI scraping. API-first design is a prerequisite for both RPA and agentic AI workflows."
+      }
+    ]
+  },
+
+  {
+    "id": "req-ml-extraction",
+    "category": "requirement",
+    "name": "Intelligent Document Extraction Accuracy",
+    "description": "Automatability: ML-powered document processing must achieve sufficient accuracy to be trusted for automated data extraction workflows.",
+    "tags": ["automatability", "machine-learning", "extraction", "nfr", "idp"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_F1_PCT", "label": "Minimum F1 score (%)", "hint": "95", "type": "number", "defaultValue": "95" }
+    ],
+    "nodes": [
+      {
+        "id": "req-ml-ext-1",
+        "type": "requirement",
+        "label": "Intelligent Document Extraction Accuracy",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "achieve an F1 score of at least {{MIN_F1_PCT}}% for ML-based extraction of structured fields from unstructured documents (PDFs, forms), validated against a representative labelled test corpus",
+        "rationale": "Below 95% accuracy, the cost of human review corrections exceeds the automation savings. F1 score balances precision and recall to prevent both missed extractions and false positives."
+      }
+    ]
+  },
+
+  {
+    "id": "req-agentic-resolution",
+    "category": "requirement",
+    "name": "AI Agent Autonomous Resolution Rate",
+    "description": "Automatability: AI agents must autonomously resolve a high proportion of routine inquiries without human escalation to deliver meaningful automation ROI.",
+    "tags": ["automatability", "agentic-ai", "llm", "nfr", "automation"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "MIN_RESOLUTION_PCT", "label": "Minimum autonomous resolution rate (%)", "hint": "80", "type": "number", "defaultValue": "80" },
+      { "key": "MEASUREMENT_WINDOW_DAYS", "label": "Measurement window (days)", "hint": "30", "type": "number", "defaultValue": "30" }
+    ],
+    "nodes": [
+      {
+        "id": "req-agentic-1",
+        "type": "requirement",
+        "label": "AI Agent Autonomous Resolution Rate",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "draft",
+        "priority": "should",
+        "action": "enable AI agents to autonomously resolve at least {{MIN_RESOLUTION_PCT}}% of routine customer or internal inquiries without human escalation, measured by success rate analytics over a rolling {{MEASUREMENT_WINDOW_DAYS}}-day window",
+        "rationale": "Below 80% autonomous resolution, the cost of human escalation handling erodes the ROI of the agentic AI investment. Salesforce Agentforce targets this threshold as the commercial viability benchmark."
+      }
+    ]
+  },
+
+  {
+    "id": "req-ai-truthfulness",
+    "category": "requirement",
+    "name": "AI Agent Truthfulness",
+    "description": "Dependability: AI agents must cite verifiable sources for every factual claim, preventing hallucinations that could cause legal liability or user harm.",
+    "tags": ["dependability", "agentic-ai", "truthfulness", "nfr", "rag"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "req-ai-truth-1",
+        "type": "requirement",
+        "label": "AI Agent Truthfulness",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "require AI agents to cite a specific retrieved document or governed data source for every factual claim, with groundedness score validated via LLM-as-a-Judge and audited monthly",
+        "rationale": "Air Canada was held legally liable when its chatbot hallucinated a policy. The NIST AI RMF requires explainability. RAG-grounded agents eliminate hallucinations by design."
+      }
+    ]
+  },
+
+  {
+    "id": "req-system-reliability",
+    "category": "requirement",
+    "name": "Transaction Reliability",
+    "description": "Dependability: the system must complete the overwhelming majority of transactions without error to be justifiably trusted for business-critical operations.",
+    "tags": ["dependability", "reliability", "mtbf", "nfr", "correctness"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "RELIABILITY_TARGET", "label": "Transaction reliability target (%)", "hint": "99.999", "defaultValue": "99.999" }
+    ],
+    "nodes": [
+      {
+        "id": "req-reliability-1",
+        "type": "requirement",
+        "label": "Transaction Reliability",
+        "x": 0, "y": 0, "width": 200, "height": 56, "collapsed": false,
+        "ears_type": "ubiquitous",
+        "status": "approved",
+        "priority": "must",
+        "action": "complete at least {{RELIABILITY_TARGET}}% of all business transactions without system-induced errors, tracked via Mean Time Between Failures (MTBF) and error rate dashboards",
+        "rationale": "Five-nines transaction reliability (1 failure per 100,000) is the threshold for systems trusted with financial, medical, or safety-critical operations. Below this, error rates cause measurable downstream harm."
+      }
+    ]
+  },
+
+  {
+    "id": "adr-tech-stack",
+    "category": "adr",
+    "name": "Technology Stack Selection",
+    "description": "Template ADR for selecting the primary technology stack (language, framework, runtime). Captures the decision context, constraints, and trade-offs of choosing a tech stack.",
+    "tags": ["technology", "stack", "framework", "foundation"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "STACK", "label": "Technology stack", "hint": "TypeScript / Node.js" }
+    ],
+    "nodes": [
+      {
+        "id": "adr-tech-stack-1",
+        "type": "adr",
+        "label": "ADR: {{STACK}}",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "status": "proposed",
+        "date": "",
+        "context": "We need to select a primary technology stack for the new service / module. Key factors: team expertise, ecosystem maturity, performance characteristics, hiring market, and long-term maintainability.",
+        "decision": "We will use {{STACK}} because [RATIONALE]. This choice balances team familiarity, ecosystem support, and performance requirements.",
+        "consequences": "• Team members unfamiliar with the stack will need onboarding (estimated 2-3 weeks)\n• We gain access to [ECOSYSTEM BENEFIT]\n• Lock-in: migrating away would require [EFFORT ESTIMATE]",
+        "alternatives": "1. [Alternative A] — rejected because [reason]\n2. [Alternative B] — rejected because [reason]\n3. [Alternative C] — viable but less preferred because [reason]"
+      }
+    ]
+  },
+  {
+    "id": "adr-data-store",
+    "category": "adr",
+    "name": "Data Store Selection",
+    "description": "Template ADR for choosing the primary data store (relational, document, key-value, graph, etc.). Considers consistency, scalability, query patterns, and operational complexity.",
+    "tags": ["database", "storage", "data", "persistence"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "DATABASE", "label": "Data store", "hint": "PostgreSQL" }
+    ],
+    "nodes": [
+      {
+        "id": "adr-data-store-1",
+        "type": "adr",
+        "label": "ADR: {{DATABASE}}",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "status": "proposed",
+        "date": "",
+        "context": "The service needs a persistent data store. Key considerations: data model complexity (relational vs document), consistency requirements (strong vs eventual), expected query patterns (OLTP vs OLAP), scalability needs, and operational team capabilities.",
+        "decision": "We will use {{DATABASE}} as the primary data store because [RATIONALE]. It provides the right balance of consistency, query flexibility, and operational simplicity for our use case.",
+        "consequences": "• Schema management via [TOOL/APPROACH]\n• Backup and DR strategy: [APPROACH]\n• Vendor lock-in risk: [LOW/MEDIUM/HIGH]\n• Estimated operational cost: [ESTIMATE]",
+        "alternatives": "1. [Alternative DB A] — rejected: [reason]\n2. [Alternative DB B] — rejected: [reason]\n3. Multi-model approach — rejected: operational complexity too high at current team size"
+      }
+    ]
+  },
+  {
+    "id": "adr-auth-strategy",
+    "category": "adr",
+    "name": "Authentication Strategy",
+    "description": "Template ADR for choosing the authentication mechanism (JWT, session-based, OAuth 2.0, OIDC, mTLS). Covers security, scalability, and user experience trade-offs.",
+    "tags": ["authentication", "security", "identity", "oauth"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "AUTH_MECHANISM", "label": "Authentication mechanism", "hint": "JWT / OAuth 2.0" }
+    ],
+    "nodes": [
+      {
+        "id": "adr-auth-1",
+        "type": "adr",
+        "label": "ADR: {{AUTH_MECHANISM}}",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "status": "proposed",
+        "date": "",
+        "context": "We need to authenticate users and services. Requirements: support for SSO, token-based stateless auth for APIs, refresh token rotation, and compatibility with our frontend framework. Must support both human users and machine-to-machine (M2M) scenarios.",
+        "decision": "We will use {{AUTH_MECHANISM}} because [RATIONALE]. Human users authenticate via [FLOW], machine clients via [FLOW].",
+        "consequences": "• Token storage: [APPROACH]\n• Token lifetime and refresh strategy: [DETAILS]\n• Revocation mechanism: [APPROACH]\n• Impact on latency: [ESTIMATE]",
+        "alternatives": "1. [Alternative A] — rejected: [reason]\n2. [Alternative B] — rejected: [reason]"
+      }
+    ]
+  },
+  {
+    "id": "adr-integration-pattern",
+    "category": "adr",
+    "name": "Integration Pattern",
+    "description": "Template ADR for choosing between synchronous (REST/gRPC) and asynchronous (event-driven/messaging) integration between services. Key architectural decision for distributed systems.",
+    "tags": ["integration", "async", "messaging", "rest", "grpc"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "PATTERN", "label": "Integration pattern", "hint": "REST / gRPC for sync, Kafka for async" }
+    ],
+    "nodes": [
+      {
+        "id": "adr-integration-1",
+        "type": "adr",
+        "label": "ADR: {{PATTERN}}",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "status": "proposed",
+        "date": "",
+        "context": "Services need to communicate. We must decide between synchronous request-response (REST, gRPC) and asynchronous messaging (events, commands via message broker). Factors: latency requirements, coupling tolerance, reliability needs, ordering guarantees, and team familiarity.",
+        "decision": "We will use {{PATTERN}} as the default integration style because [RATIONALE]. Exceptions: [LIST EXCEPTIONS AND WHY].",
+        "consequences": "• Debugging and tracing: [APPROACH — correlation IDs, distributed tracing]\n• Error handling: [APPROACH — retries, DLQ, circuit breakers]\n• Data consistency: [EVENTUAL vs STRONG, saga pattern if needed]\n• Infrastructure: [BROKER/GATEWAY needed]",
+        "alternatives": "1. Pure sync (REST) — rejected: creates runtime coupling chains\n2. Pure async — rejected: adds complexity for simple queries\n3. Hybrid (proposed) — sync for queries, async for commands/events"
+      }
+    ]
+  },
+  {
+    "id": "adr-deployment-strategy",
+    "category": "adr",
+    "name": "Deployment Strategy",
+    "description": "Template ADR for choosing the deployment strategy (blue-green, canary, rolling, recreate). Balances risk, rollback speed, and infrastructure cost.",
+    "tags": ["deployment", "devops", "ci-cd", "release"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "DEPLOY_STRATEGY", "label": "Deployment strategy", "hint": "Blue-Green / Canary / Rolling" }
+    ],
+    "nodes": [
+      {
+        "id": "adr-deploy-1",
+        "type": "adr",
+        "label": "ADR: {{DEPLOY_STRATEGY}} Deployment",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "status": "proposed",
+        "date": "",
+        "context": "We need a reliable deployment strategy that minimizes downtime and risk. Considerations: zero-downtime requirement, rollback speed, infrastructure cost, database migration compatibility, and observability during rollout.",
+        "decision": "We will use {{DEPLOY_STRATEGY}} deployments because [RATIONALE]. Rollback is achieved by [MECHANISM].",
+        "consequences": "• Infrastructure cost: [ESTIMATE — e.g. 2x for blue-green]\n• Rollback time: [ESTIMATE]\n• Database migration approach: [APPROACH — backwards-compatible migrations]\n• Monitoring during rollout: [METRICS TO WATCH]",
+        "alternatives": "1. Blue-green — instant rollback but 2x infrastructure cost\n2. Canary — gradual rollout, requires good observability\n3. Rolling — least infrastructure overhead but slower rollback\n4. Recreate — simplest but causes downtime"
+      }
+    ]
+  },
+  {
+    "id": "adr-observability",
+    "category": "adr",
+    "name": "Observability Strategy",
+    "description": "Template ADR for choosing the observability stack and approach (logs, metrics, traces). Covers the three pillars of observability and their tooling.",
+    "tags": ["observability", "monitoring", "logging", "tracing"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "templateParams": [
+      { "key": "LOG_TOOL",     "label": "Log aggregation tool",     "hint": "Loki / Elasticsearch" },
+      { "key": "METRICS_TOOL", "label": "Metrics tool",             "hint": "Prometheus" },
+      { "key": "TRACES_TOOL",  "label": "Distributed tracing tool", "hint": "Jaeger / Tempo" }
+    ],
+    "nodes": [
+      {
+        "id": "adr-observability-1",
+        "type": "adr",
+        "label": "ADR: Observability Strategy",
+        "x": 0, "y": 0, "width": 180, "height": 52, "collapsed": false,
+        "status": "proposed",
+        "date": "",
+        "context": "We need a comprehensive observability strategy covering the three pillars: structured logging, metrics, and distributed tracing. The strategy must support debugging production issues, measuring SLOs, and understanding system behaviour across service boundaries.",
+        "decision": "We will implement OpenTelemetry for instrumentation. Logs: {{LOG_TOOL}}. Metrics: {{METRICS_TOOL}}. Traces: {{TRACES_TOOL}}. Dashboards: [TOOL].",
+        "consequences": "• All services must emit structured logs in JSON format\n• Correlation IDs propagated via [HEADER] across all service calls\n• SLO dashboards created for each critical user journey\n• Estimated additional infrastructure cost: [ESTIMATE]",
+        "alternatives": "1. [Alternative stack A] — rejected: [reason]\n2. Vendor-locked solution — rejected: portability concern\n3. Build custom — rejected: undifferentiated heavy lifting"
+      }
+    ]
+  },
+
+  {
+    "id": "pattern-microservices",
+    "category": "pattern",
+    "name": "Microservices Architecture",
+    "description": "A microservices decomposition with an API Gateway, two backend services, shared database per service, and message queue for async communication. Each service owns its data store.",
+    "tags": ["microservices", "distributed", "api-gateway", "architecture"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "pat-ms-gateway",
+        "type": "system",
+        "label": "API Gateway",
+        "description": "Entry point for all client requests. Routes, authenticates, and rate-limits incoming traffic.",
+        "technology": "Kong / AWS API Gateway",
+        "x": 300, "y": 0, "width": 360, "height": 260, "collapsed": true
+      },
+      {
+        "id": "pat-ms-service-a",
+        "type": "system",
+        "label": "Service A",
+        "description": "Handles domain capability A. Owns its data store and exposes APIs consumed by the gateway.",
+        "technology": "",
+        "x": 0, "y": 350, "width": 360, "height": 260, "collapsed": true
+      },
+      {
+        "id": "pat-ms-db-a",
+        "type": "database",
+        "label": "Service A Database",
+        "description": "Private data store for Service A. Not shared with other services.",
+        "technology": "PostgreSQL",
+        "x": 50, "y": 420, "width": 190, "height": 130, "collapsed": false,
+        "parentId": "pat-ms-service-a"
+      },
+      {
+        "id": "pat-ms-service-b",
+        "type": "system",
+        "label": "Service B",
+        "description": "Handles domain capability B. Communicates with Service A via events.",
+        "technology": "",
+        "x": 600, "y": 350, "width": 360, "height": 260, "collapsed": true
+      },
+      {
+        "id": "pat-ms-db-b",
+        "type": "database",
+        "label": "Service B Database",
+        "description": "Private data store for Service B.",
+        "technology": "MongoDB",
+        "x": 650, "y": 420, "width": 190, "height": 130, "collapsed": false,
+        "parentId": "pat-ms-service-b"
+      },
+      {
+        "id": "pat-ms-queue",
+        "type": "queue",
+        "label": "Message Broker",
+        "description": "Async event bus for inter-service communication. Decouples services temporally.",
+        "technology": "RabbitMQ / Kafka",
+        "x": 300, "y": 700, "width": 220, "height": 95, "collapsed": false
+      }
+    ],
+    "relations": [
+      { "id": "pat-ms-r1", "sourceId": "pat-ms-gateway", "targetId": "pat-ms-service-a", "label": "Routes requests", "technology": "REST/gRPC" },
+      { "id": "pat-ms-r2", "sourceId": "pat-ms-gateway", "targetId": "pat-ms-service-b", "label": "Routes requests", "technology": "REST/gRPC" },
+      { "id": "pat-ms-r3", "sourceId": "pat-ms-service-a", "targetId": "pat-ms-queue", "label": "Publishes events", "technology": "AMQP" },
+      { "id": "pat-ms-r4", "sourceId": "pat-ms-queue", "targetId": "pat-ms-service-b", "label": "Delivers events", "technology": "AMQP" }
+    ]
+  },
+  {
+    "id": "pattern-event-driven",
+    "category": "pattern",
+    "name": "Event-Driven Architecture",
+    "description": "An event-driven system where producers emit domain events to a central event bus, and multiple consumers react independently. Enables loose coupling and scalable processing.",
+    "tags": ["event-driven", "messaging", "async", "decoupling"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "pat-eda-producer",
+        "type": "system",
+        "label": "Event Producer",
+        "description": "Generates domain events when state changes occur. Events are immutable facts about what happened.",
+        "technology": "",
+        "x": 0, "y": 0, "width": 360, "height": 260, "collapsed": true
+      },
+      {
+        "id": "pat-eda-bus",
+        "type": "queue",
+        "label": "Event Bus",
+        "description": "Central event backbone. Persists events and delivers them to subscribed consumers. Supports replay and partitioning.",
+        "technology": "Apache Kafka / AWS EventBridge",
+        "x": 250, "y": 350, "width": 220, "height": 95, "collapsed": false
+      },
+      {
+        "id": "pat-eda-consumer-1",
+        "type": "system",
+        "label": "Consumer: Projections",
+        "description": "Builds read-optimized views (CQRS query side) by consuming domain events.",
+        "technology": "",
+        "x": 0, "y": 550, "width": 360, "height": 260, "collapsed": true
+      },
+      {
+        "id": "pat-eda-consumer-2",
+        "type": "system",
+        "label": "Consumer: Notifications",
+        "description": "Sends notifications (email, push, SMS) in response to domain events.",
+        "technology": "",
+        "x": 500, "y": 550, "width": 360, "height": 260, "collapsed": true
+      }
+    ],
+    "relations": [
+      { "id": "pat-eda-r1", "sourceId": "pat-eda-producer", "targetId": "pat-eda-bus", "label": "Emits domain events", "technology": "Kafka Producer API" },
+      { "id": "pat-eda-r2", "sourceId": "pat-eda-bus", "targetId": "pat-eda-consumer-1", "label": "Delivers events", "technology": "Kafka Consumer API" },
+      { "id": "pat-eda-r3", "sourceId": "pat-eda-bus", "targetId": "pat-eda-consumer-2", "label": "Delivers events", "technology": "Kafka Consumer API" }
+    ]
+  },
+  {
+    "id": "pattern-cqrs",
+    "category": "pattern",
+    "name": "CQRS + Event Sourcing",
+    "description": "Separates command (write) and query (read) models. Commands produce events stored in an event store; projections build read-optimized views from those events.",
+    "tags": ["cqrs", "event-sourcing", "ddd", "architecture"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "pat-cqrs-cmd",
+        "type": "container",
+        "label": "Command Handler",
+        "description": "Validates and processes commands. Produces domain events. Enforces business invariants.",
+        "technology": "",
+        "x": 0, "y": 0, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-cqrs-es",
+        "type": "database",
+        "label": "Event Store",
+        "description": "Append-only log of all domain events. The single source of truth. Supports event replay for rebuilding state.",
+        "technology": "EventStoreDB / Kafka",
+        "x": 0, "y": 300, "width": 190, "height": 130, "collapsed": false
+      },
+      {
+        "id": "pat-cqrs-proj",
+        "type": "container",
+        "label": "Projection Engine",
+        "description": "Consumes events and builds read-optimized views. Runs asynchronously and can be rebuilt from scratch.",
+        "technology": "",
+        "x": 400, "y": 300, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-cqrs-read",
+        "type": "database",
+        "label": "Read Store",
+        "description": "Denormalized read model optimized for query patterns. Updated by projections.",
+        "technology": "Elasticsearch / Redis",
+        "x": 400, "y": 600, "width": 190, "height": 130, "collapsed": false
+      },
+      {
+        "id": "pat-cqrs-query",
+        "type": "container",
+        "label": "Query Handler",
+        "description": "Serves read requests from the denormalized read store. No business logic, no writes.",
+        "technology": "",
+        "x": 700, "y": 0, "width": 300, "height": 200, "collapsed": false
+      }
+    ],
+    "relations": [
+      { "id": "pat-cqrs-r1", "sourceId": "pat-cqrs-cmd", "targetId": "pat-cqrs-es", "label": "Persists events", "technology": "" },
+      { "id": "pat-cqrs-r2", "sourceId": "pat-cqrs-proj", "targetId": "pat-cqrs-es", "label": "Reads events", "technology": "" },
+      { "id": "pat-cqrs-r3", "sourceId": "pat-cqrs-proj", "targetId": "pat-cqrs-read", "label": "Updates projections", "technology": "" },
+      { "id": "pat-cqrs-r4", "sourceId": "pat-cqrs-query", "targetId": "pat-cqrs-read", "label": "Reads from", "technology": "" }
+    ]
+  },
+  {
+    "id": "pattern-api-gateway",
+    "category": "pattern",
+    "name": "API Gateway Pattern",
+    "description": "Centralizes cross-cutting concerns (auth, rate limiting, routing, TLS termination) in a single entry point. Backend services focus on business logic without repeating infrastructure concerns.",
+    "tags": ["api-gateway", "routing", "security", "edge"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "pat-apigw-client",
+        "type": "person",
+        "label": "API Consumer",
+        "description": "External client (web app, mobile app, third-party integration) that consumes the public API.",
+        "x": 300, "y": 0, "width": 150, "height": 170, "collapsed": false
+      },
+      {
+        "id": "pat-apigw-gw",
+        "type": "container",
+        "label": "API Gateway",
+        "description": "Edge proxy handling: TLS termination, authentication, rate limiting, request routing, response caching, and API versioning.",
+        "technology": "Kong / Envoy / AWS API GW",
+        "x": 250, "y": 250, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-apigw-svc1",
+        "type": "container",
+        "label": "User Service",
+        "description": "Manages user accounts, profiles, and preferences.",
+        "technology": "",
+        "x": 0, "y": 550, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-apigw-svc2",
+        "type": "container",
+        "label": "Order Service",
+        "description": "Handles order creation, processing, and fulfilment.",
+        "technology": "",
+        "x": 400, "y": 550, "width": 300, "height": 200, "collapsed": false
+      }
+    ],
+    "relations": [
+      { "id": "pat-apigw-r1", "sourceId": "pat-apigw-client", "targetId": "pat-apigw-gw", "label": "Sends API requests", "technology": "HTTPS" },
+      { "id": "pat-apigw-r2", "sourceId": "pat-apigw-gw", "targetId": "pat-apigw-svc1", "label": "Proxies /users/**", "technology": "gRPC" },
+      { "id": "pat-apigw-r3", "sourceId": "pat-apigw-gw", "targetId": "pat-apigw-svc2", "label": "Proxies /orders/**", "technology": "gRPC" }
+    ]
+  },
+  {
+    "id": "pattern-strangler-fig",
+    "category": "pattern",
+    "name": "Strangler Fig Migration",
+    "description": "Incrementally migrates a monolith to a new architecture by routing traffic through a facade. New features go to the new system; legacy features are migrated one by one until the monolith can be decommissioned.",
+    "tags": ["migration", "legacy", "strangler", "modernization"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "pat-sf-facade",
+        "type": "container",
+        "label": "Strangler Facade",
+        "description": "Routes requests to either the legacy monolith or the new services based on feature flags / URL patterns. Transparent to consumers.",
+        "technology": "Reverse Proxy / API Gateway",
+        "x": 250, "y": 0, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-sf-legacy",
+        "type": "system",
+        "label": "Legacy Monolith",
+        "description": "The existing system being migrated. Features are removed from here as they're rebuilt in the new services.",
+        "technology": "",
+        "x": 0, "y": 350, "width": 360, "height": 260, "collapsed": true,
+        "external": true
+      },
+      {
+        "id": "pat-sf-new-svc",
+        "type": "system",
+        "label": "New Service",
+        "description": "Modern replacement for a subset of monolith functionality. Built with the target architecture.",
+        "technology": "",
+        "x": 500, "y": 350, "width": 360, "height": 260, "collapsed": true
+      },
+      {
+        "id": "pat-sf-new-db",
+        "type": "database",
+        "label": "New Service Database",
+        "description": "Dedicated data store for the new service. Data migrated from the monolith's shared database.",
+        "technology": "",
+        "x": 550, "y": 420, "width": 190, "height": 130, "collapsed": false,
+        "parentId": "pat-sf-new-svc"
+      }
+    ],
+    "relations": [
+      { "id": "pat-sf-r1", "sourceId": "pat-sf-facade", "targetId": "pat-sf-legacy", "label": "Routes legacy features", "technology": "HTTP" },
+      { "id": "pat-sf-r2", "sourceId": "pat-sf-facade", "targetId": "pat-sf-new-svc", "label": "Routes migrated features", "technology": "HTTP" }
+    ]
+  },
+  {
+    "id": "pattern-hexagonal",
+    "category": "pattern",
+    "name": "Hexagonal Architecture (Ports & Adapters)",
+    "description": "Isolates business logic from infrastructure via ports (interfaces) and adapters (implementations). The domain core has no dependencies on frameworks, databases, or external services.",
+    "tags": ["hexagonal", "ports-adapters", "clean-architecture", "ddd"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "pat-hex-domain",
+        "type": "domain",
+        "label": "Domain Core",
+        "description": "Pure business logic and domain rules. No infrastructure dependencies. Defines ports (interfaces) that adapters implement.",
+        "x": 250, "y": 200, "width": 520, "height": 360, "collapsed": false
+      },
+      {
+        "id": "pat-hex-app",
+        "type": "container",
+        "label": "Application Service",
+        "description": "Orchestrates use cases by calling domain objects and port interfaces. Thin layer — no business rules here.",
+        "technology": "",
+        "x": 300, "y": 280, "width": 300, "height": 200, "collapsed": false,
+        "parentId": "pat-hex-domain"
+      },
+      {
+        "id": "pat-hex-rest",
+        "type": "container",
+        "label": "REST Adapter (Driving)",
+        "description": "Inbound adapter: translates HTTP requests into application service calls. Implements the driving port.",
+        "technology": "Express / Spring MVC",
+        "x": 0, "y": 0, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-hex-db",
+        "type": "container",
+        "label": "Database Adapter (Driven)",
+        "description": "Outbound adapter: implements the repository port to persist domain objects in a database.",
+        "technology": "Prisma / Hibernate",
+        "x": 0, "y": 650, "width": 300, "height": 200, "collapsed": false
+      },
+      {
+        "id": "pat-hex-ext",
+        "type": "container",
+        "label": "External API Adapter (Driven)",
+        "description": "Outbound adapter: implements a port to call external services (payment, email, etc.).",
+        "technology": "HTTP Client",
+        "x": 500, "y": 650, "width": 300, "height": 200, "collapsed": false
+      }
+    ],
+    "relations": [
+      { "id": "pat-hex-r1", "sourceId": "pat-hex-rest", "targetId": "pat-hex-app", "label": "Calls use cases", "technology": "" },
+      { "id": "pat-hex-r2", "sourceId": "pat-hex-app", "targetId": "pat-hex-db", "label": "Uses repository port", "technology": "" },
+      { "id": "pat-hex-r3", "sourceId": "pat-hex-app", "targetId": "pat-hex-ext", "label": "Uses external port", "technology": "" }
+    ]
+  },
+  {
+    "id": "bp-analytical-data-platform",
+    "category": "blueprint",
+    "name": "Analytical Data Platform",
+    "description": "A complete blueprint for an analytical data platform (data warehouse / lakehouse). Includes core systems, EARS requirements, fitness functions, and architecture decisions. Import all or select individual elements.",
+    "tags": ["data", "analytics", "warehouse", "lakehouse", "reporting", "etl", "governance"],
+    "requiredMetamodel": "c4-ddd-governance-builtin",
+    "nodes": [
+      {
+        "id": "bp-adp-sys-ingestion",
+        "type": "system",
+        "label": "Data Ingestion",
+        "description": "Collects raw data from operational systems, third-party APIs, and event streams. Handles batch and streaming loads.",
+        "technology": "Apache Kafka / Airbyte",
+        "x": 60, "y": 60, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-sys-storage",
+        "type": "system",
+        "label": "Data Lake / Warehouse",
+        "description": "Stores raw, curated, and aggregated data. Supports both schema-on-read (lake) and schema-on-write (warehouse) patterns.",
+        "technology": "Snowflake / Delta Lake / BigQuery",
+        "x": 500, "y": 60, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-sys-transform",
+        "type": "system",
+        "label": "Transformation Layer",
+        "description": "Applies business logic, cleansing, and aggregation rules to produce analytical datasets. Supports incremental and full-refresh models.",
+        "technology": "dbt / Spark",
+        "x": 60, "y": 340, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-sys-serving",
+        "type": "system",
+        "label": "Serving / BI Layer",
+        "description": "Exposes curated datasets to business users via dashboards, embedded analytics, and self-service query tools.",
+        "technology": "Power BI / Looker / Superset",
+        "x": 500, "y": 340, "width": 360, "height": 220, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-latency",
+        "type": "requirement",
+        "label": "Ingestion Latency",
+        "ears_type": "ubiquitous",
+        "action": "deliver all streaming events to the data lake within {{INGESTION_LATENCY_SECONDS}} seconds of generation",
+        "templateParams": [
+          { "key": "INGESTION_LATENCY_SECONDS", "label": "Ingestion latency (seconds)", "hint": "60", "type": "number", "defaultValue": "60" }
+        ],
+        "priority": "must",
+        "status": "draft",
+        "rationale": "Near-real-time data enables operational dashboards and timely alerting.",
+        "x": 940, "y": 60, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-quality",
+        "type": "requirement",
+        "label": "Data Quality Gate",
+        "ears_type": "ubiquitous",
+        "action": "reject or quarantine any record that fails schema validation or referential-integrity checks before loading into the curated zone",
+        "priority": "must",
+        "status": "draft",
+        "rationale": "Prevents propagation of bad data into analytical models and dashboards.",
+        "x": 940, "y": 180, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-access",
+        "type": "requirement",
+        "label": "Role-based Access",
+        "ears_type": "ubiquitous",
+        "action": "enforce column- and row-level security based on the viewer's organisational role, with no exceptions",
+        "priority": "must",
+        "status": "draft",
+        "rationale": "Sensitive financial and personal data must not be accessible to unauthorised roles.",
+        "x": 940, "y": 300, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-req-lineage",
+        "type": "requirement",
+        "label": "Data Lineage",
+        "ears_type": "ubiquitous",
+        "action": "record full column-level lineage for every transformation and expose it through the catalogue API",
+        "priority": "should",
+        "status": "draft",
+        "rationale": "Lineage is required for regulatory audits and enables trust in analytical outputs.",
+        "x": 940, "y": 420, "width": 200, "height": 80, "collapsed": false
+      },
+      {
+        "id": "bp-adp-ff-freshness",
+        "type": "fitness-fn",
+        "label": "Data Freshness Guard",
+        "description": "Verifies that each critical dataset in the warehouse is refreshed within its SLA window. Alerts on-call if a model has not run within the agreed interval.",
+        "category": "operational",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "All critical models refreshed within their SLA (default: {{FRESHNESS_SLA_HOURS}} h)",
+        "templateParams": [
+          { "key": "FRESHNESS_SLA_HOURS", "label": "Dataset freshness SLA (hours)", "hint": "4", "type": "number", "defaultValue": "4" }
+        ],
+        "status": "active",
+        "x": 1200, "y": 60, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-ff-quality",
+        "type": "fitness-fn",
+        "label": "Data Quality Score",
+        "description": "Runs dbt tests or Great Expectations suites after each transformation run. Fails the pipeline and alerts if the pass-rate drops below threshold.",
+        "category": "operational",
+        "automated": true,
+        "trigger": "on-deploy",
+        "threshold": "Test pass-rate ≥ {{QUALITY_PASS_PCT}}%",
+        "templateParams": [
+          { "key": "QUALITY_PASS_PCT", "label": "Data quality test pass-rate (%)", "hint": "99", "type": "number", "defaultValue": "99" }
+        ],
+        "status": "active",
+        "x": 1200, "y": 130, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-ff-cost",
+        "type": "fitness-fn",
+        "label": "Query Cost Guard",
+        "description": "Tracks cloud warehouse credit consumption per team/project. Blocks scheduling of ad-hoc queries that would exceed the daily budget.",
+        "category": "holistic",
+        "automated": true,
+        "trigger": "continuous",
+        "threshold": "Daily spend ≤ {{DAILY_BUDGET_CAP}} per team",
+        "templateParams": [
+          { "key": "DAILY_BUDGET_CAP", "label": "Daily warehouse budget cap per team", "hint": "1000", "defaultValue": "1000" }
+        ],
+        "status": "proposed",
+        "x": 1200, "y": 200, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-adr-storage",
+        "type": "adr",
+        "label": "ADR-001: Lakehouse over pure DWH",
+        "status": "accepted",
+        "date": "2024-01-15",
+        "context": "The organisation needs to support both structured reporting (SQL/BI tools) and unstructured / ML workloads on the same data. A traditional relational DWH cannot cost-effectively store raw JSON, image metadata, or large model artefacts.",
+        "decision": "Adopt a lakehouse architecture (Delta Lake / Iceberg open table format on object storage) as the primary storage layer, with a semantic layer (Snowflake / BigQuery) for curated, high-performance analytical queries.",
+        "consequences": "Teams can run ML experiments directly on raw data without ETL. Storage costs decrease vs a full DWH copy. Governance requires careful management of open-format schemas and compaction jobs.",
+        "alternatives": "1. Pure cloud DWH (Snowflake only) — simpler but expensive at ML scale. 2. Hadoop-based data lake — mature but operationally heavy.",
+        "x": 1200, "y": 280, "width": 180, "height": 52, "collapsed": false
+      },
+      {
+        "id": "bp-adp-adr-transform",
+        "type": "adr",
+        "label": "ADR-002: dbt as transformation standard",
+        "status": "accepted",
+        "date": "2024-02-03",
+        "context": "Multiple teams write transformation logic in ad-hoc SQL scripts, Spark jobs, and stored procedures. Lack of version control, testing, and documentation creates data trust issues.",
+        "decision": "Standardise all curated-zone transformations on dbt (data build tool). All models must have at least one schema test and a description. Spark is permitted for raw ingestion and heavy ML feature engineering only.",
+        "consequences": "Improved lineage, automated testing, and documentation. Learning curve for teams unfamiliar with dbt. CI/CD pipeline required for model deployment.",
+        "alternatives": "1. Custom Spark jobs — more flexible but no built-in lineage or testing conventions. 2. Stored procedures — tightly coupled to warehouse vendor.",
+        "x": 1200, "y": 350, "width": 180, "height": 52, "collapsed": false
+      }
+    ],
+    "relations": [
+      { "id": "bp-adp-r1", "sourceId": "bp-adp-sys-ingestion", "targetId": "bp-adp-sys-storage", "label": "Loads raw data", "technology": "Kafka / S3 / GCS" },
+      { "id": "bp-adp-r2", "sourceId": "bp-adp-sys-storage", "targetId": "bp-adp-sys-transform", "label": "Reads raw zone", "technology": "SQL / Spark" },
+      { "id": "bp-adp-r3", "sourceId": "bp-adp-sys-transform", "targetId": "bp-adp-sys-storage", "label": "Writes curated zone", "technology": "dbt / SQL" },
+      { "id": "bp-adp-r4", "sourceId": "bp-adp-sys-storage", "targetId": "bp-adp-sys-serving", "label": "Serves analytical datasets", "technology": "SQL / JDBC" },
+      { "id": "bp-adp-r5", "sourceId": "bp-adp-sys-ingestion", "targetId": "bp-adp-req-latency", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r6", "sourceId": "bp-adp-sys-transform", "targetId": "bp-adp-req-quality", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r7", "sourceId": "bp-adp-sys-serving", "targetId": "bp-adp-req-access", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r8", "sourceId": "bp-adp-req-latency", "targetId": "bp-adp-ff-freshness", "relationType": "traces-to", "label": "" },
+      { "id": "bp-adp-r9", "sourceId": "bp-adp-req-quality", "targetId": "bp-adp-ff-quality", "relationType": "traces-to", "label": "" },
+      { "id": "bp-adp-r10", "sourceId": "bp-adp-adr-storage", "targetId": "bp-adp-sys-storage", "relationType": "constrains", "label": "" },
+      { "id": "bp-adp-r11", "sourceId": "bp-adp-adr-transform", "targetId": "bp-adp-sys-transform", "relationType": "constrains", "label": "" },
+      { "id": "bp-adp-r12", "sourceId": "bp-adp-sys-transform", "targetId": "bp-adp-req-lineage", "relationType": "satisfies", "label": "" },
+      { "id": "bp-adp-r13", "sourceId": "bp-adp-ff-cost", "targetId": "bp-adp-sys-storage", "relationType": "constrains", "label": "" },
+      { "id": "bp-adp-r14", "sourceId": "bp-adp-ff-cost", "targetId": "bp-adp-sys-serving", "relationType": "constrains", "label": "" }
+    ]
+  }
+]
