@@ -487,14 +487,29 @@ export function Toolbar(): React.ReactElement {
   const [managerOpen, setManagerOpen] = useState(false)
 
 
+  const isVSCode = !!(window as any).electronAPI
+
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (isVSCode) {
+      return document.body.classList.contains('vscode-light') ? 'light' : 'dark'
+    }
     return (localStorage.getItem('radical-theme') as 'dark' | 'light') || 'dark'
   })
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('radical-theme', theme)
-  }, [theme])
+    if (!isVSCode) localStorage.setItem('radical-theme', theme)
+  }, [theme, isVSCode])
+
+  // In VS Code: follow the editor theme automatically
+  useEffect(() => {
+    if (!isVSCode) return
+    const obs = new MutationObserver(() => {
+      setTheme(document.body.classList.contains('vscode-light') ? 'light' : 'dark')
+    })
+    obs.observe(document.body, { attributes: true, attributeFilter: ['class', 'data-vscode-theme-kind'] })
+    return () => obs.disconnect()
+  }, [isVSCode])
 
   const toggleTheme = useCallback(() => {
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'))

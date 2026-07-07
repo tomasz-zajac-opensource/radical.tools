@@ -4468,7 +4468,16 @@ if (typeof window !== 'undefined') {
     if (meta?.source === 'fs') {
       _suspended = true
       documents.loadDocument(activeId).then((data) => {
-        if (data) useDiagramStore.getState().loadDiagram(data)
+        if (data) {
+          useDiagramStore.getState().loadDiagram(data)
+        } else {
+          // New/empty file: initialize with the maximum built-in metamodel
+          useDiagramStore.getState().loadDiagram({
+            nodes: [],
+            relations: [],
+            metamodel: builtInGovernanceMetamodel(),
+          })
+        }
       }).catch((e) => console.warn('[diagramStore] FS hydrate failed:', e))
         .finally(() => { _suspended = false })
     }
@@ -4482,8 +4491,18 @@ if (typeof window !== 'undefined') {
     prevActive = s.activeId
     if (!s.activeId) return
     _suspended = true
+    const switchMeta = documents.listDocuments().find(d => d.id === s.activeId)
     documents.loadDocument(s.activeId).then((data) => {
-      if (data) useDiagramStore.getState().loadDiagram(data)
+      if (data) {
+        useDiagramStore.getState().loadDiagram(data)
+      } else if (switchMeta?.source === 'fs') {
+        // New/empty file: initialize with the maximum built-in metamodel
+        useDiagramStore.getState().loadDiagram({
+          nodes: [],
+          relations: [],
+          metamodel: builtInGovernanceMetamodel(),
+        })
+      }
     }).catch((e) => console.warn('[diagramStore] switch-doc load failed:', e))
       .finally(() => { _suspended = false })
   })
