@@ -39,9 +39,33 @@ src/
 tests/            — Vitest unit tests
 ```
 
+## Daily workflow (for maintainers)
+
+The `main` branch is protected — direct pushes are rejected. All changes go through a PR.
+CI (`Type-check & Test`) must pass before merging.
+
+Recommended git aliases (set up once globally):
+
+```bash
+git config --global alias.feature '!f() { git checkout main && git pull && git checkout -b "feature/$1"; }; f'
+git config --global alias.hotfix  '!f() { git checkout main && git pull && git checkout -b "hotfix/$1"; }; f'
+git config --global alias.done    '!git push -u origin HEAD && gh pr create --fill --web'
+```
+
+Then the daily loop is:
+
+```bash
+git feature my-feature-name   # pulls latest main, creates feature/my-feature-name
+# ...make changes...
+git add . && git commit -m "feat: describe change"
+git done                       # pushes branch and opens PR in the browser
+```
+
+Branch naming: `feature/<name>`, `hotfix/<name>`, `docs/<name>`.
+
 ## Pull request process
 
-1. **Fork** the repository and create a branch from `main`.
+1. **Create a branch** from `main` (use `git feature` / `git hotfix` above).
 2. **Write or update tests** for changed behaviour (run `npm test`).
 3. **Type-check** — `npm run typecheck` must pass with no errors.
 4. **Keep PRs focused** — one feature or fix per PR.
