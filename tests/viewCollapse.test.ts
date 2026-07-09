@@ -231,3 +231,62 @@ describe('view-expand override for model-collapsed nodes', () => {
     expect(rfSys1!.data.collapsed).toBe(true)
   })
 })
+
+describe('view-filter parent without children', () => {
+  /**
+   * Regression: when a view contains a container node but none of its children,
+   * the container must render at COLLAPSED_HEIGHT (like a single collapsed element),
+   * not at its full model height (which was sized to include all children).
+   *
+   * Root cause: parentSet in deriveRFNodes was computed from ALL model nodes,
+   * so hasChildren=true even when all children were excluded by viewFilter.
+   * Fix: parentSet is now computed from sorted (view-filtered) nodes only.
+   */
+  it('parent included in view without its children renders at COLLAPSED_HEIGHT', () => {
+    const store = useDiagramStore.getState()
+    const sys1ModelHeight = store.c4Nodes['sys1'].height
+    expect(sys1ModelHeight).toBeGreaterThan(200) // has real children, big height
+
+    // Create a view that includes only sys1, none of its children
+    const vid = store.addView('Parent-only view')
+    store.addNodeToView(vid, 'sys1')
+    store.setActiveView(vid)
+
+    const state = useDiagramStore.getState()
+
+    // sys1 must appear in rfNodes
+    const rfSys1 = state.rfNodes.find((n) => n.id === 'sys1')
+    expect(rfSys1).toBeDefined()
+
+    // sys1 is not explicitly collapsed but has no visible children in this view —
+    // it should render at COLLAPSED_HEIGHT, not at n.height
+    expect(rfSys1!.style!.height).toBe(COLLAPSED_HEIGHT['system'])
+    expect(rfSys1!.style!.width).toBe(COLLAPSED_WIDTH['system'])
+    expect(rfSys1!.data.height).toBe(COLLAPSED_HEIGHT['system'])
+    expect(rfSys1!.data.width).toBe(COLLAPSED_WIDTH['system'])
+
+    // hasChildren data must be false (no children in this view)
+    expect(rfSys1!.data.hasChildren).toBe(false)
+
+    // Model height must NOT be changed
+    expect(useDiagramStore.getState().c4Nodes['sys1'].height).toBe(sys1ModelHeight)
+  })
+
+  it('parent with SOME children in view renders at full height', () => {
+    const store = useDiagramStore.getState()
+
+    // Create a view with sys1 + one child (ctn1) — parent should still appear expanded
+    const vid = store.addView('Partial-children view')
+    store.addNodeToView(vid, 'sys1')
+    store.addNodeToView(vid, 'ctn1')
+    store.setActiveView(vid)
+
+    const state = useDiagramStore.getState()
+    const rfSys1 = state.rfNodes.find((n) => n.id === 'sys1')
+    expect(rfSys1).toBeDefined()
+
+    // sys1 has at least one visible child → must NOT render at COLLAPSED_HEIGHT
+    expect(rfSys1!.style!.height).not.toBe(COLLAPSED_HEIGHT['system'])
+    expect(rfSys1!.data.hasChildren).toBe(true)
+  })
+})
