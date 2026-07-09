@@ -3,7 +3,7 @@
   "displayName": "Radical.Tools — C4 Architecture Diagrams",
   "description": "Visual C4 architecture diagram editor with multi-metamodel support (C4, DDD, Governance), multiple views, AI assistant, and live VS Code theme sync.",
   "version": "0.2.0",
-  "publisher": "radical-tools",
+  "publisher": "radical.studio",
   "license": "MIT",
   "icon": "images/icon.png",
   "galleryBanner": {
